@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "community-management",
+  "ownerHandle": "social-media-skills",
+  "installedVersion": "1.0.1",
+  "installedAt": 1787029267802,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "b9fdf15a26afa4b2e71c99a7c013947d897409fb592ac41cab9762c416a6c405",
+    "integrity": "sha256-uf3xWiavpLLnHJmnwBOUfYl0CftZKsQcq5dixBamxAU="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "0b1be214f6b67bc184935fd54e46256835148fcb92c0c0c9e6f1239fddc603d1"
+  }
+}

@@ -1,6 +1,6 @@
 cohorts:
   - name: audience-and-community
-    status: active
+    status: completed
     rationale: >-
       Owner-observed traction failure and repeated corrections showed that current
       workflows optimize activity constraints rather than audience outcomes.
@@ -18,7 +18,7 @@ cohorts:
       - platform-native behavior without fabricated algorithm claims
 
   - name: safety-and-mutation
-    status: queued
+    status: active
     skills:
       - publish
       - cron-scheduler

@@ -14,3 +14,27 @@ skills:
     status: approved
     cohort: audience-and-community
     workshop_proposal: social-listening-engagement-loop-20260823-3be5d2ee9b
+
+  - name: audience-content-engine
+    classification: owned
+    runtime_path: skills/audience-content-engine
+    repository_path: skills/audience-content-engine
+    status: approved
+    cohort: audience-and-community
+    workshop_proposal: audience-content-engine-20260823-302476b31e
+
+  - name: social-agent-practice
+    classification: owned
+    runtime_path: skills/social-agent-practice
+    repository_path: skills/social-agent-practice
+    status: approved
+    cohort: audience-and-community
+    workshop_proposal: social-agent-practice-20260823-016cc8ebdb
+
+  - name: community-management
+    classification: adapted
+    runtime_path: skills/community-management
+    repository_path: skills/community-management
+    status: approved
+    cohort: audience-and-community
+    workshop_proposal: community-management-20260823-28c336d429

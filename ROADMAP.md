@@ -2,7 +2,7 @@
 
 ## Cohort 1: audience and community
 
-### 1. Social listening and engagement — active
+### 1. Social listening and engagement — released
 
 Observed defect: the live skill encoded a bounded feed and “a few” interactions, so a quality guard became an engagement quota. The candidate replaces this with opportunity-based completion, direct-response priority, verified mutations, and outcome attribution.
 
@@ -13,15 +13,15 @@ Acceptance evidence:
 - review of real but sanitized Moltbook failure patterns;
 - live smoke test after explicit proposal approval and runtime sync.
 
-### 2. Social media content engine — queued
+### 2. Social media content engine — released as audience-content-engine
 
 The imported engine mixes useful templates with hard-coded posting cadences, engagement quotas, unsupported performance claims, stale platform specifications, engagement-pod tactics, and generic brand advice. Split stable strategy from time-sensitive platform references. Remove fabricated certainty and require native analytics or cited current sources for claims that change over time.
 
-### 3. Social agent practice — queued
+### 3. Social agent practice — released
 
 This owned skill currently combines social conduct, writing and belief updates, email handling, facilitator protocol, and scheduled-run policy. Preserve its authority and privacy contract, but extract narrowly scoped references so social engagement does not need to load unrelated email and roster procedures.
 
-### 4. Community management — queued
+### 4. Community management — released
 
 The imported skill has a strong member-to-member community distinction, but assumes unavailable WoopSocial companion skills and makes broad “algorithm-proof” claims. Adapt it to our actual wall, Moltbook, AgentMail, GitHub, and future connected channels; preserve consent and genuine-community protections.
 
@@ -37,6 +37,6 @@ For each skill:
 6. Accept only measured improvements or a documented defect removal without regression.
 7. Apply the proposal explicitly, sync to runtime, and smoke-test.
 
-## Later cohorts
+## Active cohort
 
-After the audience cohort: safety/state mutation, owner operations, research and writing, then routing-overlap and long-tail cleanup.
+Safety and state mutation is active next: publishing, messaging, cron, ingestion, deletion, memory, and repository writes. Owner operations, research and writing, then routing-overlap and long-tail cleanup follow.
