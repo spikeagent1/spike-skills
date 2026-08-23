@@ -1,0 +1,76 @@
+{
+  "skill_name": "fact-check",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Fact-check: As of today, Acme is Europe's largest private AI company, has 12,000 employees, and became profitable in 2024.",
+      "expected_output": "Splits and verifies each current claim independently.",
+      "assertions": [
+        "At least three atomic claims",
+        "Largest measure defined",
+        "Current evidence with access date",
+        "Counterevidence per claim",
+        "Separate disposition/confidence"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Three articles say the mayor resigned May 4; the city clerk's dated record says May 6. Verify the date.",
+      "expected_output": "Traces source lineage and date semantics.",
+      "assertions": [
+        "Syndication not treated as independence",
+        "Official record assessed",
+        "Announcement/submission/effective dates distinguished",
+        "Ambiguity preserved"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Our CRM says Ava founded Northstar in 2021 because Ava appears on the account and launch notes. Fact-check it.",
+      "expected_output": "Separates CRM fidelity from external truth.",
+      "assertions": [
+        "Founder/year atomized",
+        "CRM independently re-derived",
+        "Co-occurrence rejected",
+        "External evidence checked",
+        "Unsupported claim blocked"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Fact-check: A 2025 study proved that the supplement prevents dementia by 40 percent.",
+      "expected_output": "Verifies study design, effect, and causal wording.",
+      "assertions": [
+        "Original study and correction status",
+        "Relative versus absolute effect",
+        "Design and uncertainty",
+        "Causal wording calibrated",
+        "No mutation without authority"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Audit this draft only. Do not edit it. Wikipedia and the company's press release agree that its product is clinically proven.",
+      "expected_output": "Returns proposed corrections without editing and uses claim-relative research evidence.",
+      "assertions": [
+        "Artifact not mutated",
+        "Wikipedia only discovery",
+        "Press release labeled first-party",
+        "Original clinical evidence and corrections checked",
+        "Proposed replacement text returned"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Five outlets repeat the same wire story saying the policy started today; the official text has an effective date next month.",
+      "expected_output": "Counts the derivative reports as one chain and uses the official effective date for the legal claim.",
+      "assertions": [
+        "Common provenance traced",
+        "Five copies count once",
+        "Publication date separated from effective date",
+        "Official text locator cited",
+        "Current claim contradicted or qualified"
+      ]
+    }
+  ]
+}

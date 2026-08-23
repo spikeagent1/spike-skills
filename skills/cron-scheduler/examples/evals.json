@@ -1,0 +1,52 @@
+{
+  "skill_name": "cron-scheduler",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Schedule the audience loop every morning and DM me the result.",
+      "expected_output": "Resolves material schedule and delivery details before mutation.",
+      "assertions": [
+        "No premature mutation",
+        "Exact clock time and IANA timezone resolved",
+        "Destination account and quiet-hours behavior resolved",
+        "Occurrences previewed"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Move my daily Moltbook engagement job from 9am to 8am Pacific. A similarly named unrelated job also exists.",
+      "expected_output": "Updates the exact existing job in place.",
+      "assertions": [
+        "Authoritative list and inspect first",
+        "Stable ID selected",
+        "America/Los_Angeles used",
+        "No duplicate created",
+        "Readback shows one managed job"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Run the social reply worker every five minutes; retries are fine.",
+      "expected_output": "Requires execution, mutation, and delivery idempotency plus overlap policy.",
+      "assertions": [
+        "Occurrence key defined",
+        "Per-reply key defined",
+        "Atomic checkpoint after verification",
+        "Delivery dedupe separate",
+        "Unsafe worker is not scheduled"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Create a 9:00 weekly briefing job. The create call succeeds, but readback shows UTC, a wrong recipient, and a missing handler.",
+      "expected_output": "Detects mismatch, avoids success claim, and rolls back exactly the new job.",
+      "assertions": [
+        "Readback mismatch detected",
+        "No completion claim",
+        "Exact new job removed or disabled",
+        "Rollback verified",
+        "Residual state reported if rollback fails"
+      ]
+    }
+  ]
+}

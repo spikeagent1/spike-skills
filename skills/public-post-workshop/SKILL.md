@@ -1,0 +1,50 @@
+---
+name: "public-post-workshop"
+description: "Create reviewed unmerged wall PRs while preserving disclosure and direct-post gates."
+---
+
+# Public Post Workshop
+
+Turn a public-content idea into a reviewed wall-entry PR without widening disclosure or silently posting to a direct surface.
+
+## Authority
+Standing authority covers creating an isolated branch, commit, push, and unmerged PR for a validated Spike wall entry. It does not cover merge, direct posting, syndication, announcement, quoting private people, or widening disclosure.
+
+Direct X, Moltbook, email, or other posts stop after review and require explicit posting authority.
+
+## Brief
+Resolve audience, intended takeaway, reason to care, public artifact or evidence, destination, and intended action. Infer routine editorial choices from context; ask only when a gap changes substance, audience, disclosure, attribution, or effect.
+
+## Evidence and disclosure
+Use only public or explicitly cleared facts. Separate Tapan's statements, Spike's inference, and third-party evidence. Before quoting a private conversation, ask in that thread: "May I quote this on the wall - anonymously, or with a handle?" Never publish email addresses.
+
+Run claim-level verification for load-bearing factual claims. A catchy but unsupported claim blocks the draft.
+
+## Draft
+Write in Spike's first-person voice, never Tapan's. Prefer one concrete idea in a few short paragraphs. Use visible scenes and direct language. Avoid launch boilerplate, engagement bait, inflated claims, generic calls to action, and operational maps.
+
+Use audience-content-engine when adapting an already approved artifact for another platform, but do not let adaptation authorize direct posting.
+
+## Cold review
+Give a fresh reviewer only the brief, cleared public evidence, draft, and rubric. The reviewer checks audience fit, takeaway, reason to care, economy, Spike voice, attribution, factual grounding, privacy/disclosure, and public safety. It returns PASS or the smallest concrete fixes.
+
+Revise and use a fresh cold reviewer until PASS. Stop if passing requires changing the brief or disclosure boundary.
+
+## Wall-entry PR
+After PASS:
+
+1. base an isolated branch on the active site branch;
+2. write one voice-agent Stream entry with accurate provenance;
+3. set edited_by_human only when Tapan materially edited the final draft;
+4. compute the exact content hash;
+5. validate schema/content, Astro, and relevant tests;
+6. commit as Spike, push, and open an unmerged PR;
+7. verify the PR contains only the intended entry and remains unmerged.
+
+Repair safe regressions caused by the change and rerun checks. Report infrastructure-only failures separately.
+
+## Output
+For wall entries, report the brief, final draft, review rounds, verification, PR link, and unmerged state. For direct surfaces, report the brief, draft, PASS, and posting-authorization gate.
+
+## Failure conditions
+Fail review if the draft speaks as Tapan; private content or a quote lacks clearance; a critical fact is unsupported; the reviewer receives unrelated private context; the same warm reviewer is reused; direct posting occurs; the PR includes unrelated changes; or PASS is claimed without independent review.

@@ -6,7 +6,7 @@ This repository is the source of truth for skills we own or explicitly adapt. Ru
 
 ## Current work
 
-The first optimization cohort is **audience and community**. It starts with the social-listening engagement loop because the live workflow encoded engagement scarcity as policy and measured activity more carefully than traction.
+Audience/community, safety/state-mutation, owner-operations, research/writing, and portfolio-governance cohorts now have evaluated releases. Routing-overlap and long-tail cleanup is next.
 
 Candidate skills enter through Skill Workshop proposals. A proposal is not copied into `skills/` until it is reviewed and explicitly applied. Released skills carry synthetic evaluation cases, provenance, compatibility notes, and a benchmark summary.
 
@@ -32,4 +32,4 @@ tools/               Deterministic audit helpers
 6. Apply the Skill Workshop proposal only after explicit approval.
 7. Commit one coherent skill change and publish through a pull request.
 
-The initial remote target is `spikeagent1/spike-skills`, private while the catalog and release gate stabilize.
+The public remote is `spikeagent1/spike-skills`. Public releases exclude credentials, private memory, raw conversations, and internal operational weakness reports.

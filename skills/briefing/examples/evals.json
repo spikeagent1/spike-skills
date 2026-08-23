@@ -1,0 +1,49 @@
+{
+  "skill_name": "briefing",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Give me this morning's briefing.",
+      "expected_output": "Queries current authoritative sources and returns a concise cited briefing with coverage status.",
+      "assertions": [
+        "Current owner date/timezone resolved",
+        "Calendar and task provider queried authoritatively",
+        "All material claims cited with freshness",
+        "No mutation"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "The calendar cache is eight hours old and live calendar access fails. What's happening today?",
+      "expected_output": "Marks calendar coverage unavailable and does not claim an empty day.",
+      "assertions": [
+        "Stale cache rejected as current",
+        "No invented or memory-only meetings",
+        "Failure surfaced prominently",
+        "Other sections remain bounded"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Brain context says a meeting is at 10am, but the live calendar says it moved to 11am and is canceled.",
+      "expected_output": "Uses live status for current schedule and exposes the stale conflicting context.",
+      "assertions": [
+        "Cancellation and current time handled",
+        "Conflict and timestamps shown",
+        "No silent overwrite of brain",
+        "Nearby citations"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Run the pre-briefing pull using since-last-run and then give me the briefing.",
+      "expected_output": "Preserves the read-only contract and avoids advancing the recall cursor.",
+      "assertions": [
+        "No mutating cursor command",
+        "Explicit read-only window or snapshot used",
+        "No page or checkpoint write",
+        "Completion report confirms no mutation"
+      ]
+    }
+  ]
+}

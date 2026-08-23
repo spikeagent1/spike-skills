@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "literature-review",
+  "ownerHandle": "weird-aftertaste",
+  "installedVersion": "1.2.0",
+  "installedAt": 1787029238674,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "4fc44a5f45ae6820c08adc0a7aa4276aaa640e4eee3bd667059bceead772021e",
+    "integrity": "sha256-T8RKX0WuaCDAitwKeqQnaqpkDk7uO9ZnBZvO6tdyAh4="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "c2f51919e7a65e36fb47a18dc09c451f59e046121c51e6bbcc002abfa9167b04"
+  }
+}

@@ -7,7 +7,7 @@ cohorts:
     skills:
       - social-listening-engagement-loop
       - social-agent-practice
-      - social-media-content-engine
+      - audience-content-engine
       - community-management
     acceptance:
       - no numerical or implicit engagement quota
@@ -18,22 +18,32 @@ cohorts:
       - platform-native behavior without fabricated algorithm claims
 
   - name: safety-and-mutation
-    status: active
+    status: completed
     skills:
       - publish
       - cron-scheduler
       - conversation-archive
 
   - name: owner-operations
-    status: queued
+    status: completed
     skills:
       - daily-task-manager
       - briefing
       - owner-dream-cycle
 
   - name: research-and-writing
-    status: queued
+    status: completed
     skills:
       - literature-review
       - fact-check
       - draft-in-voice
+
+  - name: portfolio-governance
+    status: completed
+    skills:
+      - team-skill-sharing-norm
+      - public-post-workshop
+
+  - name: routing-overlap-and-long-tail
+    status: queued
+    skills: []

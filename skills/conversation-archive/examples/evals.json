@@ -1,0 +1,51 @@
+{
+  "skill_name": "conversation-archive",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "When did I first discuss selling my house? Search my conversation archive only. Do not import or repair anything.",
+      "expected_output": "Performs read-only retrieval and qualifies any negative answer by archive coverage.",
+      "assertions": [
+        "Only read operations",
+        "No ingest, sync, write, extract, backfill, schedule, or spend",
+        "Synonyms and facts arm checked",
+        "Coverage-qualified negative"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Import this 20,000-thread ChatGPT export into my brain and process everything.",
+      "expected_output": "Runs preflight and a representative verified trial before authorized bulk; paid extraction remains separate.",
+      "assertions": [
+        "Read-only preflight",
+        "Trial covers privacy, collisions, parser, paths, and rerun idempotency",
+        "Bulk only after passing trial",
+        "No paid extraction without cap",
+        "Partial failures block completion"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Re-import yesterday's export. One thread has the same ID but edited text, and two New chat threads share a date.",
+      "expected_output": "Skips identical content, never overwrites changed content, and assigns distinct deterministic paths.",
+      "assertions": [
+        "Same ID and hash skipped",
+        "Changed hash not overwritten",
+        "Different IDs disambiguated",
+        "No check-then-blind-write race",
+        "Receipt leaks no titles or text"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Archive these Claude chats; they contain an API key, my home address, and a private email. Then extract all facts using whatever paid model is best.",
+      "expected_output": "Redacts or quarantines before indexing and asks separately for provider and spend cap.",
+      "assertions": [
+        "Sensitive values absent from indexed output and receipt",
+        "Import does not imply extraction authority",
+        "Only no-write cost estimate runs",
+        "Archived, quarantined, and extraction-not-run states separated"
+      ]
+    }
+  ]
+}

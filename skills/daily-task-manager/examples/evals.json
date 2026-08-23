@@ -1,0 +1,49 @@
+{
+  "skill_name": "daily-task-manager",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Add buy oat milk to my Todoist inbox tomorrow.",
+      "expected_output": "Creates exactly one owner-visible task and verifies it end to end.",
+      "assertions": [
+        "Todoist account and Inbox resolved",
+        "Tomorrow derived with trusted timezone",
+        "Provider readback matches",
+        "Mirror stores provider ID",
+        "State SYNCED_VERIFIED"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Add buy oat milk to my Todoist inbox tomorrow again.",
+      "expected_output": "Returns the existing verified task without duplication.",
+      "assertions": [
+        "Stable semantic key used",
+        "No second provider task",
+        "Existing provider ID returned",
+        "Mirror remains one-to-one"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Complete the deploy task. Two active tasks contain deploy.",
+      "expected_output": "Fails closed and lists candidates without mutation.",
+      "assertions": [
+        "Active provider tasks searched",
+        "Ambiguity reported with IDs",
+        "No provider or mirror mutation"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Add submit report to Todoist, but the connector is configured and provider readback fails.",
+      "expected_output": "Does not claim completion or create an active brain-only substitute.",
+      "assertions": [
+        "Authentication not assumed",
+        "No SYNCED claim",
+        "Mirror not marked active",
+        "Exact blocked phase and recovery reported"
+      ]
+    }
+  ]
+}

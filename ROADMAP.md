@@ -37,6 +37,6 @@ For each skill:
 6. Accept only measured improvements or a documented defect removal without regression.
 7. Apply the proposal explicitly, sync to runtime, and smoke-test.
 
-## Active cohort
+## Released cohorts
 
-Safety and state mutation is active next: publishing, messaging, cron, ingestion, deletion, memory, and repository writes. Owner operations, research and writing, then routing-overlap and long-tail cleanup follow.
+The evaluated safety/state-mutation, owner-operations, research/writing, and portfolio-governance packages are released. Routing-overlap and long-tail cleanup follows; unresolved candidates remain unpublished until they pass their own gates.
