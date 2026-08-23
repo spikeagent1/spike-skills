@@ -1,0 +1,16 @@
+skills:
+  - name: skill-library-ops
+    classification: owned
+    runtime_path: skills/skill-library-ops
+    repository_path: skills/skill-library-ops
+    status: approved
+    cohort: audience-and-community
+    workshop_proposal: skill-library-ops-20260823-7210856fa0
+
+  - name: social-listening-engagement-loop
+    classification: owned
+    runtime_path: skills/social-listening-engagement-loop
+    repository_path: skills/social-listening-engagement-loop
+    status: approved
+    cohort: audience-and-community
+    workshop_proposal: social-listening-engagement-loop-20260823-3be5d2ee9b

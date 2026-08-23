@@ -1,0 +1,20 @@
+name: example-skill
+path: skills/example-skill
+version: 0.1.0
+owner: spike
+classification: owned
+status: experimental
+runtime: [openclaw]
+provenance:
+  source: local
+  upstream_url: null
+  upstream_commit: null
+  license: private
+validation:
+  last_commit: null
+  last_run: null
+  evaluator: null
+  pass_rate: null
+  report: null
+privacy:
+  contains_private_fixtures: false
