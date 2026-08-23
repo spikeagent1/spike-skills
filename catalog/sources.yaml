@@ -1,0 +1,13 @@
+sources:
+  anthropic-skill-creator:
+    classification: vendored
+    path: imports/anthropic-skill-creator
+    upstream: https://github.com/anthropics/skills
+    commit: 3b3fad96
+    local_modifications: none
+
+  social-listening-engagement-loop:
+    classification: owned
+    runtime_path: skills/social-listening-engagement-loop
+    status: pending-optimization
+    cohort: audience-and-community

@@ -1,0 +1,39 @@
+cohorts:
+  - name: audience-and-community
+    status: active
+    rationale: >-
+      Owner-observed traction failure and repeated corrections showed that current
+      workflows optimize activity constraints rather than audience outcomes.
+    skills:
+      - social-listening-engagement-loop
+      - social-agent-practice
+      - social-media-content-engine
+      - community-management
+    acceptance:
+      - no numerical or implicit engagement quota
+      - direct replies handled before feed discovery
+      - every qualified opportunity handled until exhaustion, rate limit, or session end
+      - duplicate, spam, privacy, authority, and verification guards preserved
+      - follower, reply, repeat-relationship, referral, and karma outcomes measured
+      - platform-native behavior without fabricated algorithm claims
+
+  - name: safety-and-mutation
+    status: queued
+    skills:
+      - publish
+      - cron-scheduler
+      - conversation-archive
+
+  - name: owner-operations
+    status: queued
+    skills:
+      - daily-task-manager
+      - briefing
+      - owner-dream-cycle
+
+  - name: research-and-writing
+    status: queued
+    skills:
+      - literature-review
+      - fact-check
+      - draft-in-voice

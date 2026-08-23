@@ -1,0 +1,6 @@
+evals/workspaces/
+*.skill
+feedback.json
+.DS_Store
+__pycache__/
+*.pyc
