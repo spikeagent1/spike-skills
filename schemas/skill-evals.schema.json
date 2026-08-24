@@ -1,1 +1,105 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"Spike skill synthetic evals","type":"object","required":["evals"],"properties":{"skill_name":{"type":"string"},"skill":{"type":"string"},"version":{"type":"string"},"description":{"type":"string"},"evals":{"type":"array","minItems":1,"items":{"type":"object","anyOf":[{"required":["prompt"]},{"required":["input"]}],"properties":{"id":{},"name":{"type":"string"},"prompt":{"type":"string","minLength":1},"input":{"type":"string","minLength":1},"expected_output":{"type":"string"},"assertions":{"type":"array","minItems":2,"items":{"type":"string"}},"expectations":{"type":"array","minItems":2,"items":{"type":"string"}},"expect":{"type":"array","minItems":2,"items":{"type":"string"}}}}}}}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Spike skill synthetic evals",
+  "type": "object",
+  "required": [
+    "evals"
+  ],
+  "properties": {
+    "skill_name": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "skill": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "evals": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "anyOf": [
+          {
+            "required": [
+              "prompt"
+            ]
+          },
+          {
+            "required": [
+              "input"
+            ]
+          }
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "input": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "expected_output": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "assertions": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          },
+          "expectations": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          },
+          "expect": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    }
+  }
+}

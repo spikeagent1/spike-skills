@@ -17,14 +17,49 @@ Optional calendar, itinerary, weather lookup, wardrobe notes, or user-supplied p
 
 Owned by Spike. Based on general wardrobe and packing workflow patterns and repository privacy constraints; no upstream skill was copied.
 
-## Rules
+## When to use
 
-Identify destination/dates/activities/dress expectations/laundry/baggage/climate/mobility, prefer rewearable combinations, separate owned items from gaps, never invent inventory/weather/policy/dress code, and ask before using photos.
+Use this skill for outfit planning, packing lists, wardrobe gaps, and baggage preparation. Keep photo access, current weather or policy lookup, and any persistent list change behind explicit scope and authorization.
 
-## Output
+## Required inputs
 
-Return: assumptions/source coverage; packing or outfit list; combinations; laundry/rewear plan; missing items; weather/policy caveats.
+- destination, dates, activities, and dress expectations
+- baggage limits, laundry access, mobility, comfort, and accessibility needs
+- user-confirmed owned items and outfit preferences
+- current forecast or explicit permission to retrieve it
+
+Ask a focused question only when missing information changes safety or feasibility. Otherwise continue with labeled assumptions and make them easy to correct.
+
+## Workflow
+
+1. Build an activity matrix before selecting items.
+2. Separate confirmed owned items from suggested gaps or optional purchases.
+3. Choose a small color and layering system that produces complete outfits.
+4. Check quantities against trip length, laundry, baggage, weather uncertainty, and contingencies.
+5. Run a final essentials, documents, medication, charger, and return-trip check when relevant.
+
+## Sources and freshness
+
+Current weather, baggage policy, venue rules, and event dress code require a current source and timestamp. Use forecast ranges and contingency layers rather than false precision. Do not infer wardrobe inventory from photos or memory without permission.
+
+## Privacy and mutations
+
+Use only data the user supplied in this request or an explicitly authorized connector. Do not infer private facts from memory or read another skill's files. Minimize sensitive details. Before writing a file, calendar, note, list, or connector record, show the proposed change and obtain explicit authorization; then report the destination and result. Do not persist data unless the user asks.
+
+## Safety boundaries
+
+Ask before analyzing user photos and minimize retention of image-derived details. Do not recommend items that conflict with stated mobility, sensory, religious, cultural, medical-device, or safety constraints. Never purchase or modify a packing list without explicit authorization.
+
+## Output contract
+
+- assumptions and source coverage
+- activity-to-outfit matrix
+- packing list with quantities
+- rewear, laundry, and contingency plan
+- owned items, optional gaps, and policy/weather caveats
+
+Keep facts, assumptions, estimates, and sourced current claims visibly distinct. Prefer a compact answer that the user can act on or correct.
 
 ## Failure conditions
 
-Fail if the response ignores user constraints, fabricates personal or current facts, hides uncertainty, uses another skill's storage, or crosses the safety boundary described above.
+Fail the skill invocation if it ignores a hard constraint, fabricates personal or current facts, presents an estimate as verified, hides material uncertainty, mutates state without explicit authorization, reads another skill's storage, or crosses the safety boundary above.

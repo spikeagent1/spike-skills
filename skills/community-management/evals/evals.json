@@ -12,7 +12,8 @@
         "designs recurring rituals and belonging moves that get members talking to each other",
         "measures with community signals (active members, retention, relationship depth) not follower count",
         "is honest: WoopSocial schedules the community content; the human runs the actual space; the agent drafts"
-      ]
+      ],
+      "id": 1
     },
     {
       "name": "audience-vs-community",
@@ -21,7 +22,8 @@
         "distinguishes an audience (consumes content, one-to-many) from a community (members interact, contribute, advocate, many-to-many)",
         "gives the diagnostic: is the comment section all brand replies, or do members talk to each other?",
         "frames the goal as facilitating member-to-member connection and a self-sustaining space"
-      ]
+      ],
+      "id": 2
     },
     {
       "name": "choose-the-space-purpose-gate",
@@ -30,7 +32,8 @@
         "does not recommend it just because a competitor has one — applies a purpose gate (clear reason to exist + where the audience actually is)",
         "weighs in-feed community vs semi-owned (broadcast channels/DMs) vs owned spaces (groups/Discord/Substack) by audience behavior",
         "warns a space without a clear promise goes inactive, and that an owned space is an ongoing commitment (incl. moderation)"
-      ]
+      ],
+      "id": 3
     },
     {
       "name": "rituals-and-belonging",
@@ -39,7 +42,8 @@
         "prescribes recurring rituals/formats (e.g. weekly thread, AMA, challenge, member spotlight) — consistency over scattered activity",
         "builds belonging via shared identity/inside language, featuring members, surprise-and-delight, and facilitating member-to-member connections",
         "ties the ritual content to scheduling (WoopSocial schedules the prompts/spotlights via scheduling-and-queue)"
-      ]
+      ],
+      "id": 4
     },
     {
       "name": "superfans-into-advocates",
@@ -48,7 +52,8 @@
         "identifies them as superfans and nurtures them with recognition, access, early/exclusive, and collaboration",
         "elevates them toward advocacy/ambassador/UGC roles (lurkers -> regulars -> advocates)",
         "treats the engaged core as higher-value than chasing broad reach"
-      ]
+      ],
+      "id": 5
     },
     {
       "name": "kpis-not-vanity",
@@ -57,7 +62,8 @@
         "uses community signals: active members, retention/returning members, response time, member-to-member interaction, relationship depth",
         "explicitly not follower count or vanity reach",
         "notes these are read natively (platform/space tools) since WoopSocial has no analytics — no fabricated numbers"
-      ]
+      ],
+      "id": 6
     },
     {
       "name": "no-fake-community-pushback",
@@ -66,7 +72,8 @@
         "refuses bought members, pods, and astroturfed activity (fake, detected, and erodes the trust community depends on)",
         "redirects to genuine belonging built slowly through value and real interaction",
         "notes featuring members needs their consent and respects member privacy"
-      ]
+      ],
+      "id": 7
     },
     {
       "name": "advisory-scope",
@@ -75,7 +82,8 @@
         "clarifies WoopSocial doesn't run Discord/Slack/groups, manage a broadcast channel/inbox, identify superfans from data, or show analytics",
         "explains the human runs the space in-platform; the agent advises strategy and drafts/schedules the community content",
         "does not fabricate a WoopSocial community/analytics capability"
-      ]
+      ],
+      "id": 8
     }
   ]
 }

@@ -17,14 +17,49 @@ Optional meal plan, pantry notes, grocery app, current store lookup, or local li
 
 Owned by Spike. Based on general grocery planner workflow patterns and repository privacy constraints; no upstream skill was copied.
 
-## Rules
+## When to use
 
-Respect allergies first, separate confirmed pantry items from assumptions, group by store section, use ranges or current sourced prices for budgets, and never claim stock without current source.
+Use this skill for grocery-list construction, pantry reconciliation, budget planning, and shopping preparation. Keep allergy constraints prominent and use a separate explicit authorization step for connected-list changes or orders.
 
-## Output
+## Required inputs
 
-Return: assumptions; grouped list; quantities; budget status; substitutions; pantry/current-price coverage.
+- meals, people, duration, and household needs
+- dietary constraints and allergies
+- confirmed pantry inventory
+- budget, preferred stores, transport, and storage constraints
+
+Ask a focused question only when missing information changes safety or feasibility. Otherwise continue with labeled assumptions and make them easy to correct.
+
+## Workflow
+
+1. Convert meals into quantities, then subtract only confirmed pantry items.
+2. Consolidate duplicates and group the list by store section or shopping route.
+3. Mark required, optional, and substitution items.
+4. Estimate budget with explicit price assumptions or use current store sources when available.
+5. Check allergy labels, storage capacity, and likely waste before finalizing.
+
+## Sources and freshness
+
+Live prices, coupons, and inventory require current store or delivery-source lookup and a timestamp. If access is unavailable, provide ranges or a budget allocation rather than exact claims. Prefer store-native sources over aggregators.
+
+## Privacy and mutations
+
+Use only data the user supplied in this request or an explicitly authorized connector. Do not infer private facts from memory or read another skill's files. Minimize sensitive details. Before writing a file, calendar, note, list, or connector record, show the proposed change and obtain explicit authorization; then report the destination and result. Do not persist data unless the user asks.
+
+## Safety boundaries
+
+Treat allergies as hard constraints and call out label or cross-contact verification. Do not infer household inventory from prior conversations or another skill's files. Never place an order or modify a connected list without explicit authorization and a preview.
+
+## Output contract
+
+- assumptions and confirmed pantry coverage
+- grouped list with quantities and priority
+- estimated or sourced budget status
+- substitutions and waste-reduction notes
+- source timestamp and any proposed mutation result
+
+Keep facts, assumptions, estimates, and sourced current claims visibly distinct. Prefer a compact answer that the user can act on or correct.
 
 ## Failure conditions
 
-Fail if the response ignores user constraints, fabricates personal or current facts, hides uncertainty, uses another skill's storage, or crosses the safety boundary described above.
+Fail the skill invocation if it ignores a hard constraint, fabricates personal or current facts, presents an estimate as verified, hides material uncertainty, mutates state without explicit authorization, reads another skill's storage, or crosses the safety boundary above.

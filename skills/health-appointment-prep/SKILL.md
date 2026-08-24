@@ -17,14 +17,49 @@ Optional calendar, notes, files, or medication logs when authorized. Current cli
 
 Owned by Spike. Based on general health appointment prep workflow patterns and repository privacy constraints; no upstream skill was copied.
 
-## Rules
+## When to use
 
-Capture visit type, clinician/date, concern, timeline, severity, triggers, prior attempts, medications, allergies, and records. Preserve exact words, separate facts/questions/worries/goals, and flag urgent red symptoms.
+Use this skill to organize a routine clinical visit, timeline, records, and questions. If the supplied symptoms reveal an urgent red flag, trigger only the immediate safety and escalation path rather than continuing routine appointment preparation.
 
-## Output
+## Required inputs
 
-Return: appointment brief; symptom timeline; supplied medications/allergies; top questions; records to bring; red-flag note; source/data coverage.
+- visit type, date, clinician or specialty when known
+- primary concern and desired decision or outcome
+- timeline, severity, triggers, associated symptoms, and prior attempts supplied by the user
+- verified medications, allergies, test results, and records
+
+Ask a focused question only when missing information changes safety or feasibility. Otherwise continue with labeled assumptions and make them easy to correct.
+
+## Workflow
+
+1. Screen the supplied text for urgent red flags before preparing a routine visit.
+2. Preserve the user's wording and chronology; never fill gaps from memory.
+3. Separate facts, uncertainties, worries, goals, and questions.
+4. Compress the brief for the available visit time and rank the top questions.
+5. List records or medication details that still need verification.
+
+## Sources and freshness
+
+Use current authoritative sources only to explain why a symptom may need urgent evaluation or to clarify a preparation requirement. Do not use browsing to infer the user's diagnosis. Mark every externally sourced claim and every missing personal fact.
+
+## Privacy and mutations
+
+Use only data the user supplied in this request or an explicitly authorized connector. Do not infer private facts from memory or read another skill's files. Minimize sensitive details. Before writing a file, calendar, note, list, or connector record, show the proposed change and obtain explicit authorization; then report the destination and result. Do not persist data unless the user asks.
+
+## Safety boundaries
+
+Urgent symptoms override appointment preparation. Recommend immediate local emergency or urgent medical help for time-sensitive red flags such as sudden severe headache with weakness, chest pain, severe breathing difficulty, or loss of consciousness. Do not diagnose or advise medication changes.
+
+## Output contract
+
+- one-paragraph appointment brief
+- chronological symptom timeline
+- verified medications, allergies, and records supplied
+- ranked questions and visit goals
+- missing information, red-flag status, and source coverage
+
+Keep facts, assumptions, estimates, and sourced current claims visibly distinct. Prefer a compact answer that the user can act on or correct.
 
 ## Failure conditions
 
-Fail if the response ignores user constraints, fabricates personal or current facts, hides uncertainty, uses another skill's storage, or crosses the safety boundary described above.
+Fail the skill invocation if it ignores a hard constraint, fabricates personal or current facts, presents an estimate as verified, hides material uncertainty, mutates state without explicit authorization, reads another skill's storage, or crosses the safety boundary above.

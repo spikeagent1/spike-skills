@@ -33,6 +33,16 @@ HIDDEN_DEP_RE = re.compile(
     r"\b(spike internal|private endpoint|production database|personal transcript)\b",
     re.IGNORECASE,
 )
+PENDING_REVIEW_SECTIONS = (
+    "## When to use",
+    "## Required inputs",
+    "## Workflow",
+    "## Sources and freshness",
+    "## Privacy and mutations",
+    "## Safety boundaries",
+    "## Output contract",
+    "## Failure conditions",
+)
 
 
 def frontmatter(text: str) -> dict[str, str] | None:
@@ -87,20 +97,40 @@ def validate_eval_schema_fallback(data: object, rel: Path, errors: list[str]) ->
         return
 
     for key in ("skill_name", "skill", "version", "description"):
-        if key in data and not isinstance(data[key], str):
-            add_error(errors, f"{rel}: schema violation: {key} must be a string")
+        if key in data and (
+            not isinstance(data[key], str) or not data[key].strip()
+        ):
+            add_error(
+                errors,
+                f"{rel}: schema violation: {key} must be a non-empty string",
+            )
 
     for index, case in enumerate(evals, 1):
         if not isinstance(case, dict):
             add_error(errors, f"{rel}: schema violation: eval {index} must be an object")
             continue
-        has_prompt = isinstance(case.get("prompt"), str) and bool(case["prompt"])
-        has_input = isinstance(case.get("input"), str) and bool(case["input"])
+        case_id = case.get("id")
+        if case_id is None:
+            add_error(errors, f"{rel}: schema violation: eval {index} needs id")
+        elif isinstance(case_id, bool) or not isinstance(case_id, int) or case_id < 1:
+            add_error(
+                errors,
+                f"{rel}: schema violation: eval {index} id must be a positive integer",
+            )
+        has_prompt = (
+            isinstance(case.get("prompt"), str) and bool(case["prompt"].strip())
+        )
+        has_input = isinstance(case.get("input"), str) and bool(case["input"].strip())
         if not has_prompt and not has_input:
             add_error(errors, f"{rel}: schema violation: eval {index} needs prompt or input")
         for key in ("name", "expected_output"):
-            if key in case and not isinstance(case[key], str):
-                add_error(errors, f"{rel}: schema violation: eval {index} {key} must be a string")
+            if key in case and (
+                not isinstance(case[key], str) or not case[key].strip()
+            ):
+                add_error(
+                    errors,
+                    f"{rel}: schema violation: eval {index} {key} must be a non-empty string",
+                )
         for key in ("assertions", "expectations", "expect"):
             if key not in case:
                 continue
@@ -108,7 +138,9 @@ def validate_eval_schema_fallback(data: object, rel: Path, errors: list[str]) ->
             if (
                 not isinstance(value, list)
                 or len(value) < 2
-                or not all(isinstance(item, str) for item in value)
+                or not all(
+                    isinstance(item, str) and bool(item.strip()) for item in value
+                )
             ):
                 add_error(
                     errors,
@@ -259,6 +291,7 @@ def validate_eval_file(
     if declared and declared != skill:
         add_error(errors, f"{rel}: declared skill {declared!r} does not match {skill!r}")
 
+    seen_ids: set[int] = set()
     for index, case in enumerate(evals, 1):
         if not isinstance(case, dict):
             add_error(errors, f"{rel}: eval {index} must be an object")
@@ -269,6 +302,23 @@ def validate_eval_file(
             add_error(errors, f"{rel}: eval {index} missing prompt/input")
         if not isinstance(expectations, list) or len(expectations) < 2:
             add_error(errors, f"{rel}: eval {index} needs at least two assertions/expectations")
+        elif not all(
+            isinstance(expectation, str) and bool(expectation.strip())
+            for expectation in expectations
+        ):
+            add_error(errors, f"{rel}: eval {index} assertions must be non-empty strings")
+
+        case_id = case.get("id")
+        if case_id is None:
+            add_error(errors, f"{rel}: eval {index} missing positive integer id")
+        elif isinstance(case_id, int) and not isinstance(case_id, bool) and case_id > 0:
+            if case_id in seen_ids:
+                add_error(errors, f"{rel}: duplicate eval id {case_id}")
+            seen_ids.add(case_id)
+
+        expected_output = case.get("expected_output")
+        if expected_output == "Meets the skill contract for this scenario.":
+            add_error(errors, f"{rel}: eval {index} uses a non-informative expected_output")
 
 
 def validate_skill(
@@ -337,6 +387,12 @@ def validate_skill(
                     errors,
                     f"{rel}: pending-review skill must have a real workshop_proposal ID",
                 )
+            for heading in PENDING_REVIEW_SECTIONS:
+                if heading not in text:
+                    add_error(
+                        errors,
+                        f"{rel}/SKILL.md: pending-review skill missing section {heading!r}",
+                    )
 
     files = eval_files(skill_dir)
     if not files:

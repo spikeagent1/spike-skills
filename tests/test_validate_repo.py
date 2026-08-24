@@ -12,31 +12,11 @@ from pathlib import Path
 import tools.validate_repo as validate_repo
 
 
-SCHEMA = {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "Spike skill synthetic evals",
-    "type": "object",
-    "required": ["evals"],
-    "properties": {
-        "skill_name": {"type": "string"},
-        "evals": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-                "type": "object",
-                "anyOf": [{"required": ["prompt"]}, {"required": ["input"]}],
-                "properties": {
-                    "prompt": {"type": "string", "minLength": 1},
-                    "assertions": {
-                        "type": "array",
-                        "minItems": 2,
-                        "items": {"type": "string"},
-                    },
-                },
-            },
-        },
-    },
-}
+SCHEMA = json.loads(
+    (Path(__file__).resolve().parents[1] / "schemas/skill-evals.schema.json").read_text(
+        encoding="utf-8"
+    )
+)
 
 
 class ValidateRepoTest(unittest.TestCase):
@@ -73,7 +53,15 @@ class ValidateRepoTest(unittest.TestCase):
             "## Dependencies\n"
             "None.\n\n"
             "## Provenance\n"
-            "Repo-owned synthetic fixture.\n"
+            "Repo-owned synthetic fixture.\n\n"
+            "## When to use\nFixture requests.\n\n"
+            "## Required inputs\nFixture input.\n\n"
+            "## Workflow\nValidate the fixture.\n\n"
+            "## Sources and freshness\nNo current sources required.\n\n"
+            "## Privacy and mutations\nNo mutation.\n\n"
+            "## Safety boundaries\nStop on invalid input.\n\n"
+            "## Output contract\nValidation result.\n\n"
+            "## Failure conditions\nInvalid fixture.\n"
         )
 
     def _evals(self, name: str) -> dict[str, object]:
@@ -81,6 +69,7 @@ class ValidateRepoTest(unittest.TestCase):
             "skill_name": name,
             "evals": [
                 {
+                    "id": 1,
                     "prompt": "Use the fixture skill.",
                     "assertions": ["Uses the named skill", "Avoids private state"],
                 }
@@ -205,6 +194,135 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("possible secret or credential", output)
         self.assertIn("private/generated local-state path is tracked", output)
         self.assertIn("missing-skill has no skills/missing-skill directory", output)
+
+    def test_eval_quality_cases_fail(self) -> None:
+        self._write_json(
+            "skills/approved-skill/examples/evals.json",
+            {
+                "skill_name": "approved-skill",
+                "evals": [
+                    {
+                        "id": 1,
+                        "prompt": "First case",
+                        "expected_output": "Meets the skill contract for this scenario.",
+                        "assertions": ["Useful assertion", "   "],
+                    },
+                    {
+                        "id": 1,
+                        "prompt": "Second case",
+                        "assertions": ["One", "Two"],
+                    },
+                    {
+                        "prompt": "Missing ID case",
+                        "assertions": ["One", "Two"],
+                    },
+                ],
+            },
+        )
+        subprocess.run(
+            ["git", "add", "."],
+            cwd=self.root,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("assertions must be non-empty strings", output)
+        self.assertIn("duplicate eval id 1", output)
+        self.assertIn("missing positive integer id", output)
+        self.assertIn("uses a non-informative expected_output", output)
+
+    def test_pending_skill_requires_candidate_contract(self) -> None:
+        skill_path = self.root / "skills/pending-skill/SKILL.md"
+        self._write(
+            "skills/pending-skill/SKILL.md",
+            skill_path.read_text(encoding="utf-8").replace("## Workflow", "## Steps"),
+        )
+        subprocess.run(
+            ["git", "add", "."],
+            cwd=self.root,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "pending-review skill missing section '## Workflow'",
+            output,
+        )
+
+    def test_schema_fallback_enforces_quality(self) -> None:
+        errors: list[str] = []
+        original_jsonschema = validate_repo.jsonschema
+        validate_repo.jsonschema = None
+        try:
+            validate_repo.validate_eval_schema(
+                {
+                    "skill_name": "",
+                    "evals": [
+                        {
+                            "id": 0,
+                            "prompt": "Fallback case",
+                            "expected_output": " ",
+                            "assertions": ["Useful", " "],
+                        }
+                    ],
+                },
+                Path("examples/evals.json"),
+                SCHEMA,
+                errors,
+            )
+        finally:
+            validate_repo.jsonschema = original_jsonschema
+
+        joined = "\n".join(errors)
+        self.assertIn("skill_name must be a non-empty string", joined)
+        self.assertIn("id must be a positive integer", joined)
+        self.assertIn("expected_output must be a non-empty string", joined)
+        self.assertIn("must be two or more strings", joined)
+
+    def test_jsonschema_and_fallback_reject_same_whitespace_case(self) -> None:
+        if validate_repo.jsonschema is None:
+            self.skipTest("optional jsonschema package is unavailable")
+
+        data = {
+            "skill_name": " ",
+            "evals": [
+                {
+                    "id": 1,
+                    "prompt": " ",
+                    "expected_output": " ",
+                    "assertions": ["Useful", " "],
+                }
+            ],
+        }
+        schema_errors: list[str] = []
+        validate_repo.validate_eval_schema(
+            data,
+            Path("examples/evals.json"),
+            SCHEMA,
+            schema_errors,
+        )
+
+        fallback_errors: list[str] = []
+        original_jsonschema = validate_repo.jsonschema
+        validate_repo.jsonschema = None
+        try:
+            validate_repo.validate_eval_schema(
+                data,
+                Path("examples/evals.json"),
+                SCHEMA,
+                fallback_errors,
+            )
+        finally:
+            validate_repo.jsonschema = original_jsonschema
+
+        self.assertTrue(schema_errors)
+        self.assertTrue(fallback_errors)
 
     def test_error_order_is_deterministic(self) -> None:
         self._write_json("skills/approved-skill/examples/evals.json", {"evals": []})

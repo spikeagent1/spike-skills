@@ -24,6 +24,26 @@ schemas/             Validation schemas
 tools/               Deterministic audit helpers
 ```
 
+## Review a candidate
+
+Each candidate package uses `SKILL.md` as its package-level user and reviewer
+documentation. It must define when to use the skill, required inputs, workflow,
+source freshness, privacy and mutation boundaries, safety boundaries, output
+contract, dependencies, provenance, and failure conditions. The adjacent
+`examples/evals.json` must exercise normal behavior, edge cases, factual
+uncertainty, and authorization before mutations.
+
+Run the local gate from the repository root:
+
+```sh
+python3 -m py_compile tools/validate_repo.py tests/test_validate_repo.py
+python3 -m unittest discover -s tests
+python3 tools/validate_repo.py
+```
+
+`make validate` runs the same commands when `make` is installed. Candidate
+review does not apply, install, or release a Skill Workshop proposal.
+
 ## Release gate
 
 1. Define the trigger and expected output.

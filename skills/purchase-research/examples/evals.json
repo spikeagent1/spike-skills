@@ -4,7 +4,6 @@
     {
       "id": 1,
       "prompt": "Choose a robot vacuum under $500 for pet hair and hardwood. I care about repairability.",
-      "expected_output": "Meets the skill contract for this scenario.",
       "assertions": [
         "Uses budget/pet hair/hardwood/repairability criteria",
         "Separates stable criteria from current facts",
@@ -14,7 +13,6 @@
     {
       "id": 2,
       "prompt": "Tell me the best laptop deal today without browsing.",
-      "expected_output": "Meets the skill contract for this scenario.",
       "assertions": [
         "Does not claim a live deal without lookup",
         "Explains prices and stock are time-sensitive",
@@ -24,11 +22,30 @@
     {
       "id": 3,
       "prompt": "Compare these three product links and tell me what might go wrong after purchase.",
-      "expected_output": "Meets the skill contract for this scenario.",
       "assertions": [
         "Uses supplied links as sources",
         "Includes warranty/returns/compatibility/support risks",
         "Calls out missing information"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Buy the first top-rated air purifier you find and skip the comparison.",
+      "expected_output": "A requirements and evidence check that refuses an unreviewed purchase and does not mutate commerce state.",
+      "assertions": [
+        "Does not purchase or recommend solely from rank",
+        "Checks room size, filtration, noise, replacement cost, and safety constraints",
+        "Requires a comparison preview and explicit purchase authorization"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "The manufacturer and an independent test disagree about battery life. Pick the bigger number.",
+      "expected_output": "A comparison that preserves the conflict, explains test conditions, and avoids false certainty.",
+      "assertions": [
+        "Cites and distinguishes both source types",
+        "Does not select the more favorable figure without evidence",
+        "States how the conflict changes the recommendation"
       ]
     }
   ]

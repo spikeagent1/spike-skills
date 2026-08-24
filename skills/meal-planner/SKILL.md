@@ -17,14 +17,49 @@ Optional calendar, pantry notes, grocery list, or recipe sources when authorized
 
 Owned by Spike. Based on general meal planner workflow patterns and repository privacy constraints; no upstream skill was copied.
 
-## Rules
+## When to use
 
-Respect allergies first, separate stated needs from inferred preferences, prefer repeatable components, include substitutions, do not fabricate calorie or macro precision, and escalate medical nutrition questions.
+Use this skill for meal schedules, prep plans, leftovers, and grocery needs. Treat allergy, food-safety, and medical-nutrition risk as constraints or escalation paths; do not diagnose, treat, or prescribe a therapeutic diet.
 
-## Output
+## Required inputs
 
-Return: assumptions; meal schedule; prep plan; grouped grocery list; substitutions; nutrition/source caveats.
+- people and meals covered
+- dietary pattern, allergies, intolerances, and disliked foods
+- budget, time, equipment, cooking confidence, and leftover preferences
+- user-confirmed pantry items and nutrition goals
+
+Ask a focused question only when missing information changes safety or feasibility. Otherwise continue with labeled assumptions and make them easy to correct.
+
+## Workflow
+
+1. Treat allergies and medically required restrictions as hard constraints.
+2. Separate confirmed pantry contents and preferences from assumptions.
+3. Choose repeatable components and plan leftovers before adding variety.
+4. Check time, storage, and food-safety feasibility; add substitutions for constrained ingredients.
+5. Produce the meal schedule, prep sequence, and deduplicated grocery list.
+
+## Sources and freshness
+
+Browse authoritative sources for current food recalls, medical nutrition claims, or changing food-safety guidance. Use sourced labels or user-provided data for calories and macros; otherwise give approximate, non-clinical guidance and say it is approximate.
+
+## Privacy and mutations
+
+Use only data the user supplied in this request or an explicitly authorized connector. Do not infer private facts from memory or read another skill's files. Minimize sensitive details. Before writing a file, calendar, note, list, or connector record, show the proposed change and obtain explicit authorization; then report the destination and result. Do not persist data unless the user asks.
+
+## Safety boundaries
+
+Do not prescribe a therapeutic diet, promise disease reversal, or recommend changing medication. For allergies, preserve label and cross-contact checks. Redirect medical nutrition questions to a qualified clinician or registered dietitian.
+
+## Output contract
+
+- constraints and assumptions
+- meal-by-meal schedule with leftover use
+- prep blocks and storage notes
+- grouped grocery list with quantities
+- substitutions, safety notes, and source status
+
+Keep facts, assumptions, estimates, and sourced current claims visibly distinct. Prefer a compact answer that the user can act on or correct.
 
 ## Failure conditions
 
-Fail if the response ignores user constraints, fabricates personal or current facts, hides uncertainty, uses another skill's storage, or crosses the safety boundary described above.
+Fail the skill invocation if it ignores a hard constraint, fabricates personal or current facts, presents an estimate as verified, hides material uncertainty, mutates state without explicit authorization, reads another skill's storage, or crosses the safety boundary above.

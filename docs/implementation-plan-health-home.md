@@ -92,12 +92,32 @@ Lane A: health candidates -> catalog update. Lane B: home/lifestyle candidates -
 - [x] T4 (P1) CI workflow and validator unit tests.
 - [x] T5 (P2) docs/catalog/candidate review evidence.
 
+## Merge-readiness optimization pass
+
+The second pass closes the gap between structurally valid packages and useful
+portable skills:
+
+- expanded each candidate from a short policy sketch into an executable
+  contract with inputs, workflow, source discipline, privacy/mutation rules,
+  safety boundaries, output shape, and observable failure conditions;
+- expanded the cohort from 30 to 50 synthetic cases, adding mutation
+  authorization, cross-skill isolation, current-fact, conflict, and escalation
+  regressions;
+- tightened the eval schema and fallback validator for positive IDs and
+  non-empty text, plus deterministic duplicate-ID and placeholder rejection;
+- updated GitHub Actions to Node 24-compatible action releases;
+- documented the package review workflow and contributor checklist.
+
+Rollback is one commit: revert this optimization follow-up. Candidate governance
+is unchanged, so rollback does not affect any live skill or proposal state.
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | Decisions recovered from user prompt and commit `1bd7c4d` |
 | Codex Review | `/codex review` | Independent 2nd opinion | 1 | CLEAR | Author pass found missing CI, schema enforcement, and validator tests; fixed in follow-up implementation |
+| Google-guides cold review | independent reviewer | Merge readiness | 2 | CLEAR | Three P1 contract gaps found, fixed, retested, and cleared |
 | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 5 issues, 0 critical gaps; all complete options folded into implementation |
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | - | Not applicable: no UI changes |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | - | Not applicable: repo gate is command-line only |

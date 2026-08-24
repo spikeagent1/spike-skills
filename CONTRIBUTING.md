@@ -9,3 +9,22 @@ Keep each change attributable, testable, and safe to share.
 - Put reusable skill changes through Skill Workshop. Pending proposals are not releases.
 - Include representative success cases, an edge case, near-miss triggers, and authorization cases for mutating skills.
 - Reject improvements that only polish prose without improving held-out behavior or eliminating a documented defect.
+
+## Candidate package checklist
+
+A candidate skill must:
+
+1. Keep its purpose and trigger narrow enough that an agent can route reliably.
+2. Separate required user inputs from assumptions and ask only when safety or
+   feasibility depends on the answer.
+3. Declare source freshness rules for claims that can change.
+4. Preview connector or file mutations and require explicit authorization.
+5. State domain-specific stop and escalation conditions.
+6. Define a concrete output contract and explicit failure conditions.
+7. Include unique positive eval IDs, at least two non-empty assertions per case,
+   and meaningful `expected_output` text when that optional field is used.
+8. Cover a representative success, edge case, factual-uncertainty case, and
+   authorization case for every available mutation path.
+
+Run `make validate` before opening or updating a pull request. If `make` is
+unavailable, run the three commands documented in the root `README.md`.
