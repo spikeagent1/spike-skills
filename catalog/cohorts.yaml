@@ -70,7 +70,7 @@ cohorts:
     rationale: >-
       The life-domain roadmap prioritizes everyday health and household utility
       after the first audience/community releases. This cohort contains
-      review-branch candidate packages only; proposals remain pending until
+      pending-review candidate packages; proposals remain pending until
       explicitly approved and applied through Skill Workshop.
     skills:
       - fitness-coach
