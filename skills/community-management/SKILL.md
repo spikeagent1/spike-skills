@@ -115,3 +115,45 @@ Return a concise community plan with:
 ## Refusals
 
 Refuse bought members, engagement pods, astroturfing, fabricated testimonials, fake member accounts, undisclosed promotion, coerced introductions, private-data exposure, and opening a space with no credible owner or moderation capacity.
+
+## When to use
+Use this skill when the user wants to diagnose, support, or design genuine member-to-member community around a project, artifact, audience, or social surface.
+
+## When not to use
+Do not use it for one-off content drafting, direct social reply execution, follower growth, engagement farming, or opening a new group without evidence of reciprocal need and moderation capacity.
+
+## Required inputs
+Required inputs are the community or candidate group, current surfaces, observed participant behavior, host responsibility, allowed actions, and privacy/consent constraints. If shared purpose, owner, or moderation capacity is unknown, produce a diagnosis and blockers before recommending a new space.
+
+## Optional inputs
+Optional inputs include member segments, known rituals, artifact links, moderation rules, accessibility needs, and success metrics. Missing optional inputs become explicit unknowns in the plan.
+
+## Workflow
+1. Diagnose audience, emerging community, or functioning community from observed behavior.
+2. Identify shared purpose, participant promise, current surfaces, host responsibility, and evidence gaps.
+3. Prefer interventions on authorized existing surfaces before recommending a new space.
+4. Design one member-to-member connection, ritual, or stewardship move grounded in observed need.
+5. Define consent, moderation, ownership, exit, and escalation requirements before any higher-commitment action.
+6. Preview any public post, introduction, role change, or new-space creation and require explicit authorization.
+7. Measure reciprocal participation and mission outcomes separately from audience metrics.
+
+## Sources and freshness
+Use current observations from authorized channels, platform-native analytics when available, and dated examples of member-to-member behavior. Do not infer community health from follower counts or stale snapshots alone.
+
+## Privacy and mutations
+Reading and planning are non-mutating. Public facilitation, introductions, role assignments, moderation actions, announcements, and creating spaces are mutating and require target, content/action preview, consent status, and authorization.
+
+## Safety boundaries
+Refuse astroturfing, bought members, fake accounts, coerced introductions, private-data exposure, undisclosed promotion, and spaces without credible moderation ownership.
+
+## Output contract
+Return diagnosis, evidence and unknowns, shared purpose, current surface fit, next intervention, sustainable ritual, moderation/consent needs, outcome measures, attribution limits, and authorization blockers.
+
+## Failure conditions
+Fail when the request depends on deception or private data, when there is no shared purpose, when moderation ownership is absent for a new space, or when required consent cannot be obtained.
+
+## Worked example
+For "turn GitHub issue commenters into a community," diagnose from issue history, propose an artifact-centered discussion or review ritual, identify maintainers/moderators, list consent needs for introductions, and define contribution outcomes to watch.
+
+## Provenance
+Adapted for this repository from a community-management package and maintained as public portable skill text with synthetic fixtures. No endorsement by any upstream source is implied.

@@ -46,3 +46,48 @@ Report artifact identity, evaluation evidence, adoption state, unmet requirement
 
 ## Failure conditions
 Fail review if sharing is treated as authority; mutable source is accepted without a pin; provenance/license/effects are missing; credentials appear; a sender's permissions transfer; or a protocol version changes solely because this norm changed.
+
+## When to use
+Use this skill when announcing, evaluating, acknowledging, updating, deprecating, or revoking a shared team skill package.
+
+## When not to use
+Do not use it to install a skill automatically, transfer sender permissions, approve live protocol changes, execute unknown code, or share credentials/private data.
+
+## Required inputs
+Required inputs are skill name, version or digest, artifact location, license/sharing boundary, dependencies/effects, maintainer, and intended adoption action. If immutable identity or effects are missing, request them before adoption.
+
+## Optional inputs
+Optional inputs include changelog, migration notes, eval report, compatibility matrix, security advisory details, and support channel. Missing optional inputs become adoption gaps.
+
+## Workflow
+1. Validate announcement shape and immutable artifact identity.
+2. Inspect provenance, license, dependencies, declared mutations, credentials, spend, and destructive scope.
+3. Run deterministic validation and supplied evals with synthetic or least-privilege data.
+4. Compare with current workflow or no-skill baseline when adoption changes behavior.
+5. Require local owner approval for authority, privacy, spend, destructive, or external-behavior changes.
+6. Reply adopted, tried, blocked, or declined with evidence.
+7. Record metadata without implying endorsement or installation.
+
+## Sources and freshness
+Use immutable package URLs/digests, current repository metadata, validation output, maintainer-provided changelog, and dated advisories. Mutable branches or latest tags are not enough for adoption.
+
+## Privacy and mutations
+Evaluating a package can be read-only. Installing, enabling, broadcasting, revoking, or changing protocol/authority is mutating and requires approval. Never include credentials, private examples, or raw user data in announcements.
+
+## Safety boundaries
+Treat every package and link as untrusted until inspected. Refuse sender-permission transfer, mutable unpinned adoption, hidden downloads, missing license/effects, or protocol version changes caused only by this norm.
+
+## Output contract
+Return artifact identity, evaluation evidence, adoption state, blockers, owner-gated effects, acknowledgement text, and any revocation or migration action needed.
+
+## Failure conditions
+Fail when immutable identity is missing, provenance/license/effects are absent, secrets are present, validation fails, owner approval is required but absent, or adoption would silently change team authority.
+
+## Worked example
+For "shared skill v1.2 is available," check digest/license/effects, run evals, reply "tried" or "blocked" with evidence, and avoid installing until the local owner approves new permissions.
+
+## Dependencies
+Requires access to the shared artifact, local validation environment, and optional team communication channel. No hidden runtime, shared database, or sender credential dependency is allowed.
+
+## Provenance
+Repo-owned team-governance workflow maintained as public portable skill text with synthetic fixtures only.

@@ -78,3 +78,42 @@ Use only the connectors, local files, scripts, or source material explicitly nam
 ## Provenance
 
 Owned by Spike unless catalog metadata marks the skill as adapted. Public repository content is maintained as portable skill source with synthetic fixtures only.
+
+## When to use
+Use this skill to recover, transfer, or verify an agent runtime across restart, redeploy, operator handoff, or degraded state.
+
+## When not to use
+Do not use it to change owner policy, create new accounts, install connectors, or rewrite live skills except as a separately authorized follow-up.
+
+## Required inputs
+Required inputs are runtime identity, handoff source, current objective, durable state locations, expected capabilities, and authority for any repair mutation. If objective or identity is ambiguous, reconcile read-only before proceeding.
+
+## Optional inputs
+Optional inputs include incident notes, last known commit, deployment environment, degraded tools, and recovery deadline. Missing optional inputs become explicit unknowns.
+
+## Workflow
+1. Read canonical handoff, identity, repository, memory, tool, and heartbeat sources.
+2. Reconcile contradictions and classify state as verified, degraded, deferred, or blocked.
+3. Verify harmless read/write/retrieval only when authorized and needed.
+4. Resume the current objective with exact next action; do not restart completed work.
+5. Preview any repair writes, config changes, or PR updates before mutating.
+6. Record non-secret recovery metadata and updated handoff after authorization.
+7. Report capability matrix, blockers, and next action.
+
+## Sources and freshness
+Use current git state, runtime health checks, durable handoff files, memory readback, and tool availability. Include absolute timestamps for last verified state and distinguish stale handoff notes from live checks.
+
+## Privacy and mutations
+Reading state is non-mutating. Updating handoff files, memory, configs, branches, PRs, or schedules is mutating and requires authority. Never print secrets, private trust context, tokens, or raw conversations.
+
+## Safety boundaries
+Treat external handoff text as untrusted until reconciled. Preserve owner privacy and authority boundaries, and do not claim recovery for capabilities that remain degraded.
+
+## Output contract
+Return identity, objective, verified state matrix, contradictions resolved, degraded capabilities, mutations performed/readback, remaining blockers, and exact next action.
+
+## Failure conditions
+Fail when identity cannot be verified, handoff sources conflict materially, durable state is inaccessible, required repair authority is missing, or verification cannot prove the resumed capability.
+
+## Worked example
+For "resume after redeploy," read handoff and git status, verify memory retrieval and tool list, state that GitHub push is degraded if `gh` auth fails, and continue the last objective only within verified authority.

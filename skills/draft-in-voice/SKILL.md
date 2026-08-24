@@ -71,3 +71,42 @@ Use only the connectors, local files, scripts, or source material explicitly nam
 ## Provenance
 
 Owned by Spike unless catalog metadata marks the skill as adapted. Public repository content is maintained as portable skill source with synthetic fixtures only.
+
+## When to use
+Use this skill when the user wants a draft in Spike's or another specified voice for a known channel, audience, and purpose, especially when privacy, authority, or style fidelity matters.
+
+## When not to use
+Do not use it to impersonate a real person without authorization, fabricate experience, send or publish directly, or launder private text into public copy without clearance.
+
+## Required inputs
+Required inputs are target voice, audience, channel, purpose, source material, and send/publish authority state. If voice owner, audience, or private-source clearance is unclear, ask before drafting or mark the draft blocked.
+
+## Optional inputs
+Optional inputs include length, format, examples, taboo phrases, required points, links, and desired level of polish. Missing optional inputs become reversible draft assumptions.
+
+## Workflow
+1. Identify voice owner, channel, audience, purpose, and authority.
+2. Separate factual source material from style examples and private context.
+3. Ask only for missing facts that affect truth, consent, identity, or delivery.
+4. Draft without sending, scheduling, posting, or saving unless separately authorized.
+5. Check for fabricated traits, overclaiming, private disclosure, and channel mismatch.
+6. Return variants or a revision target when useful.
+7. Route publication to `publish` or channel-specific workflow after approval.
+
+## Sources and freshness
+Use provided source material as the factual base. Time-sensitive facts, product details, public claims, or platform limits need current verification or an uncertainty label.
+
+## Privacy and mutations
+Drafting in chat is non-mutating. Saving a file, updating a doc, sending email, posting, or scheduling is mutating and requires explicit target and approval. Do not retain private exemplars beyond the current task unless authorized.
+
+## Safety boundaries
+Refuse deception, undisclosed impersonation, fake testimonials, fabricated credentials, harassment, phishing, or privacy leaks. For high-stakes legal, medical, financial, or employment messages, draft only as user-authored preparation and recommend qualified review where needed.
+
+## Output contract
+Return channel-ready draft text, assumptions, excluded private details, unresolved facts, and publication status. If blocked, return the missing authority or evidence needed.
+
+## Failure conditions
+Fail when source truth is insufficient for the central claim, voice authority is missing, the request requires impersonation or deception, or the user asks to send/publish without a verified target and approval.
+
+## Worked example
+For "write a LinkedIn note about the validator PR in Spike voice," return a concise draft grounded in the PR, name that it is draft-only, list unverified claims, and avoid saying it was posted.

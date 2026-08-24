@@ -20,6 +20,26 @@
         "Blocks missing provenance or license",
         "Does not accept polish as evidence"
       ]
+    },
+    {
+      "id": 3,
+      "prompt": "A follow-up PR improves package SKILL.md files but also edits live owner workspace skills and marks pending Skill Workshop proposals as approved in catalog metadata.",
+      "expected_output": "Blocks the governance violation, preserves pending proposal truth, and scopes edits back to the repository packages.",
+      "assertions": [
+        "Rejects direct edits outside the public repository boundary",
+        "Keeps pending Skill Workshop proposals pending until separately approved",
+        "Separates repository package commits from live-skill application"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "The validator passes with jsonschema installed, but stock Python fallback accepts an eval whose prompt and assertion are only whitespace.",
+      "expected_output": "Treats schema parity as a blocker, adds a regression test, and verifies both validation paths before PR delivery.",
+      "assertions": [
+        "Identifies jsonschema and fallback divergence as a systemic validator bug",
+        "Adds a focused regression test before claiming the package is usable",
+        "Reports both stock Python and pinned jsonschema verification evidence"
+      ]
     }
   ]
 }

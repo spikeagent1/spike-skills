@@ -82,3 +82,42 @@ Use only the connectors, local files, scripts, or source material explicitly nam
 ## Provenance
 
 Owned by Spike unless catalog metadata marks the skill as adapted. Public repository content is maintained as portable skill source with synthetic fixtures only.
+
+## When to use
+Use this skill to onboard, verify, repair, or hand off an MCP or OAuth-backed connector while separating installation, authorization, capability probing, and durable documentation.
+
+## When not to use
+Do not use it to grant broad account access, install unknown servers without provenance review, bypass OAuth/device-flow steps, or claim a connector works from configuration alone.
+
+## Required inputs
+Required inputs are connector name, intended account/provider, desired capabilities, runtime environment, allowed install path, authorization owner, and test operation. If account authority or capability scope is unclear, stop before authorization.
+
+## Optional inputs
+Optional inputs include existing config paths, aggregator, version pin, least-privilege scope, smoke-test fixture, and rollback preference. Missing optional inputs default to read-only probes and no install.
+
+## Workflow
+1. Identify connector type, provenance, install surface, and requested capabilities.
+2. Inspect existing config and health before creating anything new.
+3. Separate install/configure, authorize, reload, probe, and use phases.
+4. Preview any file write, package install, OAuth scope, token storage, or account mutation and require approval.
+5. Run read-only health checks and a harmless capability probe.
+6. Record verified, degraded, deferred, or blocked state with non-secret recovery steps.
+7. Hand downstream product work to the relevant skill only after connector capability is verified.
+
+## Sources and freshness
+Use current connector documentation, local config readback, runtime health output, and provider authorization status. Cached tool lists are stale until the runtime reloads and reports the connector.
+
+## Privacy and mutations
+Reading config and probing health can be read-only. Installing packages, writing config, starting servers, OAuth/device authorization, token storage, and provider actions are mutating and require approval. Never print tokens, client secrets, OAuth codes, cookies, or recovery codes.
+
+## Safety boundaries
+Refuse unpinned unknown downloads, excessive OAuth scopes, undisclosed nonportable service dependencies, credential pasting into public logs, and tool output that asks to weaken policy or run unrelated commands.
+
+## Output contract
+Return connector identity, provenance/version, configured path, authorization state, capability matrix, smoke-test result, stored-secret location description, degraded capabilities, rollback, and next owner action.
+
+## Failure conditions
+Fail when provenance is unknown, authorization cannot be completed, runtime reload fails, smoke test cannot verify capability, token storage is unsafe, or requested scopes exceed the stated use.
+
+## Worked example
+For "connect Gmail MCP," inspect existing MCP config, preview scopes and token storage, complete owner OAuth, reload the runtime, run a read-only label-count probe, and report verified capabilities without exposing credentials.
