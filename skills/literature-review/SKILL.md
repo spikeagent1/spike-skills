@@ -54,7 +54,7 @@ Use only the connectors, local files, scripts, or source material explicitly nam
 
 ## Provenance
 
-Owned by Spike unless catalog metadata marks the skill as adapted. Public repository content is maintained as portable skill source with synthetic fixtures only.
+Adapted for this repository from the ClawHub package `weird-aftertaste/literature-review` version 1.2.0 at `https://clawhub.ai/weird-aftertaste/skills/literature-review`, published by `weird-aftertaste` under MIT-0, with archive SHA-256 `4fc44a5f45ae6820c08adc0a7aa4276aaa640e4eee3bd667059bceead772021e` and imported `SKILL.md` SHA-256 `c2f51919e7a65e36fb47a18dc09c451f59e046121c51e6bbcc002abfa9167b04`. Local modifications removed comprehensive-search and complete-abstract overclaims, made source failures and evidence level explicit, required reproducible search logs and appraisal, and added safety, privacy, public-contract, synthetic-eval, and attribution boundaries. No endorsement by any upstream source is implied.
 
 ## When to use
 Use this skill for scoped research-paper discovery, screening, synthesis, and evidence mapping across academic or technical literature.

@@ -3,7 +3,11 @@ sources:
     classification: vendored
     path: imports/anthropic-skill-creator
     upstream: https://github.com/anthropics/skills
+    publisher: Anthropic
     commit: 3b3fad96
+    version: commit 3b3fad96
+    license: Apache-2.0
+    license_source: imports/anthropic-skill-creator/LICENSE.txt
     local_modifications: none
 
   skill-library-ops:
@@ -44,7 +48,19 @@ sources:
     repository_path: skills/community-management
     status: approved
     cohort: audience-and-community
-    provenance: repo-owned adaptation
+    upstream: https://clawhub.ai/social-media-skills/skills/community-management
+    publisher: social-media-skills
+    version: 1.0.1
+    artifact_sha256: b9fdf15a26afa4b2e71c99a7c013947d897409fb592ac41cab9762c416a6c405
+    skill_file_sha256: 0b1be214f6b67bc184935fd54e46256835148fcb92c0c0c9e6f1239fddc603d1
+    license: MIT
+    license_source: imported SKILL.md frontmatter at repo commit 9df9234; exact public upstream page was not retrievable during review
+    local_modifications: >-
+      Adapted imported community-management package to this repository's
+      public portable contract: removed unavailable companion-service assumptions,
+      grounded surfaces in wall, Moltbook, AgentMail, GitHub, X, and LinkedIn,
+      added consent/moderation/mutation boundaries, public contract sections,
+      synthetic evals, and explicit attribution limits.
 
   publish:
     classification: owned
@@ -100,7 +116,19 @@ sources:
     repository_path: skills/literature-review
     status: approved
     cohort: research-and-writing
-    provenance: repo-owned adaptation
+    upstream: https://clawhub.ai/weird-aftertaste/skills/literature-review
+    publisher: weird-aftertaste
+    version: 1.2.0
+    artifact_sha256: 4fc44a5f45ae6820c08adc0a7aa4276aaa640e4eee3bd667059bceead772021e
+    skill_file_sha256: c2f51919e7a65e36fb47a18dc09c451f59e046121c51e6bbcc002abfa9167b04
+    license: MIT-0
+    license_source: ClawHub public skill page
+    local_modifications: >-
+      Adapted imported literature-review package to this repository's public
+      portable contract: removed claims of comprehensive top-N searching and
+      complete abstracts, made source failures and evidence level explicit,
+      required reproducible search logs and appraisal, added safety/privacy
+      sections, synthetic evals, and attribution limits.
 
   fact-check:
     classification: owned
