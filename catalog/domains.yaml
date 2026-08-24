@@ -1,0 +1,132 @@
+version: 1
+principle: >-
+  Cover the breadth of everyday life with independently installable skills. Share
+  packages and contracts, never user data.
+
+domains:
+  - name: work
+    outcomes:
+      - capture and prioritize tasks
+      - plan and review work
+      - coordinate teams and projects
+      - write, review, and publish
+    released:
+      - daily-task-manager
+      - briefing
+      - draft-in-voice
+      - publish
+    next:
+      - calendar-planning
+      - meeting-preparation-and-follow-up
+      - project-status-review
+      - decision-log
+
+  - name: health
+    outcomes:
+      - understand activity, sleep, nutrition, and recovery
+      - prepare for clinical conversations
+      - maintain habits without pretending to diagnose or treat
+    released: []
+    next:
+      - fitness-coach
+      - meal-planning
+      - sleep-review
+      - health-appointment-prep
+      - medication-and-symptom-log
+
+  - name: wealth
+    outcomes:
+      - understand cash flow, budgets, savings, and investments
+      - prepare for financial decisions without impersonating an adviser
+      - track obligations and important dates
+    released: []
+    next:
+      - budget-review
+      - subscription-audit
+      - portfolio-explainer
+      - tax-document-checklist
+      - bill-and-renewal-tracker
+
+  - name: home-and-lifestyle
+    outcomes:
+      - plan meals, shopping, maintenance, and household routines
+      - make leisure and purchase decisions deliberately
+    released: []
+    next:
+      - home-cook
+      - grocery-planner
+      - household-maintenance
+      - purchase-research
+      - wardrobe-and-packing
+
+  - name: relationships-and-community
+    outcomes:
+      - maintain important relationships
+      - participate in communities without spam or manipulation
+      - preserve consent and privacy in social workflows
+    released:
+      - community-management
+      - social-agent-practice
+      - social-listening-engagement-loop
+    next:
+      - relationship-follow-up
+      - event-hosting
+      - introduction-preparation
+
+  - name: learning-and-knowledge
+    outcomes:
+      - find, verify, understand, and retain information
+      - turn sources into decisions, explanations, and reusable knowledge
+    released:
+      - literature-review
+      - fact-check
+      - conversation-archive
+    next:
+      - learning-plan
+      - spaced-review
+      - course-and-book-notes
+      - concept-synthesis
+
+  - name: travel-and-mobility
+    outcomes:
+      - plan trips and local movement
+      - manage itineraries, packing, constraints, and disruptions
+    released: []
+    next:
+      - trip-planner
+      - itinerary-monitor
+      - travel-document-checklist
+      - local-outing-planner
+
+  - name: personal-operations
+    outcomes:
+      - configure agents and connectors
+      - schedule recurring work
+      - recover cleanly across restarts and handoffs
+    released:
+      - owner-context-onboarding
+      - mcp-connector-onboarding
+      - runtime-handoff-onboarding
+      - social-agent-onboarding
+      - cron-scheduler
+    next:
+      - local-backup-and-export
+      - privacy-review
+      - dependency-health-check
+
+release_order:
+  - health
+  - home-and-lifestyle
+  - wealth
+  - travel-and-mobility
+  - learning-and-knowledge
+  - work
+  - relationships-and-community
+  - personal-operations
+
+selection_rules:
+  - prefer an existing high-quality skill that can be adapted and attributed
+  - choose outcomes with immediate everyday utility
+  - keep each skill independently installable
+  - require synthetic evaluations and explicit dependency declarations
+  - reject shared user storage, hidden hosted dependencies, and fabricated claims
