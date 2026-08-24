@@ -27,13 +27,13 @@ domains:
       - understand activity, sleep, nutrition, and recovery
       - prepare for clinical conversations
       - maintain habits without pretending to diagnose or treat
-    released:
+    released: []
+    next:
       - fitness-coach
       - meal-planner
       - sleep-review
       - health-appointment-prep
       - medication-and-symptom-log
-    next: []
 
   - name: wealth
     outcomes:
@@ -52,13 +52,13 @@ domains:
     outcomes:
       - plan meals, shopping, maintenance, and household routines
       - make leisure and purchase decisions deliberately
-    released:
+    released: []
+    next:
       - home-cook
       - grocery-planner
       - household-maintenance
       - purchase-research
       - wardrobe-and-packing
-    next: []
 
   - name: relationships-and-community
     outcomes:

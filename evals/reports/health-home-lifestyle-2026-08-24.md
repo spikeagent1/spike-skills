@@ -1,11 +1,11 @@
-# Health and home/lifestyle release report
+# Health and home/lifestyle candidate review report
 
 Date: 2026-08-24
 Branch: docs/life-domain-map
 
 ## Cohort
 
-Released health and home/lifestyle skills as portable plain-file packages:
+Prepared health and home/lifestyle Skill Workshop candidates as portable plain-file packages. They are present in `skills/` only for review on this branch and are not approved, applied, installed, or released:
 
 - fitness-coach
 - meal-planner
@@ -20,11 +20,11 @@ Released health and home/lifestyle skills as portable plain-file packages:
 
 ## Gate evidence
 
-- Every skill has `SKILL.md` frontmatter, explicit dependencies, provenance, and synthetic evals.
+- Every candidate has `SKILL.md` frontmatter, explicit dependencies, provenance, and synthetic evals.
 - Health skills include non-diagnostic and urgent-escalation boundaries.
 - Home/lifestyle skills require current sources or uncertainty for prices, inventory, weather, recalls, specs, and safety claims.
 - `tools/validate_repo.py` checks manifests, evals, catalog consistency, dependency/provenance declarations, `.gitignore` local-state rules, and obvious secrets/private paths.
 
 ## Acceptance
 
-Accepted when `make validate` passes on the full repository. No private records, credentials, caches, transcripts, or generated local state are included.
+Ready for proposal review when `make validate` passes on the full repository. Release still requires explicit Skill Workshop approval and application. No private records, credentials, caches, transcripts, or generated local state are included.

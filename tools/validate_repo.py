@@ -64,33 +64,70 @@ def git_files() -> list[Path]:
     return [ROOT / line for line in result.stdout.splitlines() if line]
 
 
-def parse_approved(errors: list[str]) -> set[str]:
+def parse_catalog_inventory(errors: list[str]) -> dict[str, dict[str, str]]:
     text = (ROOT / "catalog" / "approved.yaml").read_text(encoding="utf-8")
-    names = set(re.findall(r"^\s+- name: ([a-z0-9-]+)\s*$", text, re.MULTILINE))
-    if not names:
-        add_error(errors, "catalog/approved.yaml: no approved skills found")
-    return names
+    entries: dict[str, dict[str, str]] = {}
+    current: dict[str, str] | None = None
+
+    for line in text.splitlines():
+        name_match = re.match(r"^\s+- name: ([a-z0-9-]+)\s*$", line)
+        if name_match:
+            name = name_match.group(1)
+            if name in entries:
+                add_error(errors, f"catalog/approved.yaml: duplicate skill {name}")
+            current = {"name": name}
+            entries[name] = current
+            continue
+
+        field_match = re.match(r"^\s{4}([a-z_]+):\s*(.*?)\s*$", line)
+        if current is not None and field_match:
+            current[field_match.group(1)] = field_match.group(2).strip().strip("\"'")
+
+    if not entries:
+        add_error(errors, "catalog/approved.yaml: no skill entries found")
+    return entries
 
 
-def parse_domain_releases(errors: list[str]) -> set[str]:
+def parse_domain_lists(errors: list[str]) -> tuple[set[str], set[str]]:
     text = (ROOT / "catalog" / "domains.yaml").read_text(encoding="utf-8")
-    names: set[str] = set()
-    in_released = False
+    released: set[str] = set()
+    next_names: set[str] = set()
+    active: set[str] | None = None
 
     for line in text.splitlines():
         stripped = line.strip()
         if stripped.startswith("released:"):
-            in_released = True
+            active = released
             continue
-        if in_released and stripped.startswith("- "):
-            names.add(stripped[2:].strip())
+        if stripped.startswith("next:"):
+            active = next_names
             continue
-        if in_released and stripped and not stripped.startswith("- "):
-            in_released = False
+        if active is not None and stripped.startswith("- "):
+            active.add(stripped[2:].strip())
+            continue
+        if active is not None and stripped and not stripped.startswith("- "):
+            active = None
 
-    if not names:
+    if not released:
         add_error(errors, "catalog/domains.yaml: no released skills found")
-    return names
+    return released, next_names
+
+
+def parse_source_statuses() -> dict[str, str]:
+    text = (ROOT / "catalog" / "sources.yaml").read_text(encoding="utf-8")
+    statuses: dict[str, str] = {}
+    current: str | None = None
+
+    for line in text.splitlines():
+        source_match = re.match(r"^  ([a-z0-9-]+):\s*$", line)
+        if source_match:
+            current = source_match.group(1)
+            continue
+        status_match = re.match(r"^\s{4}status:\s*(\S+)\s*$", line)
+        if current is not None and status_match:
+            statuses[current] = status_match.group(1)
+
+    return statuses
 
 
 def eval_files(skill_dir: Path) -> list[Path]:
@@ -149,8 +186,9 @@ def validate_eval_file(skill: str, path: Path, errors: list[str]) -> None:
 
 def validate_skill(
     skill_dir: Path,
-    approved: set[str],
+    inventory: dict[str, dict[str, str]],
     released: set[str],
+    next_names: set[str],
     errors: list[str],
 ) -> None:
     rel = skill_dir.relative_to(ROOT)
@@ -179,10 +217,26 @@ def validate_skill(
         add_error(errors, f"{rel}/SKILL.md: must include provenance/attribution")
     if HIDDEN_DEP_RE.search(text):
         add_error(errors, f"{rel}/SKILL.md: contains suspicious hidden/private dependency language")
-    if skill_dir.name not in approved:
+    entry = inventory.get(skill_dir.name)
+    if entry is None:
         add_error(errors, f"{rel}: missing catalog/approved.yaml entry")
-    if skill_dir.name != "skill-library-ops" and skill_dir.name not in released:
-        add_error(errors, f"{rel}: missing catalog/domains.yaml released entry")
+    else:
+        status = entry.get("status")
+        proposal = entry.get("workshop_proposal", "")
+        if status not in {"approved", "pending-review"}:
+            add_error(errors, f"{rel}: catalog status must be approved or pending-review")
+        if status == "approved":
+            if skill_dir.name != "skill-library-ops" and skill_dir.name not in released:
+                add_error(errors, f"{rel}: approved skill must be in catalog/domains.yaml released")
+            if skill_dir.name in next_names:
+                add_error(errors, f"{rel}: approved skill must not remain in catalog/domains.yaml next")
+        if status == "pending-review":
+            if skill_dir.name in released:
+                add_error(errors, f"{rel}: pending-review skill must not be in catalog/domains.yaml released")
+            if skill_dir.name not in next_names:
+                add_error(errors, f"{rel}: pending-review skill must be in catalog/domains.yaml next")
+            if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*-\d{8}-[a-z0-9]{10}", proposal):
+                add_error(errors, f"{rel}: pending-review skill must have a real workshop_proposal ID")
 
     files = eval_files(skill_dir)
     if not files:
@@ -222,15 +276,24 @@ def validate_privacy(errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
-    approved = parse_approved(errors)
-    released = parse_domain_releases(errors)
+    inventory = parse_catalog_inventory(errors)
+    released, next_names = parse_domain_lists(errors)
+    source_statuses = parse_source_statuses()
     skill_dirs = sorted(path for path in SKILLS.iterdir() if path.is_dir())
+    skill_names = {path.name for path in skill_dirs}
 
     for skill_dir in skill_dirs:
-        validate_skill(skill_dir, approved, released, errors)
+        validate_skill(skill_dir, inventory, released, next_names, errors)
 
-    for name in sorted(approved - {path.name for path in skill_dirs}):
+    for name in sorted(set(inventory) - skill_names):
         add_error(errors, f"catalog/approved.yaml: {name} has no skills/{name} directory")
+
+    for name in sorted(released - set(inventory)):
+        add_error(errors, f"catalog/domains.yaml: released skill {name} is missing catalog/approved.yaml entry")
+
+    for name, entry in sorted(inventory.items()):
+        if entry.get("status") == "pending-review" and source_statuses.get(name) not in {None, "pending-review"}:
+            add_error(errors, f"catalog/sources.yaml: pending-review skill {name} must not have status {source_statuses[name]}")
 
     validate_privacy(errors)
 

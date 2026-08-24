@@ -6,9 +6,9 @@ This repository is the source of truth for skills we own or explicitly adapt. Ru
 
 ## Current work
 
-Audience/community, health and home/lifestyle, safety/state-mutation, owner-operations, research/writing, portfolio-governance, and onboarding cohorts now have evaluated releases. Wealth, travel/mobility, routing-overlap, and long-tail cleanup are next.
+Audience/community, safety/state-mutation, owner-operations, research/writing, portfolio-governance, and onboarding cohorts have evaluated releases. Health and home/lifestyle candidate packages are present in `skills/` on this review branch only while their Skill Workshop proposals remain pending review. Wealth, travel/mobility, routing-overlap, and long-tail cleanup are next.
 
-Candidate skills enter through Skill Workshop proposals. A proposal is not copied into `skills/` until it is reviewed and explicitly applied. Released skills carry synthetic evaluation cases, provenance, compatibility notes, and a benchmark summary.
+Candidate skills enter through Skill Workshop proposals. On review branches, candidate packages may appear in `skills/` for inspection before approval; they must be marked `pending-review`, remain in domain `next` lists, and carry the real proposal ID. Released skills carry synthetic evaluation cases, provenance, compatibility notes, and a benchmark summary.
 
 Start with the [onboarding collection](ONBOARDING.md) when setting up a new owner relationship, connector, runtime handoff, or social-agent identity.
 
@@ -17,7 +17,7 @@ Start with the [onboarding collection](ONBOARDING.md) when setting up a new owne
 ```text
 catalog/             Cohorts and skill inventory
 imports/             Pinned upstream material, unchanged
-skills/              Approved owned/adapted skills
+skills/              Approved owned/adapted skills plus review-branch candidates
 evals/reports/       Shareable benchmark summaries
 evals/workspaces/    Local generated runs; ignored
 schemas/             Validation schemas

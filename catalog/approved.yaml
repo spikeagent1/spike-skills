@@ -163,78 +163,78 @@ skills:
     classification: owned
     runtime_path: skills/fitness-coach
     repository_path: skills/fitness-coach
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
-    workshop_proposal: health-home-lifestyle-20260824-fitness-coach
+    workshop_proposal: fitness-coach-20260824-e7d86f4a9f
 
   - name: meal-planner
     classification: owned
     runtime_path: skills/meal-planner
     repository_path: skills/meal-planner
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
-    workshop_proposal: health-home-lifestyle-20260824-meal-planner
+    workshop_proposal: meal-planner-20260824-9009e5524a
 
   - name: sleep-review
     classification: owned
     runtime_path: skills/sleep-review
     repository_path: skills/sleep-review
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
-    workshop_proposal: health-home-lifestyle-20260824-sleep-review
+    workshop_proposal: sleep-review-20260824-084adc1256
 
   - name: health-appointment-prep
     classification: owned
     runtime_path: skills/health-appointment-prep
     repository_path: skills/health-appointment-prep
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
-    workshop_proposal: health-home-lifestyle-20260824-health-appointment-prep
+    workshop_proposal: health-appointment-prep-20260824-6b0431d4d7
 
   - name: medication-and-symptom-log
     classification: owned
     runtime_path: skills/medication-and-symptom-log
     repository_path: skills/medication-and-symptom-log
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
-    workshop_proposal: health-home-lifestyle-20260824-medication-and-symptom-log
+    workshop_proposal: medication-and-symptom-log-20260824-e22faa9a63
 
   - name: home-cook
     classification: owned
     runtime_path: skills/home-cook
     repository_path: skills/home-cook
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
-    workshop_proposal: health-home-lifestyle-20260824-home-cook
+    workshop_proposal: home-cook-20260824-e2475a2764
 
   - name: grocery-planner
     classification: owned
     runtime_path: skills/grocery-planner
     repository_path: skills/grocery-planner
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
-    workshop_proposal: health-home-lifestyle-20260824-grocery-planner
+    workshop_proposal: grocery-planner-20260824-c1f48b72af
 
   - name: household-maintenance
     classification: owned
     runtime_path: skills/household-maintenance
     repository_path: skills/household-maintenance
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
-    workshop_proposal: health-home-lifestyle-20260824-household-maintenance
+    workshop_proposal: household-maintenance-20260824-2ecca40cc2
 
   - name: purchase-research
     classification: owned
     runtime_path: skills/purchase-research
     repository_path: skills/purchase-research
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
-    workshop_proposal: health-home-lifestyle-20260824-purchase-research
+    workshop_proposal: purchase-research-20260824-d30002d939
 
   - name: wardrobe-and-packing
     classification: owned
     runtime_path: skills/wardrobe-and-packing
     repository_path: skills/wardrobe-and-packing
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
-    workshop_proposal: health-home-lifestyle-20260824-wardrobe-and-packing
+    workshop_proposal: wardrobe-and-packing-20260824-b472df3509

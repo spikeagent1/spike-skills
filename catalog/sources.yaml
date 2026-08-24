@@ -15,69 +15,69 @@ sources:
   fitness-coach:
     classification: owned
     runtime_path: skills/fitness-coach
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
   meal-planner:
     classification: owned
     runtime_path: skills/meal-planner
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
   sleep-review:
     classification: owned
     runtime_path: skills/sleep-review
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
   health-appointment-prep:
     classification: owned
     runtime_path: skills/health-appointment-prep
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
   medication-and-symptom-log:
     classification: owned
     runtime_path: skills/medication-and-symptom-log
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
   home-cook:
     classification: owned
     runtime_path: skills/home-cook
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
   grocery-planner:
     classification: owned
     runtime_path: skills/grocery-planner
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
   household-maintenance:
     classification: owned
     runtime_path: skills/household-maintenance
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
   purchase-research:
     classification: owned
     runtime_path: skills/purchase-research
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
   wardrobe-and-packing:
     classification: owned
     runtime_path: skills/wardrobe-and-packing
-    status: approved
+    status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
