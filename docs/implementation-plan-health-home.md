@@ -10,7 +10,7 @@ Prepare the first everyday-life cohort after audience/community as pending-revie
 
 What already exists: `ARCHITECTURE.md` defines the public-library boundary, `catalog/domains.yaml` names health and home/lifestyle as next but had no releases, `skills/skill-library-ops/SKILL.md` defines release gates, and existing skills use plain `SKILL.md` plus eval fixtures.
 
-Minimum complete change: add the listed health and home/lifestyle candidate packages, add synthetic evals, update catalogs/docs, and add deterministic validation for manifests, evals, catalogs, local-state ignore rules, and obvious secret/private-data leaks.
+Minimum complete change: add the listed health and home/lifestyle candidate packages, add synthetic evals, update catalogs/docs, add GitHub CI, and add deterministic validation for manifests, eval schema structure, catalogs, local-state ignore rules, and obvious secret/private-data leaks.
 
 Complexity decision: the file count is high because a library candidate cohort is many independent packages. The architecture stays small: no services, database, package manager, shared storage, or new runtime. Complete candidate-review option selected in spawned-session mode.
 
@@ -18,7 +18,7 @@ Search check: [Layer 1] reuse the repo skill layout and vendored Anthropic eval 
 
 ## Architecture Review
 
-Issue 1 accepted: prose gates are not enough. Recommendation selected: add `tools/validate_repo.py` and `make validate`, including pending-review catalog rules.
+Issue 1 accepted: prose gates are not enough. Recommendation selected: add `tools/validate_repo.py`, `make validate`, and GitHub Actions validation, including pending-review catalog rules.
 
 Issue 2 accepted: health skills need explicit non-diagnostic boundaries. Recommendation selected: add boundaries and eval cases for emergency or medical-advice pressure.
 
@@ -77,6 +77,7 @@ No runtime performance issue. The validator is linear over tracked text, JSON, a
 - Health skill gives medical advice: covered by explicit skill boundaries and evals.
 - Home skill fabricates current facts: covered by source-discipline instructions and evals.
 - Catalog claims a missing release or candidate status: covered by `tools/validate_repo.py`.
+- Eval schema drifts from fixtures: covered by optional `jsonschema` validation or the stock-Python fallback for the committed schema subset.
 - Private local state committed: covered by `.gitignore` and tracked-file scan.
 
 ## Parallelization
@@ -88,14 +89,15 @@ Lane A: health candidates -> catalog update. Lane B: home/lifestyle candidates -
 - [x] T1 (P1) health candidate packages with boundaries and evals.
 - [x] T2 (P1) home/lifestyle candidate packages with source discipline and evals.
 - [x] T3 (P1) deterministic validation gate.
-- [x] T4 (P2) docs/catalog/candidate review evidence.
+- [x] T4 (P1) CI workflow and validator unit tests.
+- [x] T5 (P2) docs/catalog/candidate review evidence.
 
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | Decisions recovered from user prompt and commit `1bd7c4d` |
-| Codex Review | `/codex review` | Independent 2nd opinion | 0 | - | Skipped: no external model tool available in this ACP session |
+| Codex Review | `/codex review` | Independent 2nd opinion | 1 | CLEAR | Author pass found missing CI, schema enforcement, and validator tests; fixed in follow-up implementation |
 | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 5 issues, 0 critical gaps; all complete options folded into implementation |
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | - | Not applicable: no UI changes |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | - | Not applicable: repo gate is command-line only |

@@ -8,9 +8,16 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
+
+try:
+    import jsonschema
+except ModuleNotFoundError:  # pragma: no cover - covered by fallback tests.
+    jsonschema = None
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
+EVAL_SCHEMA = ROOT / "schemas" / "skill-evals.schema.json"
 
 SECRET_RE = re.compile(
     r"(api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key)"
@@ -51,6 +58,80 @@ def load_json(path: Path, errors: list[str]) -> object | None:
     except Exception as exc:  # noqa: BLE001 - report every parse failure.
         add_error(errors, f"{path.relative_to(ROOT)}: invalid JSON: {exc}")
         return None
+
+
+def load_eval_schema(errors: list[str]) -> dict[str, Any] | None:
+    data = load_json(EVAL_SCHEMA, errors)
+    if not isinstance(data, dict):
+        add_error(errors, "schemas/skill-evals.schema.json: schema must contain an object")
+        return None
+    if data.get("type") != "object" or "evals" not in data.get("required", []):
+        add_error(errors, "schemas/skill-evals.schema.json: schema must require evals object shape")
+    return data
+
+
+def validate_eval_schema_fallback(data: object, rel: Path, errors: list[str]) -> None:
+    """Validate the subset expressed by schemas/skill-evals.schema.json.
+
+    The repository intentionally avoids a package/toolchain. If the maintained
+    jsonschema package is unavailable, this mirrors the committed schema fields
+    that the repo uses so CI remains deterministic on stock Python.
+    """
+    if not isinstance(data, dict):
+        add_error(errors, f"{rel}: schema violation: root must be an object")
+        return
+
+    evals = data.get("evals")
+    if not isinstance(evals, list) or not evals:
+        add_error(errors, f"{rel}: schema violation: evals must be a non-empty array")
+        return
+
+    for key in ("skill_name", "skill", "version", "description"):
+        if key in data and not isinstance(data[key], str):
+            add_error(errors, f"{rel}: schema violation: {key} must be a string")
+
+    for index, case in enumerate(evals, 1):
+        if not isinstance(case, dict):
+            add_error(errors, f"{rel}: schema violation: eval {index} must be an object")
+            continue
+        has_prompt = isinstance(case.get("prompt"), str) and bool(case["prompt"])
+        has_input = isinstance(case.get("input"), str) and bool(case["input"])
+        if not has_prompt and not has_input:
+            add_error(errors, f"{rel}: schema violation: eval {index} needs prompt or input")
+        for key in ("name", "expected_output"):
+            if key in case and not isinstance(case[key], str):
+                add_error(errors, f"{rel}: schema violation: eval {index} {key} must be a string")
+        for key in ("assertions", "expectations", "expect"):
+            if key not in case:
+                continue
+            value = case[key]
+            if (
+                not isinstance(value, list)
+                or len(value) < 2
+                or not all(isinstance(item, str) for item in value)
+            ):
+                add_error(
+                    errors,
+                    f"{rel}: schema violation: eval {index} {key} must be two or more strings",
+                )
+
+
+def validate_eval_schema(
+    data: object,
+    rel: Path,
+    schema: dict[str, Any] | None,
+    errors: list[str],
+) -> None:
+    if jsonschema is None or schema is None:
+        validate_eval_schema_fallback(data, rel, errors)
+        return
+
+    validator = jsonschema.Draft202012Validator(schema)
+    schema_errors = sorted(validator.iter_errors(data), key=lambda error: list(error.path))
+    for error in schema_errors:
+        location = ".".join(str(part) for part in error.path)
+        suffix = f" at {location}" if location else ""
+        add_error(errors, f"{rel}: schema violation{suffix}: {error.message}")
 
 
 def git_files() -> list[Path]:
@@ -139,7 +220,12 @@ def eval_files(skill_dir: Path) -> list[Path]:
     return [path for path in candidates if path.exists()]
 
 
-def validate_eval_file(skill: str, path: Path, errors: list[str]) -> None:
+def validate_eval_file(
+    skill: str,
+    path: Path,
+    schema: dict[str, Any] | None,
+    errors: list[str],
+) -> None:
     rel = path.relative_to(ROOT)
 
     if path.suffix == ".jsonl":
@@ -159,6 +245,7 @@ def validate_eval_file(skill: str, path: Path, errors: list[str]) -> None:
         return
 
     data = load_json(path, errors)
+    validate_eval_schema(data, rel, schema, errors)
     if not isinstance(data, dict):
         add_error(errors, f"{rel}: eval file must contain an object")
         return
@@ -189,6 +276,7 @@ def validate_skill(
     inventory: dict[str, dict[str, str]],
     released: set[str],
     next_names: set[str],
+    schema: dict[str, Any] | None,
     errors: list[str],
 ) -> None:
     rel = skill_dir.relative_to(ROOT)
@@ -229,27 +317,42 @@ def validate_skill(
             if skill_dir.name != "skill-library-ops" and skill_dir.name not in released:
                 add_error(errors, f"{rel}: approved skill must be in catalog/domains.yaml released")
             if skill_dir.name in next_names:
-                add_error(errors, f"{rel}: approved skill must not remain in catalog/domains.yaml next")
+                add_error(
+                    errors,
+                    f"{rel}: approved skill must not remain in catalog/domains.yaml next",
+                )
         if status == "pending-review":
             if skill_dir.name in released:
-                add_error(errors, f"{rel}: pending-review skill must not be in catalog/domains.yaml released")
+                add_error(
+                    errors,
+                    f"{rel}: pending-review skill must not be in catalog/domains.yaml released",
+                )
             if skill_dir.name not in next_names:
-                add_error(errors, f"{rel}: pending-review skill must be in catalog/domains.yaml next")
+                add_error(
+                    errors,
+                    f"{rel}: pending-review skill must be in catalog/domains.yaml next",
+                )
             if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*-\d{8}-[a-z0-9]{10}", proposal):
-                add_error(errors, f"{rel}: pending-review skill must have a real workshop_proposal ID")
+                add_error(
+                    errors,
+                    f"{rel}: pending-review skill must have a real workshop_proposal ID",
+                )
 
     files = eval_files(skill_dir)
     if not files:
         add_error(errors, f"{rel}: missing evals file")
     for path in files:
-        validate_eval_file(skill_dir.name, path, errors)
+        validate_eval_file(skill_dir.name, path, schema, errors)
 
 
 def validate_privacy(errors: list[str]) -> None:
     ignored = (ROOT / ".gitignore").read_text(encoding="utf-8")
     for required in ("evals/workspaces/", ".env", "*.skill"):
         if required not in ignored:
-            add_error(errors, f".gitignore: missing local/private generated-state pattern {required!r}")
+            add_error(
+                errors,
+                f".gitignore: missing local/private generated-state pattern {required!r}",
+            )
 
     for path in git_files():
         rel = path.relative_to(ROOT).as_posix()
@@ -276,6 +379,7 @@ def validate_privacy(errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
+    schema = load_eval_schema(errors)
     inventory = parse_catalog_inventory(errors)
     released, next_names = parse_domain_lists(errors)
     source_statuses = parse_source_statuses()
@@ -283,17 +387,28 @@ def main() -> int:
     skill_names = {path.name for path in skill_dirs}
 
     for skill_dir in skill_dirs:
-        validate_skill(skill_dir, inventory, released, next_names, errors)
+        validate_skill(skill_dir, inventory, released, next_names, schema, errors)
 
     for name in sorted(set(inventory) - skill_names):
         add_error(errors, f"catalog/approved.yaml: {name} has no skills/{name} directory")
 
     for name in sorted(released - set(inventory)):
-        add_error(errors, f"catalog/domains.yaml: released skill {name} is missing catalog/approved.yaml entry")
+        add_error(
+            errors,
+            f"catalog/domains.yaml: released skill {name} is missing catalog/approved.yaml entry",
+        )
 
     for name, entry in sorted(inventory.items()):
-        if entry.get("status") == "pending-review" and source_statuses.get(name) not in {None, "pending-review"}:
-            add_error(errors, f"catalog/sources.yaml: pending-review skill {name} must not have status {source_statuses[name]}")
+        source_status = source_statuses.get(name)
+        if (
+            entry.get("status") == "pending-review"
+            and source_status not in {None, "pending-review"}
+        ):
+            add_error(
+                errors,
+                f"catalog/sources.yaml: pending-review skill {name} must not have status "
+                f"{source_status}",
+            )
 
     validate_privacy(errors)
 
