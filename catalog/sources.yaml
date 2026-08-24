@@ -6,15 +6,170 @@ sources:
     commit: 3b3fad96
     local_modifications: none
 
+  skill-library-ops:
+    classification: owned
+    runtime_path: skills/skill-library-ops
+    repository_path: skills/skill-library-ops
+    status: approved
+    cohort: audience-and-community
+    provenance: repo-owned
+
   social-listening-engagement-loop:
     classification: owned
     runtime_path: skills/social-listening-engagement-loop
-    status: pending-optimization
+    repository_path: skills/social-listening-engagement-loop
+    status: approved
     cohort: audience-and-community
+    provenance: repo-owned
+
+  audience-content-engine:
+    classification: owned
+    runtime_path: skills/audience-content-engine
+    repository_path: skills/audience-content-engine
+    status: approved
+    cohort: audience-and-community
+    provenance: repo-owned
+
+  social-agent-practice:
+    classification: owned
+    runtime_path: skills/social-agent-practice
+    repository_path: skills/social-agent-practice
+    status: approved
+    cohort: audience-and-community
+    provenance: repo-owned
+
+  community-management:
+    classification: adapted
+    runtime_path: skills/community-management
+    repository_path: skills/community-management
+    status: approved
+    cohort: audience-and-community
+    provenance: repo-owned adaptation
+
+  publish:
+    classification: owned
+    runtime_path: skills/publish
+    repository_path: skills/publish
+    status: approved
+    cohort: safety-and-mutation
+    provenance: repo-owned
+
+  cron-scheduler:
+    classification: owned
+    runtime_path: skills/cron-scheduler
+    repository_path: skills/cron-scheduler
+    status: approved
+    cohort: safety-and-mutation
+    provenance: repo-owned
+
+  conversation-archive:
+    classification: owned
+    runtime_path: skills/conversation-archive
+    repository_path: skills/conversation-archive
+    status: approved
+    cohort: safety-and-mutation
+    provenance: repo-owned
+
+  daily-task-manager:
+    classification: owned
+    runtime_path: skills/daily-task-manager
+    repository_path: skills/daily-task-manager
+    status: approved
+    cohort: owner-operations
+    provenance: repo-owned
+
+  briefing:
+    classification: owned
+    runtime_path: skills/briefing
+    repository_path: skills/briefing
+    status: approved
+    cohort: owner-operations
+    provenance: repo-owned
+
+  owner-dream-cycle:
+    classification: owned
+    runtime_path: skills/owner-dream-cycle
+    repository_path: skills/owner-dream-cycle
+    status: approved
+    cohort: owner-operations
+    provenance: repo-owned
+
+  literature-review:
+    classification: adapted
+    runtime_path: skills/literature-review
+    repository_path: skills/literature-review
+    status: approved
+    cohort: research-and-writing
+    provenance: repo-owned adaptation
+
+  fact-check:
+    classification: owned
+    runtime_path: skills/fact-check
+    repository_path: skills/fact-check
+    status: approved
+    cohort: research-and-writing
+    provenance: repo-owned
+
+  draft-in-voice:
+    classification: owned
+    runtime_path: skills/draft-in-voice
+    repository_path: skills/draft-in-voice
+    status: approved
+    cohort: research-and-writing
+    provenance: repo-owned
+
+  team-skill-sharing-norm:
+    classification: owned
+    runtime_path: skills/team-skill-sharing-norm
+    repository_path: skills/team-skill-sharing-norm
+    status: approved
+    cohort: portfolio-governance
+    provenance: repo-owned
+
+  public-post-workshop:
+    classification: owned
+    runtime_path: skills/public-post-workshop
+    repository_path: skills/public-post-workshop
+    status: approved
+    cohort: portfolio-governance
+    provenance: repo-owned
+
+  owner-context-onboarding:
+    classification: owned
+    runtime_path: skills/owner-context-onboarding
+    repository_path: skills/owner-context-onboarding
+    status: approved
+    cohort: onboarding
+    provenance: repo-owned
+
+  mcp-connector-onboarding:
+    classification: owned
+    runtime_path: skills/mcp-connector-onboarding
+    repository_path: skills/mcp-connector-onboarding
+    status: approved
+    cohort: onboarding
+    provenance: repo-owned
+
+  runtime-handoff-onboarding:
+    classification: owned
+    runtime_path: skills/runtime-handoff-onboarding
+    repository_path: skills/runtime-handoff-onboarding
+    status: approved
+    cohort: onboarding
+    provenance: repo-owned
+
+  social-agent-onboarding:
+    classification: owned
+    runtime_path: skills/social-agent-onboarding
+    repository_path: skills/social-agent-onboarding
+    status: approved
+    cohort: onboarding
+    provenance: repo-owned
 
   fitness-coach:
     classification: owned
     runtime_path: skills/fitness-coach
+    repository_path: skills/fitness-coach
     status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
@@ -22,6 +177,7 @@ sources:
   meal-planner:
     classification: owned
     runtime_path: skills/meal-planner
+    repository_path: skills/meal-planner
     status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
@@ -29,6 +185,7 @@ sources:
   sleep-review:
     classification: owned
     runtime_path: skills/sleep-review
+    repository_path: skills/sleep-review
     status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
@@ -36,6 +193,7 @@ sources:
   health-appointment-prep:
     classification: owned
     runtime_path: skills/health-appointment-prep
+    repository_path: skills/health-appointment-prep
     status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
@@ -43,6 +201,7 @@ sources:
   medication-and-symptom-log:
     classification: owned
     runtime_path: skills/medication-and-symptom-log
+    repository_path: skills/medication-and-symptom-log
     status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
@@ -50,6 +209,7 @@ sources:
   home-cook:
     classification: owned
     runtime_path: skills/home-cook
+    repository_path: skills/home-cook
     status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
@@ -57,6 +217,7 @@ sources:
   grocery-planner:
     classification: owned
     runtime_path: skills/grocery-planner
+    repository_path: skills/grocery-planner
     status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
@@ -64,6 +225,7 @@ sources:
   household-maintenance:
     classification: owned
     runtime_path: skills/household-maintenance
+    repository_path: skills/household-maintenance
     status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
@@ -71,6 +233,7 @@ sources:
   purchase-research:
     classification: owned
     runtime_path: skills/purchase-research
+    repository_path: skills/purchase-research
     status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
@@ -78,6 +241,7 @@ sources:
   wardrobe-and-packing:
     classification: owned
     runtime_path: skills/wardrobe-and-packing
+    repository_path: skills/wardrobe-and-packing
     status: pending-review
     cohort: health-and-home-lifestyle
     provenance: repo-owned
