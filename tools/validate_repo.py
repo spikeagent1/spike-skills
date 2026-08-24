@@ -43,6 +43,25 @@ PENDING_REVIEW_SECTIONS = (
     "## Output contract",
     "## Failure conditions",
 )
+PUBLIC_SKILL_SECTIONS = (
+    "When to use",
+    "When not to use",
+    "Required inputs",
+    "Optional inputs",
+    "Workflow",
+    "Sources and freshness",
+    "Privacy and mutations",
+    "Safety boundaries",
+    "Output contract",
+    "Failure conditions",
+)
+NON_INFORMATIVE_ASSERTIONS = {
+    "uses the skill",
+    "uses the named skill",
+    "meets the skill contract",
+    "follows the skill",
+    "does the task",
+}
 
 
 def frontmatter(text: str) -> dict[str, str] | None:
@@ -252,6 +271,24 @@ def eval_files(skill_dir: Path) -> list[Path]:
     return [path for path in candidates if path.exists()]
 
 
+def has_heading(text: str, heading: str) -> bool:
+    return re.search(rf"^##+\s+{re.escape(heading)}\s*$", text, re.MULTILINE) is not None
+
+
+def eval_case_count(path: Path, errors: list[str]) -> int:
+    if path.suffix == ".jsonl":
+        return sum(
+            1
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("//")
+        )
+
+    data = load_json(path, errors)
+    if not isinstance(data, dict) or not isinstance(data.get("evals"), list):
+        return 0
+    return len(data["evals"])
+
+
 def validate_eval_file(
     skill: str,
     path: Path,
@@ -307,6 +344,14 @@ def validate_eval_file(
             for expectation in expectations
         ):
             add_error(errors, f"{rel}: eval {index} assertions must be non-empty strings")
+        else:
+            for expectation in expectations:
+                normalized = re.sub(r"\s+", " ", expectation.strip().lower())
+                if normalized in NON_INFORMATIVE_ASSERTIONS:
+                    add_error(
+                        errors,
+                        f"{rel}: eval {index} uses non-informative assertion {expectation!r}",
+                    )
 
         case_id = case.get("id")
         if case_id is None:
@@ -371,6 +416,12 @@ def validate_skill(
                     errors,
                     f"{rel}: approved skill must not remain in catalog/domains.yaml next",
                 )
+            for heading in PUBLIC_SKILL_SECTIONS:
+                if not has_heading(text, heading):
+                    add_error(
+                        errors,
+                        f"{rel}/SKILL.md: approved skill missing public section {heading!r}",
+                    )
         if status == "pending-review":
             if skill_dir.name in released:
                 add_error(
@@ -388,7 +439,7 @@ def validate_skill(
                     f"{rel}: pending-review skill must have a real workshop_proposal ID",
                 )
             for heading in PENDING_REVIEW_SECTIONS:
-                if heading not in text:
+                if not has_heading(text, heading.removeprefix("## ")):
                     add_error(
                         errors,
                         f"{rel}/SKILL.md: pending-review skill missing section {heading!r}",
@@ -397,6 +448,13 @@ def validate_skill(
     files = eval_files(skill_dir)
     if not files:
         add_error(errors, f"{rel}: missing evals file")
+    else:
+        total_eval_cases = sum(eval_case_count(path, errors) for path in files)
+        if total_eval_cases < 4:
+            add_error(
+                errors,
+                f"{rel}: needs at least 4 synthetic eval cases, found {total_eval_cases}",
+            )
     for path in files:
         validate_eval_file(skill_dir.name, path, schema, errors)
 

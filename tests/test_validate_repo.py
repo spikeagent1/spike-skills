@@ -55,7 +55,9 @@ class ValidateRepoTest(unittest.TestCase):
             "## Provenance\n"
             "Repo-owned synthetic fixture.\n\n"
             "## When to use\nFixture requests.\n\n"
+            "## When not to use\nNon-fixture requests.\n\n"
             "## Required inputs\nFixture input.\n\n"
+            "## Optional inputs\nFixture options.\n\n"
             "## Workflow\nValidate the fixture.\n\n"
             "## Sources and freshness\nNo current sources required.\n\n"
             "## Privacy and mutations\nNo mutation.\n\n"
@@ -69,10 +71,14 @@ class ValidateRepoTest(unittest.TestCase):
             "skill_name": name,
             "evals": [
                 {
-                    "id": 1,
-                    "prompt": "Use the fixture skill.",
-                    "assertions": ["Uses the named skill", "Avoids private state"],
+                    "id": index,
+                    "prompt": f"Exercise fixture scenario {index} for {name}.",
+                    "assertions": [
+                        "Reports the fixture boundary and outcome",
+                        "Avoids private state and hidden dependencies",
+                    ],
                 }
+                for index in range(1, 5)
             ],
         }
 
@@ -254,6 +260,69 @@ class ValidateRepoTest(unittest.TestCase):
             "pending-review skill missing section '## Workflow'",
             output,
         )
+
+    def test_approved_skill_requires_public_operator_contract(self) -> None:
+        skill_path = self.root / "skills/approved-skill/SKILL.md"
+        self._write(
+            "skills/approved-skill/SKILL.md",
+            skill_path.read_text(encoding="utf-8").replace("## When to use", "## Trigger"),
+        )
+        subprocess.run(
+            ["git", "add", "."],
+            cwd=self.root,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("approved skill missing public section 'When to use'", output)
+
+    def test_non_informative_eval_assertions_fail(self) -> None:
+        evals = self._evals("approved-skill")
+        evals["evals"][0]["assertions"] = [
+            "Uses the skill",
+            "Avoids private state",
+        ]
+        self._write_json("skills/approved-skill/examples/evals.json", evals)
+        subprocess.run(
+            ["git", "add", "."],
+            cwd=self.root,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("uses non-informative assertion 'Uses the skill'", output)
+
+    def test_skill_requires_four_eval_cases_across_files(self) -> None:
+        self._write_json(
+            "skills/approved-skill/examples/evals.json",
+            {
+                "skill_name": "approved-skill",
+                "evals": [
+                    {
+                        "id": 1,
+                        "prompt": "Only one behavioral case",
+                        "assertions": ["Names the exact boundary checked", "Reports the blocker clearly"],
+                    }
+                ],
+            },
+        )
+        subprocess.run(
+            ["git", "add", "."],
+            cwd=self.root,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("needs at least 4 synthetic eval cases, found 1", output)
 
     def test_schema_fallback_enforces_quality(self) -> None:
         errors: list[str] = []
