@@ -6,9 +6,11 @@ This repository is the source of truth for skills we own or explicitly adapt. Ru
 
 ## Current work
 
-Audience/community, safety/state-mutation, owner-operations, research/writing, and portfolio-governance cohorts now have evaluated releases. Routing-overlap and long-tail cleanup is next.
+Audience/community, safety/state-mutation, owner-operations, research/writing, portfolio-governance, and onboarding cohorts now have evaluated releases. Routing-overlap and long-tail cleanup is next.
 
 Candidate skills enter through Skill Workshop proposals. A proposal is not copied into `skills/` until it is reviewed and explicitly applied. Released skills carry synthetic evaluation cases, provenance, compatibility notes, and a benchmark summary.
+
+Start with the [onboarding collection](ONBOARDING.md) when setting up a new owner relationship, connector, runtime handoff, or social-agent identity.
 
 ## Layout
 

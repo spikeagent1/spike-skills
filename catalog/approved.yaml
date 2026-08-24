@@ -126,3 +126,35 @@ skills:
     status: approved
     cohort: portfolio-governance
     workshop_proposal: public-post-workshop-20260815-81ae9d1b08
+
+  - name: owner-context-onboarding
+    classification: owned
+    runtime_path: skills/owner-context-onboarding
+    repository_path: skills/owner-context-onboarding
+    status: approved
+    cohort: onboarding
+    workshop_proposal: owner-context-onboarding-20260824-2e38551b72
+
+  - name: mcp-connector-onboarding
+    classification: owned
+    runtime_path: skills/mcp-connector-onboarding
+    repository_path: skills/mcp-connector-onboarding
+    status: approved
+    cohort: onboarding
+    workshop_proposal: mcp-connector-onboarding-20260824-a4da028194
+
+  - name: runtime-handoff-onboarding
+    classification: owned
+    runtime_path: skills/runtime-handoff-onboarding
+    repository_path: skills/runtime-handoff-onboarding
+    status: approved
+    cohort: onboarding
+    workshop_proposal: runtime-handoff-onboarding-20260824-cfba35ad2d
+
+  - name: social-agent-onboarding
+    classification: owned
+    runtime_path: skills/social-agent-onboarding
+    repository_path: skills/social-agent-onboarding
+    status: approved
+    cohort: onboarding
+    workshop_proposal: social-agent-onboarding-20260824-94004d265c

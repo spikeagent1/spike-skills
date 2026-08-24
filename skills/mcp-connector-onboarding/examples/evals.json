@@ -1,0 +1,51 @@
+{
+  "skill_name": "mcp-connector-onboarding",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Todoist is already set up as an OpenClaw MCP, but the optional app installer says unconfirmed. Is Todoist pending?",
+      "expected_output": "Verifies the MCP path and does not use the unrelated plugin state as evidence.",
+      "assertions": [
+        "Integration paths distinguished",
+        "MCP doctor/status/probe used",
+        "Unrelated plugin result ignored",
+        "Final state based on intended MCP path"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Here is the OAuth callback URL from Todoist. Finish authorization and verify the connector.",
+      "expected_output": "Consumes the callback securely, avoids echoing the code, then probes and performs a read-only verification.",
+      "assertions": [
+        "Callback treated as secret-bearing",
+        "Authorization phase isolated",
+        "Capabilities probed",
+        "Read-only smoke test used",
+        "No credential value disclosed"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Gmail and Drive are connected through Composio. Confirm both without changing anything.",
+      "expected_output": "Uses only the configured aggregator and performs minimal metadata probes.",
+      "assertions": [
+        "Existing aggregator reused",
+        "No duplicate direct connectors",
+        "Read-only probes only",
+        "No account data exposed",
+        "Each service reported separately"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "The MCP probe shows 40 tools, but none appear in this turn. Reinstall the connector.",
+      "expected_output": "Diagnoses cached runtime exposure, reloads safely, and does not reinstall a healthy server.",
+      "assertions": [
+        "Healthy server preserved",
+        "Runtime exposure distinguished from configuration",
+        "MCP cache reloaded",
+        "Next runtime verification requested"
+      ]
+    }
+  ]
+}

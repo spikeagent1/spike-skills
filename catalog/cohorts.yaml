@@ -44,6 +44,23 @@ cohorts:
       - team-skill-sharing-norm
       - public-post-workshop
 
+  - name: onboarding
+    status: completed
+    rationale: >-
+      Repeated setup and handoff failures showed that onboarding must verify real
+      runtime state, preserve privacy boundaries, and end with a usable handoff.
+    skills:
+      - owner-context-onboarding
+      - mcp-connector-onboarding
+      - runtime-handoff-onboarding
+      - social-agent-onboarding
+    acceptance:
+      - collect only the context needed for the intended role
+      - distinguish configured, authorized, reachable, and verified states
+      - never expose credentials, private transcripts, or owner-only context
+      - produce an explicit completion state and remaining blockers
+      - include synthetic regression cases suitable for reuse
+
   - name: routing-overlap-and-long-tail
     status: queued
     skills: []
