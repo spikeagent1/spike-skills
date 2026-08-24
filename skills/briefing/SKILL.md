@@ -53,7 +53,7 @@ Keep the briefing concise. Every item carries a nearby citation and freshness ma
 ## Completion
 A briefing is complete only when every requested authoritative source is either queried successfully or explicitly classified by failure/coverage state, all material claims are cited, time-sensitive data is current, and the run performed no mutation.
 
-## Failure conditions
+## Operational failure conditions
 Fail review if the workflow advances a cursor; calls a write tool; uses stale calendar data as current; says no events from unavailable coverage; omits pagination; presents salience as fact; hides contradictions; or cites memory without source/freshness.
 
 ## Dependencies

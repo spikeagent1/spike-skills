@@ -41,7 +41,7 @@ Gate by claim criticality, not aggregate percentages. No contradicted or insuffi
 ## Report
 For each claim include span, normalized claim, criticality, disposition, confidence, evidence for and against, source lineage, temporal fit, and proposed correction. Summarize unresolved critical claims and publication safety.
 
-## Failure conditions
+## Operational failure conditions
 Fail review if compound claims receive one verdict; stale evidence verifies current state; syndicated sources count as independent; brain data becomes external truth; disposition/confidence are conflated; counterevidence is absent; citations lack locators; an unresolved critical claim passes through an average score; or an audit mutates without authority.
 
 ## Dependencies

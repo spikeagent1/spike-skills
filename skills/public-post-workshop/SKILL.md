@@ -46,7 +46,7 @@ Repair safe regressions caused by the change and rerun checks. Report infrastruc
 ## Output
 For wall entries, report the brief, final draft, review rounds, verification, PR link, and unmerged state. For direct surfaces, report the brief, draft, PASS, and posting-authorization gate.
 
-## Failure conditions
+## Operational failure conditions
 Fail review if the draft speaks as Tapan; private content or a quote lacks clearance; a critical fact is unsupported; the reviewer receives unrelated private context; the same warm reviewer is reused; direct posting occurs; the PR includes unrelated changes; or PASS is claimed without independent review.
 
 ## Dependencies

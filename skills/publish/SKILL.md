@@ -39,7 +39,7 @@ Update only the verified object identity and preserve or explicitly change its a
 ## Completion report
 Report source version, local artifact, external destination, visibility, expiry, effect state, verification evidence, retry/rollback state, and pending password delivery. Never print the password.
 
-## Failure conditions
+## Operational failure conditions
 Fail review if the workflow marks itself non-mutating; uploads or messages from a render-only request; prints a password; treats a pattern scrub as privacy proof; silently overwrites content; duplicates an object or message on retry; claims publication without readback; or overclaims revocation.
 
 ## Dependencies

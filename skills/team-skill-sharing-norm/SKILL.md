@@ -44,7 +44,7 @@ Spike does not silently install, execute, approve, or guarantee a shared skill.
 ## Completion
 Report artifact identity, evaluation evidence, adoption state, unmet requirements, and any owner-gated effect. Never call an announcement installed.
 
-## Failure conditions
+## Operational failure conditions
 Fail review if sharing is treated as authority; mutable source is accepted without a pin; provenance/license/effects are missing; credentials appear; a sender's permissions transfer; or a protocol version changes solely because this norm changed.
 
 ## When to use

@@ -66,7 +66,7 @@ Use cron-scheduler to create or update recurrence with explicit timezone, job id
 ## Completion
 Complete only when corpus integrity passed, every candidate has a terminal status, the private report matches the corpus hash, consolidation status is honest, the idempotency rerun is clean, and no identity/worldview candidate was applied.
 
-## Failure conditions
+## Operational failure conditions
 Fail review if the corpus includes non-owner authority; zero output is accepted despite expected activity; a fact lacks provenance; inferred belief is stored as direct owner preference; a worldview change is applied; a partial write is called complete; or a rerun duplicates state.
 
 ## Dependencies

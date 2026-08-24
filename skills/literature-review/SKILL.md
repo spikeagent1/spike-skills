@@ -44,7 +44,7 @@ If retrieval is sparse or fails, return a partial-results report. Never imply th
 ## Systematic-review boundary
 A systematic review requires an explicit protocol, broad database coverage, reproducible screening, deduplication, selection flow, appraisal, and stopping rule. If those are absent, call the output a scoped literature search or narrative evidence review.
 
-## Failure conditions
+## Review failure conditions
 Fail review if the workflow claims complete abstracts from every source; calls a fixed top-N search comprehensive; hides an engine failure; deduplicates only by DOI; ranks quality by citation count; writes beyond abstract/metadata evidence; omits currentness; or includes an unsupported citation.
 
 ## Dependencies

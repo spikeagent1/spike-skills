@@ -60,7 +60,7 @@ Validation uses held-out first-party samples plus authorized human review. Test 
 ## Output
 Return labeled draft options and a concise check result. Do not expose private source text, internal profile details, or sensitive clearance metadata. Never send or post.
 
-## Failure conditions
+## Operational failure conditions
 Fail review if identity is inferred from a name alone; profile consent is treated as universal; private text enters public copy; a direct or near quote lacks permission; absence becomes a rigid ban; an unsupported fact survives because it sounds in-voice; validation optimizes deception alone; or a draft is sent.
 
 ## Dependencies

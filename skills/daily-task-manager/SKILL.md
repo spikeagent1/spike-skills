@@ -57,7 +57,7 @@ Use exact states: DRAFT_LOCAL, PROVIDER_ACCEPTED_UNVERIFIED, PROVIDER_VERIFIED_M
 
 A task operation is complete only when the authoritative provider readback matches the intended state. Return action, provider task ID, mirror ID, provider account/project, state, verified fields, and any reconciliation remainder.
 
-## Failure conditions
+## Operational failure conditions
 Fail review if a brain write is reported as Todoist success; authentication is assumed from configuration alone; an identical retry creates a duplicate; a partial list is treated as complete; ambiguity mutates a task; provider state is not read back; or the owner cannot locate the task in the named account/project.
 
 ## Dependencies

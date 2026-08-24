@@ -66,7 +66,7 @@ Use search/query/get and synonyms or adjacent phrasing before a negative answer.
 ## Receipt
 Report mode, source type, authorized scope, created/skipped/conflicted/quarantined/excluded counts, privacy-redaction counts, parser and indexing verification, gap reconciliation, idempotency result, extraction spend/result, and remaining recovery steps.
 
-## Failure conditions
+## Operational failure conditions
 Fail review if retrieval mutates; raw secrets or PII reach an indexed write or receipt; a collision can overwrite content; bulk begins before a passing trial; import authority is treated as spend authority; retries duplicate pages; or partial work is called complete.
 
 ## Dependencies

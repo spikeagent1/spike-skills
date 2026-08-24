@@ -398,6 +398,23 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("public section 'When to use' is placeholder text", output)
         self.assertIn("public section 'When not to use' duplicates 'When to use'", output)
 
+    def test_approved_public_contract_rejects_duplicate_required_heading(self) -> None:
+        skill_path = self.root / "skills/approved-skill/SKILL.md"
+        text = skill_path.read_text(encoding="utf-8")
+        self._write(
+            "skills/approved-skill/SKILL.md",
+            text + "\n## Failure conditions\nTODO\n",
+        )
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "public section 'Failure conditions' appears 2 times; expected exactly once",
+            output,
+        )
+
     def test_schema_fallback_enforces_quality(self) -> None:
         errors: list[str] = []
         original_jsonschema = validate_repo.jsonschema

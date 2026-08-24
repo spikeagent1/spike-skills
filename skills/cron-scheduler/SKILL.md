@@ -53,7 +53,7 @@ If verification fails, restore the prior definition or remove only the newly cre
 ## Report
 Report action, stable ID/key, timezone and schedule, upcoming runs, runner, target account, delivery behavior, verification evidence, and rollback state. An accepted API request is not completion.
 
-## Failure conditions
+## Operational failure conditions
 Fail review if the workflow mutates before discovery; creates a duplicate; uses an ambiguous timezone; silently changes requested timing; conflates execution and delivery; lacks occurrence-level idempotency; checkpoints before verification; claims success without readback; or cannot identify a precise rollback target.
 
 ## Dependencies

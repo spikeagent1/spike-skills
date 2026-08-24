@@ -334,6 +334,16 @@ def normalized_body(text: str) -> str:
 def validate_public_section_bodies(rel: Path, text: str, errors: list[str]) -> None:
     seen: dict[str, str] = {}
     for heading in PUBLIC_SKILL_SECTIONS:
+        occurrences = re.findall(
+            rf"^##+\s+{re.escape(heading)}\s*$", text, re.MULTILINE
+        )
+        if len(occurrences) > 1:
+            add_error(
+                errors,
+                f"{rel}/SKILL.md: public section {heading!r} appears "
+                f"{len(occurrences)} times; expected exactly once",
+            )
+            continue
         body = section_body(text, heading)
         if body is None:
             continue
