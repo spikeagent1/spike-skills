@@ -72,3 +72,7 @@ Report:
 - durable writes and recall evidence;
 - deferred or declined topics;
 - the single next question, if any.
+
+## Dependencies
+
+Use only the connectors, local files, scripts, or source material explicitly named by the user or by this skill. If a dependency is unavailable, report the blocked phase instead of fabricating completion. No hidden hosted dependency, shared user database, or cross-skill private storage.

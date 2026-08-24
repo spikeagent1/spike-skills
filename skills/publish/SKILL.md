@@ -41,3 +41,12 @@ Report source version, local artifact, external destination, visibility, expiry,
 
 ## Failure conditions
 Fail review if the workflow marks itself non-mutating; uploads or messages from a render-only request; prints a password; treats a pattern scrub as privacy proof; silently overwrites content; duplicates an object or message on retry; claims publication without readback; or overclaims revocation.
+
+## Dependencies
+
+Use only the connectors, local files, scripts, or source material explicitly named by the user or by this skill. If a dependency is unavailable, report the blocked phase instead of fabricating completion. No hidden hosted dependency, shared user database, or cross-skill private storage.
+
+
+## Provenance
+
+Owned by Spike unless catalog metadata marks the skill as adapted. Public repository content is maintained as portable skill source with synthetic fixtures only.

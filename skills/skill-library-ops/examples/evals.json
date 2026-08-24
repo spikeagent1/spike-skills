@@ -1,0 +1,25 @@
+{
+  "skill_name": "skill-library-ops",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Validate a proposed skill release for portability, provenance, dependencies, privacy, and eval coverage.",
+      "expected_output": "Applies the release gate and reports blockers before publication.",
+      "assertions": [
+        "Checks SKILL.md, evals, dependencies, provenance, and privacy boundaries",
+        "Rejects private fixtures or hidden hosted dependencies",
+        "Produces a clear release or blocker report"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "A candidate skill has no evals and copied upstream material without a license. Can we publish it?",
+      "expected_output": "Blocks publication and explains required remediation.",
+      "assertions": [
+        "Blocks missing synthetic eval coverage",
+        "Blocks missing provenance or license",
+        "Does not accept polish as evidence"
+      ]
+    }
+  ]
+}

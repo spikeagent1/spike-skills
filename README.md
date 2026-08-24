@@ -6,9 +6,9 @@ This repository is the source of truth for skills we own or explicitly adapt. Ru
 
 ## Current work
 
-Audience/community, safety/state-mutation, owner-operations, research/writing, portfolio-governance, and onboarding cohorts now have evaluated releases. Routing-overlap and long-tail cleanup is next.
+Audience/community, safety/state-mutation, owner-operations, research/writing, portfolio-governance, and onboarding cohorts have evaluated releases. Health and home/lifestyle candidate packages are present in `skills/` while their Skill Workshop proposals remain pending review. Wealth, travel/mobility, routing-overlap, and long-tail cleanup are next.
 
-Candidate skills enter through Skill Workshop proposals. A proposal is not copied into `skills/` until it is reviewed and explicitly applied. Released skills carry synthetic evaluation cases, provenance, compatibility notes, and a benchmark summary.
+Candidate skills enter through Skill Workshop proposals. Candidate packages may appear in `skills/` on `main` for inspection before approval only when the repository contract marks them `pending-review`, keeps them in domain `next` lists instead of `released` lists, records the real proposal ID, and passes validation. Presence in this repository does not approve, apply, install, or release a Skill Workshop proposal. Released skills carry synthetic evaluation cases, provenance, compatibility notes, and a benchmark summary.
 
 Start with the [onboarding collection](ONBOARDING.md) when setting up a new owner relationship, connector, runtime handoff, or social-agent identity.
 
@@ -17,12 +17,32 @@ Start with the [onboarding collection](ONBOARDING.md) when setting up a new owne
 ```text
 catalog/             Cohorts and skill inventory
 imports/             Pinned upstream material, unchanged
-skills/              Approved owned/adapted skills
+skills/              Approved owned/adapted skills plus pending-review candidates
 evals/reports/       Shareable benchmark summaries
 evals/workspaces/    Local generated runs; ignored
 schemas/             Validation schemas
 tools/               Deterministic audit helpers
 ```
+
+## Review a candidate
+
+Each candidate package uses `SKILL.md` as its package-level user and reviewer
+documentation. It must define when to use the skill, required inputs, workflow,
+source freshness, privacy and mutation boundaries, safety boundaries, output
+contract, dependencies, provenance, and failure conditions. The adjacent
+`examples/evals.json` must exercise normal behavior, edge cases, factual
+uncertainty, and authorization before mutations.
+
+Run the local gate from the repository root:
+
+```sh
+python3 -m py_compile tools/validate_repo.py tests/test_validate_repo.py
+python3 -m unittest discover -s tests
+python3 tools/validate_repo.py
+```
+
+`make validate` runs the same commands when `make` is installed. Candidate
+review does not apply, install, or release a Skill Workshop proposal.
 
 ## Release gate
 
@@ -32,6 +52,7 @@ tools/               Deterministic audit helpers
 4. Review outputs, objective checks, latency, and token use.
 5. Verify dependencies, provenance, license, privacy, and mutation scope.
 6. Apply the Skill Workshop proposal only after explicit approval.
-7. Commit one coherent skill change and publish through a pull request.
+7. Run `make validate` to compile validation code, run validator tests, and check manifests, eval schema structure, catalogs, dependencies, provenance, ignored local state, and obvious secrets. When `make` is unavailable, run the three commands in the Makefile directly.
+8. Commit one coherent skill change and publish through a pull request.
 
 The public remote is `spikeagent1/spike-skills`. Public releases exclude credentials, private memory, raw conversations, and internal operational weakness reports.

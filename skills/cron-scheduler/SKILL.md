@@ -55,3 +55,12 @@ Report action, stable ID/key, timezone and schedule, upcoming runs, runner, targ
 
 ## Failure conditions
 Fail review if the workflow mutates before discovery; creates a duplicate; uses an ambiguous timezone; silently changes requested timing; conflates execution and delivery; lacks occurrence-level idempotency; checkpoints before verification; claims success without readback; or cannot identify a precise rollback target.
+
+## Dependencies
+
+Use only the connectors, local files, scripts, or source material explicitly named by the user or by this skill. If a dependency is unavailable, report the blocked phase instead of fabricating completion. No hidden hosted dependency, shared user database, or cross-skill private storage.
+
+
+## Provenance
+
+Owned by Spike unless catalog metadata marks the skill as adapted. Public repository content is maintained as portable skill source with synthetic fixtures only.

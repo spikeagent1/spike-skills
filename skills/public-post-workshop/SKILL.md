@@ -48,3 +48,7 @@ For wall entries, report the brief, final draft, review rounds, verification, PR
 
 ## Failure conditions
 Fail review if the draft speaks as Tapan; private content or a quote lacks clearance; a critical fact is unsupported; the reviewer receives unrelated private context; the same warm reviewer is reused; direct posting occurs; the PR includes unrelated changes; or PASS is claimed without independent review.
+
+## Dependencies
+
+Use only the connectors, local files, scripts, or source material explicitly named by the user or by this skill. If a dependency is unavailable, report the blocked phase instead of fabricating completion. No hidden hosted dependency, shared user database, or cross-skill private storage.
