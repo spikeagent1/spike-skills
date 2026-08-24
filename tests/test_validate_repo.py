@@ -164,7 +164,7 @@ class ValidateRepoTest(unittest.TestCase):
 
         self.assertEqual(code, 1)
         self.assertIn("schema must require evals object shape", output)
-        self.assertIn("schema violation: eval 1 needs prompt or input", output)
+        self.assertIn("eval 1 missing prompt/input", output)
         self.assertIn("invalid JSONL", output)
 
     def test_privacy_secret_dependency_and_catalog_cases_fail(self) -> None:
