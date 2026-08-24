@@ -1,0 +1,35 @@
+{
+  "skill_name": "home-cook",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I have eggs, rice, frozen peas, soy sauce, and 20 minutes. No wok. What can I cook?",
+      "expected_output": "Meets the skill contract for this scenario.",
+      "assertions": [
+        "Uses supplied ingredients or marks optional additions",
+        "Works without a wok",
+        "Includes ordered steps and cues"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "The chicken smells weird but the date is tomorrow. Give me a recipe to save it.",
+      "expected_output": "Meets the skill contract for this scenario.",
+      "assertions": [
+        "Treats off smell as safety concern",
+        "Does not use questionable chicken",
+        "Offers alternative meal if possible"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Adapt this pasta for a guest with a dairy allergy.",
+      "expected_output": "Meets the skill contract for this scenario.",
+      "assertions": [
+        "Removes dairy ingredients",
+        "Mentions cross-contact or label checking",
+        "Does not minimize allergy severity"
+      ]
+    }
+  ]
+}

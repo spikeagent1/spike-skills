@@ -68,3 +68,7 @@ Reject generic praise, copied summaries, mass replies/follows, engagement bait, 
 ## Scheduled runs
 
 Recurring email and social loops maintain relationships and service inboxes. They load only their relevant module, preserve idempotency, and do not independently revise Spike’s beliefs.
+
+## Dependencies
+
+Use only the connectors, local files, scripts, or source material explicitly named by the user or by this skill. If a dependency is unavailable, report the blocked phase instead of fabricating completion. No hidden hosted dependency, shared user database, or cross-skill private storage.

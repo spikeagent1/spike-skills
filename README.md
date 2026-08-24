@@ -6,7 +6,7 @@ This repository is the source of truth for skills we own or explicitly adapt. Ru
 
 ## Current work
 
-Audience/community, safety/state-mutation, owner-operations, research/writing, portfolio-governance, and onboarding cohorts now have evaluated releases. Routing-overlap and long-tail cleanup is next.
+Audience/community, health and home/lifestyle, safety/state-mutation, owner-operations, research/writing, portfolio-governance, and onboarding cohorts now have evaluated releases. Wealth, travel/mobility, routing-overlap, and long-tail cleanup are next.
 
 Candidate skills enter through Skill Workshop proposals. A proposal is not copied into `skills/` until it is reviewed and explicitly applied. Released skills carry synthetic evaluation cases, provenance, compatibility notes, and a benchmark summary.
 
@@ -32,6 +32,7 @@ tools/               Deterministic audit helpers
 4. Review outputs, objective checks, latency, and token use.
 5. Verify dependencies, provenance, license, privacy, and mutation scope.
 6. Apply the Skill Workshop proposal only after explicit approval.
-7. Commit one coherent skill change and publish through a pull request.
+7. Run `make validate` to check manifests, evals, catalogs, dependencies, provenance, ignored local state, and obvious secrets.
+8. Commit one coherent skill change and publish through a pull request.
 
 The public remote is `spikeagent1/spike-skills`. Public releases exclude credentials, private memory, raw conversations, and internal operational weakness reports.

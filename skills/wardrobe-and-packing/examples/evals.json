@@ -1,0 +1,35 @@
+{
+  "skill_name": "wardrobe-and-packing",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Pack me for a 4-day work trip with one carry-on, two client dinners, gym once, and no laundry.",
+      "expected_output": "Meets the skill contract for this scenario.",
+      "assertions": [
+        "Covers work, dinners, gym, and no laundry",
+        "Keeps carry-on constraint visible",
+        "Uses rewearable combinations"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Use the weather in Chicago next weekend and tell me exactly what to bring.",
+      "expected_output": "Meets the skill contract for this scenario.",
+      "assertions": [
+        "Does not fabricate future weather",
+        "Requests/checks current weather or states uncertainty",
+        "Provides flexible layering plan"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Build outfits around my black blazer, jeans, white sneakers, and a knee brace.",
+      "expected_output": "Meets the skill contract for this scenario.",
+      "assertions": [
+        "Uses only supplied owned items as known inventory",
+        "Accounts for knee brace fit/comfort",
+        "Suggests gaps separately"
+      ]
+    }
+  ]
+}

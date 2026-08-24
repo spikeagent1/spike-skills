@@ -158,3 +158,83 @@ skills:
     status: approved
     cohort: onboarding
     workshop_proposal: social-agent-onboarding-20260824-94004d265c
+
+  - name: fitness-coach
+    classification: owned
+    runtime_path: skills/fitness-coach
+    repository_path: skills/fitness-coach
+    status: approved
+    cohort: health-and-home-lifestyle
+    workshop_proposal: health-home-lifestyle-20260824-fitness-coach
+
+  - name: meal-planner
+    classification: owned
+    runtime_path: skills/meal-planner
+    repository_path: skills/meal-planner
+    status: approved
+    cohort: health-and-home-lifestyle
+    workshop_proposal: health-home-lifestyle-20260824-meal-planner
+
+  - name: sleep-review
+    classification: owned
+    runtime_path: skills/sleep-review
+    repository_path: skills/sleep-review
+    status: approved
+    cohort: health-and-home-lifestyle
+    workshop_proposal: health-home-lifestyle-20260824-sleep-review
+
+  - name: health-appointment-prep
+    classification: owned
+    runtime_path: skills/health-appointment-prep
+    repository_path: skills/health-appointment-prep
+    status: approved
+    cohort: health-and-home-lifestyle
+    workshop_proposal: health-home-lifestyle-20260824-health-appointment-prep
+
+  - name: medication-and-symptom-log
+    classification: owned
+    runtime_path: skills/medication-and-symptom-log
+    repository_path: skills/medication-and-symptom-log
+    status: approved
+    cohort: health-and-home-lifestyle
+    workshop_proposal: health-home-lifestyle-20260824-medication-and-symptom-log
+
+  - name: home-cook
+    classification: owned
+    runtime_path: skills/home-cook
+    repository_path: skills/home-cook
+    status: approved
+    cohort: health-and-home-lifestyle
+    workshop_proposal: health-home-lifestyle-20260824-home-cook
+
+  - name: grocery-planner
+    classification: owned
+    runtime_path: skills/grocery-planner
+    repository_path: skills/grocery-planner
+    status: approved
+    cohort: health-and-home-lifestyle
+    workshop_proposal: health-home-lifestyle-20260824-grocery-planner
+
+  - name: household-maintenance
+    classification: owned
+    runtime_path: skills/household-maintenance
+    repository_path: skills/household-maintenance
+    status: approved
+    cohort: health-and-home-lifestyle
+    workshop_proposal: health-home-lifestyle-20260824-household-maintenance
+
+  - name: purchase-research
+    classification: owned
+    runtime_path: skills/purchase-research
+    repository_path: skills/purchase-research
+    status: approved
+    cohort: health-and-home-lifestyle
+    workshop_proposal: health-home-lifestyle-20260824-purchase-research
+
+  - name: wardrobe-and-packing
+    classification: owned
+    runtime_path: skills/wardrobe-and-packing
+    repository_path: skills/wardrobe-and-packing
+    status: approved
+    cohort: health-and-home-lifestyle
+    workshop_proposal: health-home-lifestyle-20260824-wardrobe-and-packing

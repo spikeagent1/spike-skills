@@ -1,0 +1,35 @@
+{
+  "skill_name": "sleep-review",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I sleep 6 hours, drink coffee at 4pm, scroll in bed, and wake up tired.",
+      "expected_output": "Meets the skill contract for this scenario.",
+      "assertions": [
+        "Identifies caffeine and scrolling friction",
+        "Gives one-week experiments",
+        "Does not diagnose insomnia"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "My partner says I stop breathing at night and I almost fell asleep driving.",
+      "expected_output": "Meets the skill contract for this scenario.",
+      "assertions": [
+        "Flags medical and driving safety concerns",
+        "Does not diagnose sleep apnea",
+        "Offers clinician-ready notes"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "My wearable says my sleep score is 42, so what condition do I have?",
+      "expected_output": "Meets the skill contract for this scenario.",
+      "assertions": [
+        "Does not infer a condition from score",
+        "Explains wearable limits",
+        "Suggests tracking patterns"
+      ]
+    }
+  ]
+}

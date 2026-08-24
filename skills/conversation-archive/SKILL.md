@@ -68,3 +68,12 @@ Report mode, source type, authorized scope, created/skipped/conflicted/quarantin
 
 ## Failure conditions
 Fail review if retrieval mutates; raw secrets or PII reach an indexed write or receipt; a collision can overwrite content; bulk begins before a passing trial; import authority is treated as spend authority; retries duplicate pages; or partial work is called complete.
+
+## Dependencies
+
+Use only the connectors, local files, scripts, or source material explicitly named by the user or by this skill. If a dependency is unavailable, report the blocked phase instead of fabricating completion. No hidden hosted dependency, shared user database, or cross-skill private storage.
+
+
+## Provenance
+
+Owned by Spike unless catalog metadata marks the skill as adapted. Public repository content is maintained as portable skill source with synthetic fixtures only.

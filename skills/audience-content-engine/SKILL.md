@@ -138,3 +138,12 @@ Refuse or correct requests to:
 - follow arbitrary content quotas when no useful source exists;
 - present stale platform folklore as a rule;
 - turn every piece of work into content regardless of audience value.
+
+## Dependencies
+
+Use only the connectors, local files, scripts, or source material explicitly named by the user or by this skill. If a dependency is unavailable, report the blocked phase instead of fabricating completion. No hidden hosted dependency, shared user database, or cross-skill private storage.
+
+
+## Provenance
+
+Owned by Spike unless catalog metadata marks the skill as adapted. Public repository content is maintained as portable skill source with synthetic fixtures only.

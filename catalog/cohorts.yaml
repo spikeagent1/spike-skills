@@ -64,3 +64,27 @@ cohorts:
   - name: routing-overlap-and-long-tail
     status: queued
     skills: []
+
+  - name: health-and-home-lifestyle
+    status: completed
+    rationale: >-
+      The life-domain roadmap prioritizes everyday health and household utility
+      after the first audience/community releases. This cohort ships advisory,
+      local-only skills with medical, safety, and current-source boundaries.
+    skills:
+      - fitness-coach
+      - meal-planner
+      - sleep-review
+      - health-appointment-prep
+      - medication-and-symptom-log
+      - home-cook
+      - grocery-planner
+      - household-maintenance
+      - purchase-research
+      - wardrobe-and-packing
+    acceptance:
+      - health skills prepare, plan, and summarize without diagnosing or treating
+      - urgent health and household safety red flags escalate instead of producing unsafe instructions
+      - current prices, inventory, weather, recalls, specs, and medical claims require current sources or uncertainty
+      - every skill declares dependencies, provenance, privacy boundaries, and synthetic evals
+      - repository validation passes before release

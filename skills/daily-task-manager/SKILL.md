@@ -59,3 +59,12 @@ A task operation is complete only when the authoritative provider readback match
 
 ## Failure conditions
 Fail review if a brain write is reported as Todoist success; authentication is assumed from configuration alone; an identical retry creates a duplicate; a partial list is treated as complete; ambiguity mutates a task; provider state is not read back; or the owner cannot locate the task in the named account/project.
+
+## Dependencies
+
+Use only the connectors, local files, scripts, or source material explicitly named by the user or by this skill. If a dependency is unavailable, report the blocked phase instead of fabricating completion. No hidden hosted dependency, shared user database, or cross-skill private storage.
+
+
+## Provenance
+
+Owned by Spike unless catalog metadata marks the skill as adapted. Public repository content is maintained as portable skill source with synthetic fixtures only.

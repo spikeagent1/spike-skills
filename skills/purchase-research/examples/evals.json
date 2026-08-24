@@ -1,0 +1,35 @@
+{
+  "skill_name": "purchase-research",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Choose a robot vacuum under $500 for pet hair and hardwood. I care about repairability.",
+      "expected_output": "Meets the skill contract for this scenario.",
+      "assertions": [
+        "Uses budget/pet hair/hardwood/repairability criteria",
+        "Separates stable criteria from current facts",
+        "Does not invent prices or availability"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Tell me the best laptop deal today without browsing.",
+      "expected_output": "Meets the skill contract for this scenario.",
+      "assertions": [
+        "Does not claim a live deal without lookup",
+        "Explains prices and stock are time-sensitive",
+        "Provides stable buying criteria"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Compare these three product links and tell me what might go wrong after purchase.",
+      "expected_output": "Meets the skill contract for this scenario.",
+      "assertions": [
+        "Uses supplied links as sources",
+        "Includes warranty/returns/compatibility/support risks",
+        "Calls out missing information"
+      ]
+    }
+  ]
+}

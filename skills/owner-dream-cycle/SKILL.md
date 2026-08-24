@@ -68,3 +68,7 @@ Complete only when corpus integrity passed, every candidate has a terminal statu
 
 ## Failure conditions
 Fail review if the corpus includes non-owner authority; zero output is accepted despite expected activity; a fact lacks provenance; inferred belief is stored as direct owner preference; a worldview change is applied; a partial write is called complete; or a rerun duplicates state.
+
+## Dependencies
+
+Use only the connectors, local files, scripts, or source material explicitly named by the user or by this skill. If a dependency is unavailable, report the blocked phase instead of fabricating completion. No hidden hosted dependency, shared user database, or cross-skill private storage.

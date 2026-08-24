@@ -46,3 +46,12 @@ A systematic review requires an explicit protocol, broad database coverage, repr
 
 ## Failure conditions
 Fail review if the workflow claims complete abstracts from every source; calls a fixed top-N search comprehensive; hides an engine failure; deduplicates only by DOI; ranks quality by citation count; writes beyond abstract/metadata evidence; omits currentness; or includes an unsupported citation.
+
+## Dependencies
+
+Use only the connectors, local files, scripts, or source material explicitly named by the user or by this skill. If a dependency is unavailable, report the blocked phase instead of fabricating completion. No hidden hosted dependency, shared user database, or cross-skill private storage.
+
+
+## Provenance
+
+Owned by Spike unless catalog metadata marks the skill as adapted. Public repository content is maintained as portable skill source with synthetic fixtures only.

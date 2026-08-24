@@ -40,3 +40,33 @@ For each skill:
 ## Released cohorts
 
 The evaluated safety/state-mutation, owner-operations, research/writing, and portfolio-governance packages are released. Routing-overlap and long-tail cleanup follows; unresolved candidates remain unpublished until they pass their own gates.
+
+## Cohort 2: health and home/lifestyle — released
+
+This release closes the first everyday-life slice after audience/community with
+portable, advisory skills rather than a hosted personal-data platform.
+
+Released health skills:
+
+- fitness-coach
+- meal-planner
+- sleep-review
+- health-appointment-prep
+- medication-and-symptom-log
+
+Released home/lifestyle skills:
+
+- home-cook
+- grocery-planner
+- household-maintenance
+- purchase-research
+- wardrobe-and-packing
+
+Acceptance evidence:
+
+- synthetic eval cases for normal planning, red-flag escalation, source freshness,
+  allergy/safety constraints, and refusal to fabricate personal or current facts;
+- explicit dependencies and provenance in every `SKILL.md`;
+- deterministic `make validate` gate for manifests, evals, catalogs, privacy,
+  dependency declarations, and obvious secrets;
+- local-only persistence language where a skill may write user-owned files.
