@@ -55,7 +55,9 @@ class ValidateRepoTest(unittest.TestCase):
             "## Provenance\n"
             "Repo-owned synthetic fixture.\n\n"
             "## When to use\nFixture requests.\n\n"
+            "## When not to use\nNon-fixture requests.\n\n"
             "## Required inputs\nFixture input.\n\n"
+            "## Optional inputs\nFixture options.\n\n"
             "## Workflow\nValidate the fixture.\n\n"
             "## Sources and freshness\nNo current sources required.\n\n"
             "## Privacy and mutations\nNo mutation.\n\n"
@@ -69,10 +71,14 @@ class ValidateRepoTest(unittest.TestCase):
             "skill_name": name,
             "evals": [
                 {
-                    "id": 1,
-                    "prompt": "Use the fixture skill.",
-                    "assertions": ["Uses the named skill", "Avoids private state"],
+                    "id": index,
+                    "prompt": f"Exercise fixture scenario {index} for {name}.",
+                    "assertions": [
+                        "Reports the fixture boundary and outcome",
+                        "Avoids private state and hidden dependencies",
+                    ],
                 }
+                for index in range(1, 5)
             ],
         }
 
@@ -89,10 +95,18 @@ class ValidateRepoTest(unittest.TestCase):
             "catalog/approved.yaml",
             "skills:\n"
             "  - name: approved-skill\n"
+            "    classification: owned\n"
+            "    runtime_path: skills/approved-skill\n"
+            "    repository_path: skills/approved-skill\n"
             "    status: approved\n"
+            "    cohort: test\n"
             "    workshop_proposal: approved-skill-20260824-1234567890\n"
             "  - name: pending-skill\n"
+            "    classification: owned\n"
+            "    runtime_path: skills/pending-skill\n"
+            "    repository_path: skills/pending-skill\n"
             "    status: pending-review\n"
+            "    cohort: test\n"
             "    workshop_proposal: pending-skill-20260824-abcdef1234\n",
         )
         self._write(
@@ -107,8 +121,20 @@ class ValidateRepoTest(unittest.TestCase):
         self._write(
             "catalog/sources.yaml",
             "sources:\n"
+            "  approved-skill:\n"
+            "    classification: owned\n"
+            "    runtime_path: skills/approved-skill\n"
+            "    repository_path: skills/approved-skill\n"
+            "    status: approved\n"
+            "    cohort: test\n"
+            "    provenance: repo-owned\n"
             "  pending-skill:\n"
-            "    status: pending-review\n",
+            "    classification: owned\n"
+            "    runtime_path: skills/pending-skill\n"
+            "    repository_path: skills/pending-skill\n"
+            "    status: pending-review\n"
+            "    cohort: test\n"
+            "    provenance: repo-owned\n",
         )
         subprocess.run(
             ["git", "init", "--initial-branch", "main"],
@@ -252,6 +278,205 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn(
             "pending-review skill missing section '## Workflow'",
+            output,
+        )
+
+    def test_approved_skill_requires_public_operator_contract(self) -> None:
+        skill_path = self.root / "skills/approved-skill/SKILL.md"
+        self._write(
+            "skills/approved-skill/SKILL.md",
+            skill_path.read_text(encoding="utf-8").replace("## When to use", "## Trigger"),
+        )
+        subprocess.run(
+            ["git", "add", "."],
+            cwd=self.root,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("approved skill missing public section 'When to use'", output)
+
+    def test_non_informative_eval_assertions_fail(self) -> None:
+        evals = self._evals("approved-skill")
+        evals["evals"][0]["assertions"] = [
+            "Uses the skill",
+            "Avoids private state",
+        ]
+        self._write_json("skills/approved-skill/examples/evals.json", evals)
+        subprocess.run(
+            ["git", "add", "."],
+            cwd=self.root,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("uses non-informative assertion 'Uses the skill'", output)
+
+    def test_skill_requires_four_eval_cases_across_files(self) -> None:
+        self._write_json(
+            "skills/approved-skill/examples/evals.json",
+            {
+                "skill_name": "approved-skill",
+                "evals": [
+                    {
+                        "id": 1,
+                        "prompt": "Only one behavioral case",
+                        "assertions": ["Names the exact boundary checked", "Reports the blocker clearly"],
+                    }
+                ],
+            },
+        )
+        subprocess.run(
+            ["git", "add", "."],
+            cwd=self.root,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("needs at least 4 synthetic eval cases, found 1", output)
+
+
+    def test_routing_jsonl_does_not_satisfy_behavioral_eval_minimum(self) -> None:
+        evals = self._evals("approved-skill")
+        evals["evals"] = evals["evals"][:1]
+        self._write_json("skills/approved-skill/examples/evals.json", evals)
+        self._write("skills/approved-skill/routing-eval.jsonl", "{}\n{}\n{}\n{}\n")
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("needs at least 4 synthetic eval cases, found 1", output)
+
+    def test_source_catalog_requires_inventory_parity(self) -> None:
+        sources = (self.root / "catalog/sources.yaml").read_text(encoding="utf-8")
+        self._write(
+            "catalog/sources.yaml",
+            sources.replace("    cohort: test\n    provenance: repo-owned\n", "    cohort: drifted\n    provenance: repo-owned\n", 1),
+        )
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("approved-skill cohort 'drifted' does not match catalog/approved.yaml 'test'", output)
+
+    def test_source_catalog_requires_entries_for_all_skills(self) -> None:
+        sources = (self.root / "catalog/sources.yaml").read_text(encoding="utf-8")
+        self._write("catalog/sources.yaml", sources.replace("  approved-skill:\n", "  missing-name:\n", 1))
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("missing source entry for approved-skill", output)
+        self.assertIn("source missing-name has no skills/missing-name directory", output)
+
+    def test_adapted_source_requires_complete_metadata(self) -> None:
+        sources = (self.root / "catalog/sources.yaml").read_text(encoding="utf-8")
+        self._write(
+            "catalog/sources.yaml",
+            sources.replace("    classification: owned\n", "    classification: adapted\n", 1),
+        )
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("approved-skill adapted source needs upstream", output)
+        self.assertIn("approved-skill adapted source needs license", output)
+        self.assertIn("approved-skill adapted source needs immutable commit or digest", output)
+
+    def test_catalog_rejects_omissions_unknown_types_and_unsafe_paths(self) -> None:
+        approved = (self.root / "catalog/approved.yaml").read_text(encoding="utf-8")
+        sources = (self.root / "catalog/sources.yaml").read_text(encoding="utf-8")
+        approved = approved.replace("    classification: owned\n", "    classification: mystery\n", 1)
+        sources = sources.replace("    classification: owned\n", "    classification: mystery\n", 1)
+        approved = approved.replace("    runtime_path: skills/approved-skill\n", "", 1)
+        sources = sources.replace("    runtime_path: skills/approved-skill\n", "", 1)
+        approved = approved.replace("    repository_path: skills/approved-skill\n", "    repository_path: ../../approved-skill\n", 1)
+        sources = sources.replace("    repository_path: skills/approved-skill\n", "    repository_path: ../../approved-skill\n", 1)
+        self._write("catalog/approved.yaml", approved)
+        self._write("catalog/sources.yaml", sources)
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("approved-skill missing required field runtime_path", output)
+        self.assertIn("approved-skill has unknown classification \x27mystery\x27", output)
+        self.assertIn("approved-skill repository_path must be \x27skills/approved-skill\x27", output)
+
+    def test_yaml_comment_cannot_bypass_adapted_provenance(self) -> None:
+        approved = (self.root / "catalog/approved.yaml").read_text(encoding="utf-8")
+        sources = (self.root / "catalog/sources.yaml").read_text(encoding="utf-8")
+        self._write("catalog/approved.yaml", approved.replace("classification: owned", "classification: adapted # note", 1))
+        self._write("catalog/sources.yaml", sources.replace("classification: owned", "classification: adapted # note", 1))
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("approved-skill adapted source needs upstream", output)
+
+    def test_adapted_source_rejects_placeholder_immutable_pin(self) -> None:
+        approved = (self.root / "catalog/approved.yaml").read_text(encoding="utf-8")
+        sources = (self.root / "catalog/sources.yaml").read_text(encoding="utf-8")
+        self._write("catalog/approved.yaml", approved.replace("classification: owned", "classification: adapted", 1))
+        replacement = (
+            "    classification: adapted\n"
+            "    upstream: https://example.com/skill\n"
+            "    publisher: Example Publisher\n"
+            "    version: 1.0.0\n"
+            "    license: MIT\n"
+            "    local_modifications: Added a portable public contract.\n"
+            "    commit: TODO\n"
+        )
+        self._write("catalog/sources.yaml", sources.replace("    classification: owned\n", replacement, 1))
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("approved-skill commit is not a valid immutable identifier", output)
+
+    def test_approved_public_contract_rejects_weak_bodies(self) -> None:
+        skill_path = self.root / "skills/approved-skill/SKILL.md"
+        text = skill_path.read_text(encoding="utf-8")
+        text = text.replace("Fixture requests.", "TODO")
+        text = text.replace("Non-fixture requests.", "TODO")
+        self._write("skills/approved-skill/SKILL.md", text)
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("public section 'When to use' is placeholder text", output)
+        self.assertIn("public section 'When not to use' duplicates 'When to use'", output)
+
+    def test_approved_public_contract_rejects_duplicate_required_heading(self) -> None:
+        skill_path = self.root / "skills/approved-skill/SKILL.md"
+        text = skill_path.read_text(encoding="utf-8")
+        self._write(
+            "skills/approved-skill/SKILL.md",
+            text + "\n## Failure conditions\nTODO\n",
+        )
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "public section 'Failure conditions' appears 2 times; expected exactly once",
             output,
         )
 

@@ -44,7 +44,7 @@ If retrieval is sparse or fails, return a partial-results report. Never imply th
 ## Systematic-review boundary
 A systematic review requires an explicit protocol, broad database coverage, reproducible screening, deduplication, selection flow, appraisal, and stopping rule. If those are absent, call the output a scoped literature search or narrative evidence review.
 
-## Failure conditions
+## Review failure conditions
 Fail review if the workflow claims complete abstracts from every source; calls a fixed top-N search comprehensive; hides an engine failure; deduplicates only by DOI; ranks quality by citation count; writes beyond abstract/metadata evidence; omits currentness; or includes an unsupported citation.
 
 ## Dependencies
@@ -54,4 +54,43 @@ Use only the connectors, local files, scripts, or source material explicitly nam
 
 ## Provenance
 
-Owned by Spike unless catalog metadata marks the skill as adapted. Public repository content is maintained as portable skill source with synthetic fixtures only.
+Adapted for this repository from the ClawHub package `weird-aftertaste/literature-review` version 1.2.0 at `https://clawhub.ai/weird-aftertaste/skills/literature-review`, published by `weird-aftertaste` under MIT-0, with archive SHA-256 `4fc44a5f45ae6820c08adc0a7aa4276aaa640e4eee3bd667059bceead772021e` and imported `SKILL.md` SHA-256 `c2f51919e7a65e36fb47a18dc09c451f59e046121c51e6bbcc002abfa9167b04`. Local modifications removed comprehensive-search and complete-abstract overclaims, made source failures and evidence level explicit, required reproducible search logs and appraisal, and added safety, privacy, public-contract, synthetic-eval, and attribution boundaries. No endorsement by any upstream source is implied.
+
+## When to use
+Use this skill for scoped research-paper discovery, screening, synthesis, and evidence mapping across academic or technical literature.
+
+## When not to use
+Do not use it for single-claim fact checks, unbounded "find everything" requests, clinical advice, or citation laundering from abstracts without reading enough of the source to support the claim.
+
+## Required inputs
+Required inputs are research question, scope, inclusion/exclusion criteria, source databases or corpus, freshness horizon, and desired synthesis form. If scope is too broad, propose a bounded protocol before searching.
+
+## Optional inputs
+Optional inputs include seed papers, keywords, citation style, quality criteria, language, date range, and maximum number of papers. Missing optional inputs become explicit protocol defaults.
+
+## Workflow
+1. Convert the question into a search protocol with inclusion/exclusion criteria.
+2. Run multiple query variants across named databases or provided corpus.
+3. Deduplicate by DOI/PMID/arXiv/title/version and record search dates.
+4. Screen titles/abstracts, then inspect full text or relevant sections for included claims.
+5. Extract methods, population/data, findings, limitations, and citation metadata.
+6. Synthesize agreement, disagreement, gaps, and confidence without claiming comprehensive coverage unless the protocol supports it.
+7. Provide a reproducible search log and next search improvements.
+
+## Sources and freshness
+Use current database results or a dated supplied corpus. Versioned preprints, retractions, corrections, and newer reviews must be checked when they could change conclusions.
+
+## Privacy and mutations
+The workflow is read-only unless the user asks to save a bibliography or notes. Do not upload private papers or notes to external tools without authorization.
+
+## Safety boundaries
+Do not invent papers, infer findings from titles alone, or present preliminary/preprint evidence as settled. For medical, legal, or financial topics, label the output as literature synthesis, not advice.
+
+## Output contract
+Return research question, protocol, search log, included/excluded counts, evidence table, synthesis, limitations, citation list, freshness date, and unresolved gaps.
+
+## Failure conditions
+Fail or narrow scope when databases are unavailable, full text needed for central claims cannot be inspected, dedupe cannot be trusted, inclusion criteria are undefined, or the requested conclusion overreaches the evidence.
+
+## Worked example
+For "review recent papers on agent eval reliability," produce query strings, database/date, screened count, included table, themes, disagreements, and a non-comprehensive caveat if only a subset was searched.

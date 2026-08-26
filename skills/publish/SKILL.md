@@ -39,7 +39,7 @@ Update only the verified object identity and preserve or explicitly change its a
 ## Completion report
 Report source version, local artifact, external destination, visibility, expiry, effect state, verification evidence, retry/rollback state, and pending password delivery. Never print the password.
 
-## Failure conditions
+## Operational failure conditions
 Fail review if the workflow marks itself non-mutating; uploads or messages from a render-only request; prints a password; treats a pattern scrub as privacy proof; silently overwrites content; duplicates an object or message on retry; claims publication without readback; or overclaims revocation.
 
 ## Dependencies
@@ -50,3 +50,41 @@ Use only the connectors, local files, scripts, or source material explicitly nam
 ## Provenance
 
 Owned by Spike unless catalog metadata marks the skill as adapted. Public repository content is maintained as portable skill source with synthetic fixtures only.
+
+## When to use
+Use this skill to publish, send, schedule, update, or otherwise mutate an external or public surface after content and authority are clear.
+
+## When not to use
+Do not use it for drafting alone, unclear targets, hidden automation, approving proposals, merging PRs, or publishing content whose claims/privacy have not been reviewed.
+
+## Required inputs
+Required inputs are exact target surface/account, content or artifact, operation, authority, review status, and rollback or correction path. If target or authority is unclear, stop with a preview request.
+
+## Optional inputs
+Optional inputs include schedule time, alt text, link preview, tags, audience, notification preference, and post-publication monitoring. Missing optional inputs default to no scheduling and no extra metadata.
+
+## Workflow
+1. Verify target, account identity, content, and current governance/review state.
+2. Check privacy, factual claims, links, media, and platform constraints.
+3. Present exact mutation preview and require explicit authorization unless already granted for the exact operation.
+4. Execute the minimum mutation through the authorized connector.
+5. Read back or verify terminal success; do not infer from request submission alone.
+6. Report URL/ID, timestamp, account, verification status, and rollback/correction path.
+
+## Sources and freshness
+Use current target/account state and platform documentation for limits that affect publication. Re-check PR/CI/release state immediately before publishing claims about repository status.
+
+## Privacy and mutations
+This is a mutating skill. It may post, send, schedule, edit, delete, or update only the named target after authorization. Never expose credentials or private source material in content or logs.
+
+## Safety boundaries
+Refuse spam, undisclosed automation, private-data disclosure, impersonation, fabricated claims, unauthorized publication, or destructive edits/deletes without a clear rollback plan.
+
+## Output contract
+Return operation, target/account, content digest or title, URL/ID when available, verification result, timestamp, rollback/correction path, and any unresolved monitoring needs.
+
+## Failure conditions
+Fail when authorization is missing, target cannot be verified, connector readback fails, content violates safety/privacy, platform rejects the operation, or the result URL/ID cannot be obtained when required.
+
+## Worked example
+For "publish this wall post," preview the exact wall text and account, ask for approval, post only after approval, then return the wall URL and verification readback.

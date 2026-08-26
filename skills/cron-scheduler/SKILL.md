@@ -53,7 +53,7 @@ If verification fails, restore the prior definition or remove only the newly cre
 ## Report
 Report action, stable ID/key, timezone and schedule, upcoming runs, runner, target account, delivery behavior, verification evidence, and rollback state. An accepted API request is not completion.
 
-## Failure conditions
+## Operational failure conditions
 Fail review if the workflow mutates before discovery; creates a duplicate; uses an ambiguous timezone; silently changes requested timing; conflates execution and delivery; lacks occurrence-level idempotency; checkpoints before verification; claims success without readback; or cannot identify a precise rollback target.
 
 ## Dependencies
@@ -64,3 +64,42 @@ Use only the connectors, local files, scripts, or source material explicitly nam
 ## Provenance
 
 Owned by Spike unless catalog metadata marks the skill as adapted. Public repository content is maintained as portable skill source with synthetic fixtures only.
+
+## When to use
+Use this skill to create, change, inspect, or verify recurring scheduled agent work with explicit idempotency, timezone, delivery, and readback semantics.
+
+## When not to use
+Do not use it for one-off task planning, background jobs without owner authorization, hidden automation, or schedules that would mutate external systems without a separate skill contract.
+
+## Required inputs
+Required inputs are job purpose, schedule expression or natural-language cadence, timezone, start/end or review date, exact action to run, owner authorization, and mutation scope. If any of these are ambiguous, produce a preview and ask before scheduling.
+
+## Optional inputs
+Optional inputs include retry policy, notification channel, quiet hours, dedupe key, maximum run duration, and rollback preference. Missing optional inputs default to conservative retry and no external notification.
+
+## Workflow
+1. Translate the requested cadence into explicit occurrences in the owner timezone.
+2. Identify the underlying skill/action and its mutation boundaries.
+3. Build a stable schedule ID and per-run idempotency key.
+4. Preview schedule, action, inputs, owner-visible effects, and rollback.
+5. Require explicit authorization before create/update/delete/pause/resume.
+6. Mutate the scheduler only after authorization and read back provider state.
+7. Report verified state, next occurrences, dedupe behavior, and blockers.
+
+## Sources and freshness
+Use the current scheduler provider readback as the authority for existing jobs. Natural-language date interpretation must include the resolved absolute dates and timezone.
+
+## Privacy and mutations
+Inspecting schedules is read-only. Creating, updating, pausing, deleting, or triggering jobs is mutating. Never store credentials or private payloads in schedule text; use configured secret storage or require the downstream connector to hold secrets.
+
+## Safety boundaries
+Refuse schedules for spam, undisclosed posting, unauthorized scraping, destructive actions without review, medical/legal/financial decisions without human confirmation, or jobs that hide their effects from the owner.
+
+## Output contract
+Return schedule ID, status, resolved cadence and timezone, next occurrences, action payload summary, mutation preview or readback proof, idempotency keys, rollback path, and open authorization needs.
+
+## Failure conditions
+Fail when timezone is unresolved, readback mismatches the preview, authorization is missing, the provider is unavailable, the downstream action is unsafe, or idempotency cannot prevent duplicate effects.
+
+## Worked example
+For "run social listening every weekday at 9," resolve weekdays at 09:00 in the owner timezone, preview `social-listening-engagement-loop`, require authorization, create the job, then read back the next three occurrences and job ID.

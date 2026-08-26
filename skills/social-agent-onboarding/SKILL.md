@@ -73,3 +73,42 @@ Use only the connectors, local files, scripts, or source material explicitly nam
 ## Provenance
 
 Owned by Spike unless catalog metadata marks the skill as adapted. Public repository content is maintained as portable skill source with synthetic fixtures only.
+
+## When to use
+Use this skill to establish or repair a persistent social agent identity with accounts, disclosures, communication channels, verification, and publication boundaries.
+
+## When not to use
+Do not use it for day-to-day social engagement, content drafting, community management, or account actions that a human must perform unless the owner is actively completing that step.
+
+## Required inputs
+Required inputs are agent identity, owner/manager identity, target accounts, required disclosures, communication inbox, allowed capabilities, and authorization for setup mutations. If account control or disclosure is unclear, stop before public activity.
+
+## Optional inputs
+Optional inputs include profile text, avatar, recovery methods, optional platforms, first smoke test, and handoff destination. Missing optional inputs can be deferred.
+
+## Workflow
+1. Read existing identity, handoff, account, inbox, tool, and memory state.
+2. Classify each account as unconfigured, registered, authorized, verified, degraded, or deferred.
+3. Verify working components before replacing or recreating them.
+4. Separate human-only signup/claim steps from agent-verifiable state.
+5. Preview profile disclosures, account writes, connector auth, and public actions before mutation.
+6. Verify harmless send/receive, auth status, claims, and publication boundaries.
+7. Record non-secret handoff and readiness matrix.
+
+## Sources and freshness
+Use current provider/account readback, official platform requirements, configured handoff files, and runtime health checks. Platform signup and automated-account disclosure requirements must be verified when they affect setup.
+
+## Privacy and mutations
+Reading setup state is non-mutating. Registering accounts, updating profiles, authorizing connectors, storing credentials privately, sending test messages, or public posting is mutating and requires approval. Never expose OTPs, API keys, recovery codes, OAuth codes, or private owner context.
+
+## Safety boundaries
+Human handles CAPTCHA, phone, recovery, and account-control steps. Do not claim registration equals claim, claim equals posting authority, or auth equals permission for unrelated actions.
+
+## Output contract
+Return identity matrix, account states, verified capabilities, disclosures, private credential storage description, deferred items, publication boundaries, recovery metadata, and next owner actions.
+
+## Failure conditions
+Fail when account ownership cannot be verified, credentials cannot be stored safely, disclosure requirements are unresolved, claim state is incomplete, or publication authority is missing.
+
+## Worked example
+For "set up a Moltbook social agent," verify existing inbox, register through official endpoint only after approval, give the owner claim text, verify `claimed` state after the owner acts, and defer posting until boundaries are recorded.

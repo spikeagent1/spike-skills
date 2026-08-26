@@ -66,9 +66,51 @@ Use cron-scheduler to create or update recurrence with explicit timezone, job id
 ## Completion
 Complete only when corpus integrity passed, every candidate has a terminal status, the private report matches the corpus hash, consolidation status is honest, the idempotency rerun is clean, and no identity/worldview candidate was applied.
 
-## Failure conditions
+## Operational failure conditions
 Fail review if the corpus includes non-owner authority; zero output is accepted despite expected activity; a fact lacks provenance; inferred belief is stored as direct owner preference; a worldview change is applied; a partial write is called complete; or a rerun duplicates state.
 
 ## Dependencies
 
 Use only the connectors, local files, scripts, or source material explicitly named by the user or by this skill. If a dependency is unavailable, report the blocked phase instead of fabricating completion. No hidden hosted dependency, shared user database, or cross-skill private storage.
+
+## When to use
+Use this skill for owner-directed dream, goal, or long-horizon reflection cycles that turn authorized owner context into bounded next actions and reviewable commitments.
+
+## When not to use
+Do not use it for therapy, diagnosis, coercive motivation, identity edits, or autonomous life-planning changes without owner participation and authorization.
+
+## Required inputs
+Required inputs are reflection question or cycle goal, authorized context corpus, time horizon, mutation authority, and desired output. If corpus scope or authority is unclear, run read-only reflection only.
+
+## Optional inputs
+Optional inputs include previous cycle ID, values, constraints, energy/time budget, review cadence, and artifact format. Missing optional inputs become explicit assumptions.
+
+## Workflow
+1. Identify cycle ID, owner question, corpus scope, and authorization.
+2. Read only authorized context and record corpus hash or source list when available.
+3. Extract themes, tensions, constraints, and candidate next actions without changing identity or memory.
+4. Preview any task, note, schedule, or memory mutation separately.
+5. Require approval for durable writes or external actions.
+6. Verify idempotency on repeated runs so duplicate tasks or notes are not created.
+7. Return reflection, decisions, next actions, and review trigger.
+
+## Sources and freshness
+Use dated owner-provided context, prior cycle artifacts, and current constraints. Treat old goals as stale until reaffirmed; label inference clearly.
+
+## Privacy and mutations
+Reflection in the conversation is non-mutating. Writing memories, tasks, schedules, notes, or handoff state is mutating and requires preview and approval. Do not expose sensitive owner reflections in public artifacts.
+
+## Safety boundaries
+Escalate or pause if the user expresses crisis, self-harm intent, coercion, or needs clinical support. Do not make life commitments, identity claims, or relationship disclosures for the owner.
+
+## Output contract
+Return cycle ID, source scope, themes, tensions, candidate actions, owner decisions, authorized mutations/readback, review date, and unresolved risks.
+
+## Failure conditions
+Fail when authorized context is unavailable, owner participation is absent for consequential choices, mutation approval is missing, duplicate prevention fails, or the request crosses into clinical or coercive advice.
+
+## Worked example
+For "review my quarter goals," read approved notes, summarize three tensions, propose two next actions, ask before creating tasks, and report task IDs only after readback.
+
+## Provenance
+Repo-owned owner-operations workflow maintained as public portable skill text with synthetic fixtures only.

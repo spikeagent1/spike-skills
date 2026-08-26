@@ -39,7 +39,7 @@ For each skill:
 
 ## Released cohorts
 
-The evaluated safety/state-mutation, owner-operations, research/writing, and portfolio-governance packages are released. Routing-overlap and long-tail cleanup follows; unresolved candidates remain unpublished until they pass their own gates.
+The evaluated audience/community, safety/state-mutation, owner-operations, research/writing, portfolio-governance, and onboarding packages are released. A 2026-08-24 follow-up hardening pass added the reusable public operator contract to all 20 approved non-health/home packages, strengthened validator coverage for public contracts, catalog/source parity, and adapted provenance metadata, and recorded the scorecard in `evals/reports/public-skills-followup-2026-08-24.md`. Routing-overlap and long-tail cleanup follows; unresolved candidates remain unpublished until they pass their own gates.
 
 ## Cohort 2: health and home/lifestyle - pending review
 

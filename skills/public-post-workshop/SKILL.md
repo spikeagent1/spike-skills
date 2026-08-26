@@ -46,9 +46,51 @@ Repair safe regressions caused by the change and rerun checks. Report infrastruc
 ## Output
 For wall entries, report the brief, final draft, review rounds, verification, PR link, and unmerged state. For direct surfaces, report the brief, draft, PASS, and posting-authorization gate.
 
-## Failure conditions
+## Operational failure conditions
 Fail review if the draft speaks as Tapan; private content or a quote lacks clearance; a critical fact is unsupported; the reviewer receives unrelated private context; the same warm reviewer is reused; direct posting occurs; the PR includes unrelated changes; or PASS is claimed without independent review.
 
 ## Dependencies
 
 Use only the connectors, local files, scripts, or source material explicitly named by the user or by this skill. If a dependency is unavailable, report the blocked phase instead of fabricating completion. No hidden hosted dependency, shared user database, or cross-skill private storage.
+
+## When to use
+Use this skill to prepare a public post package from a repository change, release, benchmark, or proposal while preserving review, evidence, and publication boundaries.
+
+## When not to use
+Do not use it to directly post, merge PRs, approve Skill Workshop proposals, invent proposal IDs, or market private/unreleased work as shipped.
+
+## Required inputs
+Required inputs are artifact or change, intended audience, factual claims, publication surface, governance state, and authority to draft or publish. If governance state or evidence is unclear, produce a blocked draft package.
+
+## Optional inputs
+Optional inputs include desired tone, length, screenshots, related links, known limitations, and reviewer notes. Missing optional inputs should not block a draft unless they affect claim truth.
+
+## Workflow
+1. Inspect the artifact/change and governance state from source of truth.
+2. Build an audience/takeaway/evidence brief.
+3. Draft platform-native copy without claiming unmerged or pending work is released.
+4. Run a cold self-review for factuality, privacy, provenance, and overclaiming.
+5. If repository changes are needed, create or update an unmerged PR; do not merge.
+6. If direct publication is requested, preview exact content and target and require explicit authorization.
+7. Return publication package, evidence, and blockers.
+
+## Sources and freshness
+Use current git state, PR state, CI results, catalog/proposal metadata, and linked artifacts. Time-sensitive PR/CI/release claims must be checked immediately before final output.
+
+## Privacy and mutations
+Drafting is non-mutating. Creating branches, commits, PRs, comments, screenshots, or posts is mutating and requires the authority granted by the user or an explicit preview. Never include credentials, private transcripts, or unpublished owner context.
+
+## Safety boundaries
+Refuse to misrepresent release state, fabricate metrics, publish private material, bypass review, merge without authorization, or announce pending Skill Workshop proposals as approved.
+
+## Output contract
+Return post brief, draft(s), evidence links, governance state, PR/release state, known limitations, authorization needed, and follow-up monitoring plan.
+
+## Failure conditions
+Fail when source evidence is unavailable, governance state is ambiguous, CI/PR state cannot be verified for a claim, privacy clearance is missing, or publication authority is absent.
+
+## Worked example
+For "announce this unmerged skill PR," state that it is a review PR, cite changed packages and validation evidence, avoid release language, and return draft-only copy plus PR URL.
+
+## Provenance
+Repo-owned portfolio-governance workflow maintained as public portable skill text with synthetic fixtures only.

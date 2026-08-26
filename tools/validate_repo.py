@@ -7,7 +7,7 @@ import json
 import re
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 try:
@@ -43,6 +43,47 @@ PENDING_REVIEW_SECTIONS = (
     "## Output contract",
     "## Failure conditions",
 )
+PUBLIC_SKILL_SECTIONS = (
+    "When to use",
+    "When not to use",
+    "Required inputs",
+    "Optional inputs",
+    "Workflow",
+    "Sources and freshness",
+    "Privacy and mutations",
+    "Safety boundaries",
+    "Output contract",
+    "Failure conditions",
+)
+CATALOG_PARITY_FIELDS = (
+    "classification",
+    "runtime_path",
+    "repository_path",
+    "status",
+    "cohort",
+)
+ADAPTED_SOURCE_FIELDS = (
+    "upstream",
+    "publisher",
+    "version",
+    "license",
+    "local_modifications",
+)
+IMMUTABLE_SOURCE_FIELDS = ("commit", "artifact_sha256", "skill_file_sha256", "digest")
+ALLOWED_CLASSIFICATIONS = {"owned", "adapted", "vendored", "runtime-only"}
+HEX_COMMIT_RE = re.compile(r"^[0-9a-fA-F]{7,64}$")
+SHA256_RE = re.compile(r"^(?:sha256:)?[0-9a-fA-F]{64}$")
+PLACEHOLDER_RE = re.compile(
+    r"\b(todo|tbd|placeholder|coming soon|fill this in|to be written)\b|^\s*(n/?a|none)\s*\.?\s*$",
+    re.IGNORECASE,
+)
+NON_INFORMATIVE_ASSERTIONS = {
+    "uses the skill",
+    "uses the named skill",
+    "meets the skill contract",
+    "follows the skill",
+    "does the task",
+}
 
 
 def frontmatter(text: str) -> dict[str, str] | None:
@@ -68,6 +109,14 @@ def load_json(path: Path, errors: list[str]) -> object | None:
     except Exception as exc:  # noqa: BLE001 - report every parse failure.
         add_error(errors, f"{path.relative_to(ROOT)}: invalid JSON: {exc}")
         return None
+
+
+def catalog_scalar(raw: str) -> str:
+    """Parse the restricted scalar subset used by the committed catalogs."""
+    value = raw.strip()
+    if value[:1] in {"\"", "\x27"} and value[-1:] == value[:1]:
+        return value[1:-1]
+    return re.split(r"\s+#", value, maxsplit=1)[0].strip()
 
 
 def load_eval_schema(errors: list[str]) -> dict[str, Any] | None:
@@ -177,27 +226,74 @@ def git_files() -> list[Path]:
     return [ROOT / line for line in result.stdout.splitlines() if line]
 
 
-def parse_catalog_inventory(errors: list[str]) -> dict[str, dict[str, str]]:
-    text = (ROOT / "catalog" / "approved.yaml").read_text(encoding="utf-8")
+def parse_list_catalog(path: Path, list_key: str, errors: list[str]) -> dict[str, dict[str, str]]:
+    text = path.read_text(encoding="utf-8")
     entries: dict[str, dict[str, str]] = {}
     current: dict[str, str] | None = None
+    rel = path.relative_to(ROOT)
 
     for line in text.splitlines():
         name_match = re.match(r"^\s+- name: ([a-z0-9-]+)\s*$", line)
         if name_match:
             name = name_match.group(1)
             if name in entries:
-                add_error(errors, f"catalog/approved.yaml: duplicate skill {name}")
+                add_error(errors, f"{rel}: duplicate skill {name}")
             current = {"name": name}
             entries[name] = current
             continue
 
-        field_match = re.match(r"^\s{4}([a-z_]+):\s*(.*?)\s*$", line)
+        field_match = re.match(r"^\s{4}([a-z0-9_]+):\s*(.*?)\s*$", line)
         if current is not None and field_match:
-            current[field_match.group(1)] = field_match.group(2).strip().strip("\"'")
+            field = field_match.group(1)
+            if field in current:
+                add_error(errors, f"{rel}: duplicate field {field} for {current['name']}")
+            current[field] = catalog_scalar(field_match.group(2))
 
     if not entries:
-        add_error(errors, "catalog/approved.yaml: no skill entries found")
+        add_error(errors, f"{rel}: no {list_key} entries found")
+    return entries
+
+
+def parse_catalog_inventory(errors: list[str]) -> dict[str, dict[str, str]]:
+    return parse_list_catalog(ROOT / "catalog" / "approved.yaml", "skill", errors)
+
+
+def parse_source_entries(errors: list[str]) -> dict[str, dict[str, str]]:
+    text = (ROOT / "catalog" / "sources.yaml").read_text(encoding="utf-8")
+    entries: dict[str, dict[str, str]] = {}
+    current: dict[str, str] | None = None
+    current_field: str | None = None
+
+    for line in text.splitlines():
+        source_match = re.match(r"^  ([a-z0-9-]+):\s*$", line)
+        if source_match:
+            name = source_match.group(1)
+            if name in entries:
+                add_error(errors, f"catalog/sources.yaml: duplicate source {name}")
+            current = {"name": name}
+            entries[name] = current
+            current_field = None
+            continue
+
+        field_match = re.match(r"^\s{4}([a-z0-9_]+):\s*(.*?)\s*$", line)
+        if current is not None and field_match:
+            current_field = field_match.group(1)
+            if current_field in current:
+                add_error(
+                    errors,
+                    f"catalog/sources.yaml: duplicate field {current_field} for {current['name']}",
+                )
+            current[current_field] = catalog_scalar(field_match.group(2))
+            continue
+
+        continuation_match = re.match(r"^\s{6,}(.+?)\s*$", line)
+        if current is not None and current_field is not None and continuation_match:
+            current[current_field] = (
+                current[current_field] + " " + continuation_match.group(1).strip()
+            ).strip()
+
+    if not entries:
+        add_error(errors, "catalog/sources.yaml: no source entries found")
     return entries
 
 
@@ -226,23 +322,6 @@ def parse_domain_lists(errors: list[str]) -> tuple[set[str], set[str]]:
     return released, next_names
 
 
-def parse_source_statuses() -> dict[str, str]:
-    text = (ROOT / "catalog" / "sources.yaml").read_text(encoding="utf-8")
-    statuses: dict[str, str] = {}
-    current: str | None = None
-
-    for line in text.splitlines():
-        source_match = re.match(r"^  ([a-z0-9-]+):\s*$", line)
-        if source_match:
-            current = source_match.group(1)
-            continue
-        status_match = re.match(r"^\s{4}status:\s*(\S+)\s*$", line)
-        if current is not None and status_match:
-            statuses[current] = status_match.group(1)
-
-    return statuses
-
-
 def eval_files(skill_dir: Path) -> list[Path]:
     candidates = (
         skill_dir / "examples" / "evals.json",
@@ -250,6 +329,147 @@ def eval_files(skill_dir: Path) -> list[Path]:
         skill_dir / "routing-eval.jsonl",
     )
     return [path for path in candidates if path.exists()]
+
+
+def has_heading(text: str, heading: str) -> bool:
+    return re.search(rf"^##+\s+{re.escape(heading)}\s*$", text, re.MULTILINE) is not None
+
+
+def section_body(text: str, heading: str) -> str | None:
+    match = re.search(
+        rf"^##+\s+{re.escape(heading)}\s*$\n(.*?)(?=^##+\s+|\Z)",
+        text,
+        re.MULTILINE | re.DOTALL,
+    )
+    if match is None:
+        return None
+    return match.group(1).strip()
+
+
+def normalized_body(text: str) -> str:
+    return re.sub(r"\s+", " ", text.strip().lower())
+
+
+def validate_public_section_bodies(rel: Path, text: str, errors: list[str]) -> None:
+    seen: dict[str, str] = {}
+    for heading in PUBLIC_SKILL_SECTIONS:
+        occurrences = re.findall(
+            rf"^##+\s+{re.escape(heading)}\s*$", text, re.MULTILINE
+        )
+        if len(occurrences) > 1:
+            add_error(
+                errors,
+                f"{rel}/SKILL.md: public section {heading!r} appears "
+                f"{len(occurrences)} times; expected exactly once",
+            )
+            continue
+        body = section_body(text, heading)
+        if body is None:
+            continue
+        normalized = normalized_body(body)
+        if not normalized:
+            add_error(errors, f"{rel}/SKILL.md: public section {heading!r} is blank")
+            continue
+        if len(normalized) < 12 or PLACEHOLDER_RE.search(normalized):
+            add_error(errors, f"{rel}/SKILL.md: public section {heading!r} is placeholder text")
+        previous = seen.get(normalized)
+        if previous is not None:
+            add_error(
+                errors,
+                f"{rel}/SKILL.md: public section {heading!r} duplicates {previous!r}",
+            )
+        else:
+            seen[normalized] = heading
+
+
+def validate_source_catalog(
+    inventory: dict[str, dict[str, str]],
+    sources: dict[str, dict[str, str]],
+    skill_names: set[str],
+    errors: list[str],
+) -> None:
+    for name in sorted(skill_names - set(sources)):
+        add_error(errors, f"catalog/sources.yaml: missing source entry for {name}")
+    for name in sorted(set(sources) - skill_names - {"anthropic-skill-creator"}):
+        add_error(errors, f"catalog/sources.yaml: source {name} has no skills/{name} directory")
+
+    for name, entry in sorted(inventory.items()):
+        source = sources.get(name)
+        if source is None:
+            continue
+        for field in CATALOG_PARITY_FIELDS:
+            if not entry.get(field):
+                add_error(errors, f"catalog/approved.yaml: {name} missing required field {field}")
+            if not source.get(field):
+                add_error(errors, f"catalog/sources.yaml: {name} missing required field {field}")
+            if entry.get(field) != source.get(field):
+                add_error(
+                    errors,
+                    f"catalog/sources.yaml: {name} {field} {source.get(field)!r} "
+                    f"does not match catalog/approved.yaml {entry.get(field)!r}",
+                )
+
+        classification = source.get("classification")
+        if classification not in ALLOWED_CLASSIFICATIONS:
+            add_error(
+                errors,
+                f"catalog/sources.yaml: {name} has unknown classification {classification!r}",
+            )
+        for field in ("runtime_path", "repository_path"):
+            value = source.get(field, "")
+            parsed = PurePosixPath(value)
+            expected = f"skills/{name}"
+            if parsed.is_absolute() or ".." in parsed.parts or value != expected:
+                add_error(
+                    errors,
+                    f"catalog/sources.yaml: {name} {field} must be {expected!r}",
+                )
+
+    for name, source in sorted(sources.items()):
+        classification = source.get("classification")
+        if classification in {"adapted", "vendored"}:
+            for field in ADAPTED_SOURCE_FIELDS:
+                value = source.get(field, "")
+                if field == "local_modifications" and value.strip().lower() == "none":
+                    continue
+                if not value or PLACEHOLDER_RE.search(value):
+                    add_error(
+                        errors,
+                        f"catalog/sources.yaml: {name} {classification} source needs {field}",
+                    )
+            pins = {
+                field: source.get(field, "")
+                for field in IMMUTABLE_SOURCE_FIELDS
+                if source.get(field, "")
+            }
+            for field, value in pins.items():
+                valid = (
+                    HEX_COMMIT_RE.fullmatch(value)
+                    if field == "commit"
+                    else SHA256_RE.fullmatch(value)
+                )
+                if not valid:
+                    add_error(
+                        errors,
+                        f"catalog/sources.yaml: {name} {field} is not a valid immutable identifier",
+                    )
+            if not pins:
+                add_error(
+                    errors,
+                    f"catalog/sources.yaml: {name} {classification} source needs immutable commit or digest",
+                )
+
+
+def eval_case_count(path: Path, errors: list[str]) -> int:
+    if path.suffix == ".jsonl":
+        # Routing JSONL has no behavioral assertion schema, so it cannot satisfy
+        # the package-level synthetic behavioral-eval minimum.
+        return 0
+
+    data = load_json(path, errors)
+    if not isinstance(data, dict) or not isinstance(data.get("evals"), list):
+        return 0
+    return len(data["evals"])
 
 
 def validate_eval_file(
@@ -307,6 +527,14 @@ def validate_eval_file(
             for expectation in expectations
         ):
             add_error(errors, f"{rel}: eval {index} assertions must be non-empty strings")
+        else:
+            for expectation in expectations:
+                normalized = re.sub(r"\s+", " ", expectation.strip().lower())
+                if normalized in NON_INFORMATIVE_ASSERTIONS:
+                    add_error(
+                        errors,
+                        f"{rel}: eval {index} uses non-informative assertion {expectation!r}",
+                    )
 
         case_id = case.get("id")
         if case_id is None:
@@ -371,6 +599,13 @@ def validate_skill(
                     errors,
                     f"{rel}: approved skill must not remain in catalog/domains.yaml next",
                 )
+            for heading in PUBLIC_SKILL_SECTIONS:
+                if not has_heading(text, heading):
+                    add_error(
+                        errors,
+                        f"{rel}/SKILL.md: approved skill missing public section {heading!r}",
+                    )
+            validate_public_section_bodies(rel, text, errors)
         if status == "pending-review":
             if skill_dir.name in released:
                 add_error(
@@ -388,7 +623,7 @@ def validate_skill(
                     f"{rel}: pending-review skill must have a real workshop_proposal ID",
                 )
             for heading in PENDING_REVIEW_SECTIONS:
-                if heading not in text:
+                if not has_heading(text, heading.removeprefix("## ")):
                     add_error(
                         errors,
                         f"{rel}/SKILL.md: pending-review skill missing section {heading!r}",
@@ -397,6 +632,13 @@ def validate_skill(
     files = eval_files(skill_dir)
     if not files:
         add_error(errors, f"{rel}: missing evals file")
+    else:
+        total_eval_cases = sum(eval_case_count(path, errors) for path in files)
+        if total_eval_cases < 4:
+            add_error(
+                errors,
+                f"{rel}: needs at least 4 synthetic eval cases, found {total_eval_cases}",
+            )
     for path in files:
         validate_eval_file(skill_dir.name, path, schema, errors)
 
@@ -438,7 +680,7 @@ def main() -> int:
     schema = load_eval_schema(errors)
     inventory = parse_catalog_inventory(errors)
     released, next_names = parse_domain_lists(errors)
-    source_statuses = parse_source_statuses()
+    sources = parse_source_entries(errors)
     skill_dirs = sorted(path for path in SKILLS.iterdir() if path.is_dir())
     skill_names = {path.name for path in skill_dirs}
 
@@ -454,17 +696,7 @@ def main() -> int:
             f"catalog/domains.yaml: released skill {name} is missing catalog/approved.yaml entry",
         )
 
-    for name, entry in sorted(inventory.items()):
-        source_status = source_statuses.get(name)
-        if (
-            entry.get("status") == "pending-review"
-            and source_status not in {None, "pending-review"}
-        ):
-            add_error(
-                errors,
-                f"catalog/sources.yaml: pending-review skill {name} must not have status "
-                f"{source_status}",
-            )
+    validate_source_catalog(inventory, sources, skill_names, errors)
 
     validate_privacy(errors)
 

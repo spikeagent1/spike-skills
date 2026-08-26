@@ -5,6 +5,7 @@ cohorts:
       Owner-observed traction failure and repeated corrections showed that current
       workflows optimize activity constraints rather than audience outcomes.
     skills:
+      - skill-library-ops
       - social-listening-engagement-loop
       - social-agent-practice
       - audience-content-engine

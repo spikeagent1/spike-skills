@@ -6,7 +6,7 @@ This repository is the source of truth for skills we own or explicitly adapt. Ru
 
 ## Current work
 
-Audience/community, safety/state-mutation, owner-operations, research/writing, portfolio-governance, and onboarding cohorts have evaluated releases. Health and home/lifestyle candidate packages are present in `skills/` while their Skill Workshop proposals remain pending review. Wealth, travel/mobility, routing-overlap, and long-tail cleanup are next.
+Audience/community, safety/state-mutation, owner-operations, research/writing, portfolio-governance, and onboarding cohorts have evaluated releases and now carry a consistent public operator contract for routing, inputs, workflow, freshness, privacy/mutation boundaries, outputs, and failures. See `evals/reports/public-skills-followup-2026-08-24.md` for the follow-up scorecard and verification evidence. Health and home/lifestyle candidate packages are present in `skills/` while their Skill Workshop proposals remain pending review. Wealth, travel/mobility, routing-overlap, and long-tail cleanup are next.
 
 Candidate skills enter through Skill Workshop proposals. Candidate packages may appear in `skills/` on `main` for inspection before approval only when the repository contract marks them `pending-review`, keeps them in domain `next` lists instead of `released` lists, records the real proposal ID, and passes validation. Presence in this repository does not approve, apply, install, or release a Skill Workshop proposal. Released skills carry synthetic evaluation cases, provenance, compatibility notes, and a benchmark summary.
 
@@ -26,12 +26,7 @@ tools/               Deterministic audit helpers
 
 ## Review a candidate
 
-Each candidate package uses `SKILL.md` as its package-level user and reviewer
-documentation. It must define when to use the skill, required inputs, workflow,
-source freshness, privacy and mutation boundaries, safety boundaries, output
-contract, dependencies, provenance, and failure conditions. The adjacent
-`examples/evals.json` must exercise normal behavior, edge cases, factual
-uncertainty, and authorization before mutations.
+Each package uses `SKILL.md` as its package-level user and reviewer documentation. Approved public packages must define when to use the skill, when not to use it, required and optional inputs, workflow, source freshness, privacy and mutation boundaries, safety boundaries, output contract, dependencies, provenance, and failure conditions. Pending candidates use the same core contract while preserving their `pending-review` governance state. The adjacent `examples/evals.json` or `evals/evals.json` must exercise normal behavior, edge cases, factual uncertainty, privacy, and authorization before mutations.
 
 Run the local gate from the repository root:
 
