@@ -7,7 +7,7 @@ import json
 import re
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 try:
@@ -70,6 +70,9 @@ ADAPTED_SOURCE_FIELDS = (
     "local_modifications",
 )
 IMMUTABLE_SOURCE_FIELDS = ("commit", "artifact_sha256", "skill_file_sha256", "digest")
+ALLOWED_CLASSIFICATIONS = {"owned", "adapted", "vendored", "runtime-only"}
+HEX_COMMIT_RE = re.compile(r"^[0-9a-fA-F]{7,64}$")
+SHA256_RE = re.compile(r"^(?:sha256:)?[0-9a-fA-F]{64}$")
 PLACEHOLDER_RE = re.compile(
     r"\b(todo|tbd|placeholder|coming soon|fill this in|to be written)\b|^\s*(n/?a|none)\s*\.?\s*$",
     re.IGNORECASE,
@@ -106,6 +109,14 @@ def load_json(path: Path, errors: list[str]) -> object | None:
     except Exception as exc:  # noqa: BLE001 - report every parse failure.
         add_error(errors, f"{path.relative_to(ROOT)}: invalid JSON: {exc}")
         return None
+
+
+def catalog_scalar(raw: str) -> str:
+    """Parse the restricted scalar subset used by the committed catalogs."""
+    value = raw.strip()
+    if value[:1] in {"\"", "\x27"} and value[-1:] == value[:1]:
+        return value[1:-1]
+    return re.split(r"\s+#", value, maxsplit=1)[0].strip()
 
 
 def load_eval_schema(errors: list[str]) -> dict[str, Any] | None:
@@ -233,7 +244,10 @@ def parse_list_catalog(path: Path, list_key: str, errors: list[str]) -> dict[str
 
         field_match = re.match(r"^\s{4}([a-z0-9_]+):\s*(.*?)\s*$", line)
         if current is not None and field_match:
-            current[field_match.group(1)] = field_match.group(2).strip().strip("\"'")
+            field = field_match.group(1)
+            if field in current:
+                add_error(errors, f"{rel}: duplicate field {field} for {current['name']}")
+            current[field] = catalog_scalar(field_match.group(2))
 
     if not entries:
         add_error(errors, f"{rel}: no {list_key} entries found")
@@ -264,7 +278,12 @@ def parse_source_entries(errors: list[str]) -> dict[str, dict[str, str]]:
         field_match = re.match(r"^\s{4}([a-z0-9_]+):\s*(.*?)\s*$", line)
         if current is not None and field_match:
             current_field = field_match.group(1)
-            current[current_field] = field_match.group(2).strip().strip("\"'")
+            if current_field in current:
+                add_error(
+                    errors,
+                    f"catalog/sources.yaml: duplicate field {current_field} for {current['name']}",
+                )
+            current[current_field] = catalog_scalar(field_match.group(2))
             continue
 
         continuation_match = re.match(r"^\s{6,}(.+?)\s*$", line)
@@ -379,11 +398,31 @@ def validate_source_catalog(
         if source is None:
             continue
         for field in CATALOG_PARITY_FIELDS:
+            if not entry.get(field):
+                add_error(errors, f"catalog/approved.yaml: {name} missing required field {field}")
+            if not source.get(field):
+                add_error(errors, f"catalog/sources.yaml: {name} missing required field {field}")
             if entry.get(field) != source.get(field):
                 add_error(
                     errors,
                     f"catalog/sources.yaml: {name} {field} {source.get(field)!r} "
                     f"does not match catalog/approved.yaml {entry.get(field)!r}",
+                )
+
+        classification = source.get("classification")
+        if classification not in ALLOWED_CLASSIFICATIONS:
+            add_error(
+                errors,
+                f"catalog/sources.yaml: {name} has unknown classification {classification!r}",
+            )
+        for field in ("runtime_path", "repository_path"):
+            value = source.get(field, "")
+            parsed = PurePosixPath(value)
+            expected = f"skills/{name}"
+            if parsed.is_absolute() or ".." in parsed.parts or value != expected:
+                add_error(
+                    errors,
+                    f"catalog/sources.yaml: {name} {field} must be {expected!r}",
                 )
 
     for name, source in sorted(sources.items()):
@@ -398,7 +437,23 @@ def validate_source_catalog(
                         errors,
                         f"catalog/sources.yaml: {name} {classification} source needs {field}",
                     )
-            if not any(source.get(field, "") for field in IMMUTABLE_SOURCE_FIELDS):
+            pins = {
+                field: source.get(field, "")
+                for field in IMMUTABLE_SOURCE_FIELDS
+                if source.get(field, "")
+            }
+            for field, value in pins.items():
+                valid = (
+                    HEX_COMMIT_RE.fullmatch(value)
+                    if field == "commit"
+                    else SHA256_RE.fullmatch(value)
+                )
+                if not valid:
+                    add_error(
+                        errors,
+                        f"catalog/sources.yaml: {name} {field} is not a valid immutable identifier",
+                    )
+            if not pins:
                 add_error(
                     errors,
                     f"catalog/sources.yaml: {name} {classification} source needs immutable commit or digest",
@@ -407,11 +462,9 @@ def validate_source_catalog(
 
 def eval_case_count(path: Path, errors: list[str]) -> int:
     if path.suffix == ".jsonl":
-        return sum(
-            1
-            for line in path.read_text(encoding="utf-8").splitlines()
-            if line.strip() and not line.lstrip().startswith("//")
-        )
+        # Routing JSONL has no behavioral assertion schema, so it cannot satisfy
+        # the package-level synthetic behavioral-eval minimum.
+        return 0
 
     data = load_json(path, errors)
     if not isinstance(data, dict) or not isinstance(data.get("evals"), list):

@@ -67,7 +67,7 @@ python3 tools/validate_repo.py
 
 Observed output:
 
-- unit tests: `Ran 16 tests ... OK (skipped=1)`; the skipped test is the optional installed-`jsonschema` parity test because `jsonschema` is not present in this base image.
+- unit tests: `Ran 21 tests ... OK (skipped=1)`; the skipped test is the optional installed-`jsonschema` parity test because `jsonschema` is not present in this base image.
 - validator: `Validation passed: 30 skills checked.`
 
 Pinned `jsonschema==4.23.0` could not be provisioned locally: `python3 -m venv` failed because `ensurepip` is unavailable, `python3 -m pip` failed because `pip` is absent, `sudo` is unavailable, and direct `apt-get` lacks permission to update package lists. This is an environment limitation, not a repository failure; CI should install `jsonschema` if it wants that optional path.
