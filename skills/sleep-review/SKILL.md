@@ -21,6 +21,10 @@ Owned by Spike. Based on general sleep review workflow patterns and repository p
 
 Use this skill for sleep-pattern review, habit experiments, and clinician-ready notes. If an in-domain request reveals drowsy-driving danger or another acute red flag, trigger only the immediate safety and escalation path.
 
+## When not to use
+
+Do not use this skill to make professional medical, legal, financial, structural, electrical, gas, fire-safety, or other high-stakes determinations; to bypass urgent escalation; or to mutate records without explicit authorization.
+
 ## Required inputs
 
 - sleep and wake times across typical days
@@ -29,6 +33,10 @@ Use this skill for sleep-pattern review, habit experiments, and clinician-ready 
 - device measurements only when supplied or explicitly authorized
 
 Ask a focused question only when missing information changes safety or feasibility. Otherwise continue with labeled assumptions and make them easy to correct.
+
+## Optional inputs
+
+Optional inputs include preferences, budget, schedule, location, authorized connector data, prior attempts, and desired output format. Missing optional inputs remain unknown and must not be invented.
 
 ## Workflow
 

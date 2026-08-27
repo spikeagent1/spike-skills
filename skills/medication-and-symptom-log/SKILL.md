@@ -21,6 +21,10 @@ Owned by Spike. Based on general medication and symptom log workflow patterns an
 
 Use this skill to create, append, summarize, or prepare a medication and symptom log. If a new entry reveals an acute red flag, trigger the safety escalation path before routine logging; never turn the log into diagnosis or dosing advice.
 
+## When not to use
+
+Do not use this skill to make professional medical, legal, financial, structural, electrical, gas, fire-safety, or other high-stakes determinations; to bypass urgent escalation; or to mutate records without explicit authorization.
+
 ## Required inputs
 
 - requested operation: create, append, summarize, or appointment prep
@@ -29,6 +33,10 @@ Use this skill to create, append, summarize, or prepare a medication and symptom
 - explicit destination and format if the user asks to persist data
 
 Ask a focused question only when missing information changes safety or feasibility. Otherwise continue with labeled assumptions and make them easy to correct.
+
+## Optional inputs
+
+Optional inputs include preferences, budget, schedule, location, authorized connector data, prior attempts, and desired output format. Missing optional inputs remain unknown and must not be invented.
 
 ## Workflow
 

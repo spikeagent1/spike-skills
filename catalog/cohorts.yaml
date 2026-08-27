@@ -67,12 +67,12 @@ cohorts:
     skills: []
 
   - name: health-and-home-lifestyle
-    status: pending-review
+    status: completed
     rationale: >-
       The life-domain roadmap prioritizes everyday health and household utility
       after the first audience/community releases. This cohort contains
-      pending-review candidate packages; proposals remain pending until
-      explicitly approved and applied through Skill Workshop.
+      reviewed packages now explicitly approved and applied through Skill Workshop;
+      repository and runtime release state are reconciled.
     skills:
       - fitness-coach
       - meal-planner

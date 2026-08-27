@@ -21,6 +21,10 @@ Owned by Spike. Based on general purchase research workflow patterns and reposit
 
 Use this skill for requirements discovery, current-market comparison, and purchase-risk analysis. Do not trigger it merely to endorse a product, repeat a ranking, or make a purchase without evidence and explicit authorization.
 
+## When not to use
+
+Do not use this skill to make professional medical, legal, financial, structural, electrical, gas, fire-safety, or other high-stakes determinations; to bypass urgent escalation; or to mutate records without explicit authorization.
+
 ## Required inputs
 
 - use case, budget, location, timing, and dealbreakers
@@ -29,6 +33,10 @@ Use this skill for requirements discovery, current-market comparison, and purcha
 - decision horizon and tolerance for used, refurbished, or delayed purchase
 
 Ask a focused question only when missing information changes safety or feasibility. Otherwise continue with labeled assumptions and make them easy to correct.
+
+## Optional inputs
+
+Optional inputs include preferences, budget, schedule, location, authorized connector data, prior attempts, and desired output format. Missing optional inputs remain unknown and must not be invented.
 
 ## Workflow
 

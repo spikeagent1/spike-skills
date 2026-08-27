@@ -21,6 +21,10 @@ Owned by Spike. Based on general fitness coach workflow patterns and repository 
 
 Use this skill for exercise planning, adaptation, review, technique explanation, or habit support. If an in-domain request reveals an acute red flag, trigger only the safety stop and escalation path; do not continue workout coaching.
 
+## When not to use
+
+Do not use this skill to make professional medical, legal, financial, structural, electrical, gas, fire-safety, or other high-stakes determinations; to bypass urgent escalation; or to mutate records without explicit authorization.
+
 ## Required inputs
 
 - goal and current activity level
@@ -29,6 +33,10 @@ Use this skill for exercise planning, adaptation, review, technique explanation,
 - exercise preferences and recovery signals
 
 Ask a focused question only when missing information changes safety or feasibility. Otherwise continue with labeled assumptions and make them easy to correct.
+
+## Optional inputs
+
+Optional inputs include preferences, budget, schedule, location, authorized connector data, prior attempts, and desired output format. Missing optional inputs remain unknown and must not be invented.
 
 ## Workflow
 
