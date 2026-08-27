@@ -21,6 +21,10 @@ Owned by Spike. Based on general health appointment prep workflow patterns and r
 
 Use this skill to organize a routine clinical visit, timeline, records, and questions. If the supplied symptoms reveal an urgent red flag, trigger only the immediate safety and escalation path rather than continuing routine appointment preparation.
 
+## When not to use
+
+Do not use this skill to make professional medical, legal, financial, structural, electrical, gas, fire-safety, or other high-stakes determinations; to bypass urgent escalation; or to mutate records without explicit authorization.
+
 ## Required inputs
 
 - visit type, date, clinician or specialty when known
@@ -29,6 +33,10 @@ Use this skill to organize a routine clinical visit, timeline, records, and ques
 - verified medications, allergies, test results, and records
 
 Ask a focused question only when missing information changes safety or feasibility. Otherwise continue with labeled assumptions and make them easy to correct.
+
+## Optional inputs
+
+Optional inputs include preferences, budget, schedule, location, authorized connector data, prior attempts, and desired output format. Missing optional inputs remain unknown and must not be invented.
 
 ## Workflow
 

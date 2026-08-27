@@ -21,6 +21,10 @@ Owned by Spike. Based on general household maintenance workflow patterns and rep
 
 Use this skill for routine maintenance, low-risk troubleshooting, and contractor preparation. If an in-domain request reveals a gas, electrical, structural, carbon-monoxide, flooding, sewage, mold, or hazardous-material danger, trigger only the safety and escalation path.
 
+## When not to use
+
+Do not use this skill to make professional medical, legal, financial, structural, electrical, gas, fire-safety, or other high-stakes determinations; to bypass urgent escalation; or to mutate records without explicit authorization.
+
 ## Required inputs
 
 - home type, affected area, and observed symptoms
@@ -29,6 +33,10 @@ Use this skill for routine maintenance, low-risk troubleshooting, and contractor
 - tenant/owner constraints and location only when code or service options matter
 
 Ask a focused question only when missing information changes safety or feasibility. Otherwise continue with labeled assumptions and make them easy to correct.
+
+## Optional inputs
+
+Optional inputs include preferences, budget, schedule, location, authorized connector data, prior attempts, and desired output format. Missing optional inputs remain unknown and must not be invented.
 
 ## Workflow
 

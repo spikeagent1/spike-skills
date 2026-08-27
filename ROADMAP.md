@@ -39,14 +39,14 @@ For each skill:
 
 ## Released cohorts
 
-The evaluated audience/community, safety/state-mutation, owner-operations, research/writing, portfolio-governance, and onboarding packages are released. A 2026-08-24 follow-up hardening pass added the reusable public operator contract to all 20 approved non-health/home packages, strengthened validator coverage for public contracts, catalog/source parity, and adapted provenance metadata, and recorded the scorecard in `evals/reports/public-skills-followup-2026-08-24.md`. Routing-overlap and long-tail cleanup follows; unresolved candidates remain unpublished until they pass their own gates.
+The evaluated audience/community, safety/state-mutation, owner-operations, research/writing, portfolio-governance, onboarding, and health/home-lifestyle packages are released. A 2026-08-24 follow-up hardening pass added the reusable public operator contract to all 20 approved non-health/home packages, strengthened validator coverage for public contracts, catalog/source parity, and adapted provenance metadata, and recorded the scorecard in `evals/reports/public-skills-followup-2026-08-24.md`. Routing-overlap and long-tail cleanup follows; unresolved candidates remain unpublished until they pass their own gates.
 
-## Cohort 2: health and home/lifestyle - pending review
+## Cohort 2: health and home/lifestyle - released
 
-This candidate cohort prepares the first everyday-life slice after audience/community with
-portable, advisory packages rather than a hosted personal-data platform. The packages remain pending Skill Workshop review and are not released.
+This released cohort provides the first everyday-life slice after audience/community with
+portable, advisory packages rather than a hosted personal-data platform. The ten proposals were explicitly approved, applied through Skill Workshop, discovered by the runtime, and reconciled in the release catalogs.
 
-Pending health candidates:
+Released health skills:
 
 - fitness-coach
 - meal-planner
@@ -54,7 +54,7 @@ Pending health candidates:
 - health-appointment-prep
 - medication-and-symptom-log
 
-Pending home/lifestyle candidates:
+Released home/lifestyle skills:
 
 - home-cook
 - grocery-planner
@@ -70,4 +70,4 @@ Review evidence:
 - deterministic `make validate` gate for manifests, evals, catalog status, privacy,
   dependency declarations, and obvious secrets;
 - local-only persistence language where a skill may write user-owned files;
-- real pending proposal IDs recorded in `catalog/approved.yaml`, with candidates kept in domain `next` lists until explicit approval.
+- real proposal IDs retained in `catalog/approved.yaml`, with applied packages moved to domain `released` lists.

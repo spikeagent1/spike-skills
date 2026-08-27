@@ -198,7 +198,7 @@ sources:
     classification: owned
     runtime_path: skills/fitness-coach
     repository_path: skills/fitness-coach
-    status: pending-review
+    status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
@@ -206,7 +206,7 @@ sources:
     classification: owned
     runtime_path: skills/meal-planner
     repository_path: skills/meal-planner
-    status: pending-review
+    status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
@@ -214,7 +214,7 @@ sources:
     classification: owned
     runtime_path: skills/sleep-review
     repository_path: skills/sleep-review
-    status: pending-review
+    status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
@@ -222,7 +222,7 @@ sources:
     classification: owned
     runtime_path: skills/health-appointment-prep
     repository_path: skills/health-appointment-prep
-    status: pending-review
+    status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
@@ -230,7 +230,7 @@ sources:
     classification: owned
     runtime_path: skills/medication-and-symptom-log
     repository_path: skills/medication-and-symptom-log
-    status: pending-review
+    status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
@@ -238,7 +238,7 @@ sources:
     classification: owned
     runtime_path: skills/home-cook
     repository_path: skills/home-cook
-    status: pending-review
+    status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
@@ -246,7 +246,7 @@ sources:
     classification: owned
     runtime_path: skills/grocery-planner
     repository_path: skills/grocery-planner
-    status: pending-review
+    status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
@@ -254,7 +254,7 @@ sources:
     classification: owned
     runtime_path: skills/household-maintenance
     repository_path: skills/household-maintenance
-    status: pending-review
+    status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
@@ -262,7 +262,7 @@ sources:
     classification: owned
     runtime_path: skills/purchase-research
     repository_path: skills/purchase-research
-    status: pending-review
+    status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
 
@@ -270,6 +270,6 @@ sources:
     classification: owned
     runtime_path: skills/wardrobe-and-packing
     repository_path: skills/wardrobe-and-packing
-    status: pending-review
+    status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned

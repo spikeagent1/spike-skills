@@ -21,6 +21,10 @@ Owned by Spike. Based on general grocery planner workflow patterns and repositor
 
 Use this skill for grocery-list construction, pantry reconciliation, budget planning, and shopping preparation. Keep allergy constraints prominent and use a separate explicit authorization step for connected-list changes or orders.
 
+## When not to use
+
+Do not use this skill to make professional medical, legal, financial, structural, electrical, gas, fire-safety, or other high-stakes determinations; to bypass urgent escalation; or to mutate records without explicit authorization.
+
 ## Required inputs
 
 - meals, people, duration, and household needs
@@ -29,6 +33,10 @@ Use this skill for grocery-list construction, pantry reconciliation, budget plan
 - budget, preferred stores, transport, and storage constraints
 
 Ask a focused question only when missing information changes safety or feasibility. Otherwise continue with labeled assumptions and make them easy to correct.
+
+## Optional inputs
+
+Optional inputs include preferences, budget, schedule, location, authorized connector data, prior attempts, and desired output format. Missing optional inputs remain unknown and must not be invented.
 
 ## Workflow
 

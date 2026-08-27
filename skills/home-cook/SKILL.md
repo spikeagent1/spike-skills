@@ -21,6 +21,10 @@ Owned by Spike. Based on general home cook workflow patterns and repository priv
 
 Use this skill for recipe planning, adaptation, sequencing, substitutions, and cooking troubleshooting. If the request reveals unsafe food or a serious allergy risk, trigger the safety path and offer a safe alternative instead of continuing the recipe.
 
+## When not to use
+
+Do not use this skill to make professional medical, legal, financial, structural, electrical, gas, fire-safety, or other high-stakes determinations; to bypass urgent escalation; or to mutate records without explicit authorization.
+
 ## Required inputs
 
 - available ingredients and confirmed pantry staples
@@ -29,6 +33,10 @@ Use this skill for recipe planning, adaptation, sequencing, substitutions, and c
 - ingredient condition or storage history when safety is relevant
 
 Ask a focused question only when missing information changes safety or feasibility. Otherwise continue with labeled assumptions and make them easy to correct.
+
+## Optional inputs
+
+Optional inputs include preferences, budget, schedule, location, authorized connector data, prior attempts, and desired output format. Missing optional inputs remain unknown and must not be invented.
 
 ## Workflow
 
