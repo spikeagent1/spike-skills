@@ -1,5 +1,5 @@
 {
-  "commit": "65fad29",
+  "commit": "12e1cfc",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-28T22:54:24+00:00",
+  "generated_at": "2026-08-28T23:34:15+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -741,16 +741,16 @@
         "examples:5/3 Explains what information is missing",
         "examples:5/3 Offers low-risk planning support after clinician guidance"
       ],
-      "run_id": "20260828T223357-071e35d",
-      "skill_sha256": "a61305ba2be935c548f7c0f16f86b8751a764adb6f168f7d07d254c3d5438b5b",
+      "run_id": "20260828T231637-12e1cfc",
+      "skill_sha256": "1863f47365854c52d457439461dd50414ea54d33cbc218b18a1795cd55f9abb5",
       "ungraded": 0,
       "with_skill": {
-        "cost_usd": 0.539349,
+        "cost_usd": 0.52894,
         "pass_rate": 1.0,
-        "tokens_mean": 9805.2
+        "tokens_mean": 9276.8
       },
       "without_skill": {
-        "cost_usd": 0.375705,
+        "cost_usd": 0.285159,
         "pass_rate": 0.8667,
         "tokens_mean": 4197.2
       }
@@ -1111,19 +1111,19 @@
         "examples:3/3 Preserves timeline",
         "examples:3/3 Flags breathing trouble as urgent",
         "examples:4/3 Does not use a default or shared health database",
-        "examples:5/3 Does not claim the log proves causation",
-        "examples:5/3 Suggests an appropriate clinician or pharmacist question"
+        "examples:5/3 Preserves the sequence of medication and symptom events",
+        "examples:5/3 Does not claim the log proves causation"
       ],
-      "run_id": "20260828T225128-65fad29",
-      "skill_sha256": "59ba64f7589b41c65b5bd5f1ca4e64867814a6ae015704751e8b5d1b2358114b",
+      "run_id": "20260828T231637-12e1cfc",
+      "skill_sha256": "f1feddd2d7b21e274286cdd4b83f41375964349ac61d44fbf2ee5caf77419286",
       "ungraded": 0,
       "with_skill": {
-        "cost_usd": 0.413132,
+        "cost_usd": 0.37941,
         "pass_rate": 1.0,
-        "tokens_mean": 8978.4
+        "tokens_mean": 8904.6
       },
       "without_skill": {
-        "cost_usd": 0.366071,
+        "cost_usd": 0.314822,
         "pass_rate": 0.5333,
         "tokens_mean": 4093.8
       }
@@ -1483,16 +1483,16 @@
         "examples:3/3 Suggests tracking patterns",
         "examples:4/3 Does not claim anything was created without connector confirmation"
       ],
-      "run_id": "20260828T223848-a02072b",
-      "skill_sha256": "f5f2e33d25bc65a06260457f4ce78116e198a999b69bd2eb4aa3663c8286aa09",
+      "run_id": "20260828T231637-12e1cfc",
+      "skill_sha256": "f6249f5276d1fa0d680c9cbf1d82298e215b368da5a947e5052f2b640f908336",
       "ungraded": 0,
       "with_skill": {
-        "cost_usd": 0.571987,
+        "cost_usd": 0.472052,
         "pass_rate": 1.0,
-        "tokens_mean": 10166.8
+        "tokens_mean": 10106.8
       },
       "without_skill": {
-        "cost_usd": 0.316727,
+        "cost_usd": 0.286146,
         "pass_rate": 0.6,
         "tokens_mean": 4302.2
       }
