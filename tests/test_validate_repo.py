@@ -13,9 +13,22 @@ from pathlib import Path
 import tools.validate_repo as validate_repo
 
 
-SCHEMA = json.loads(
-    (Path(__file__).resolve().parents[1] / "schemas/skill-evals.schema.json").read_text(
-        encoding="utf-8"
+REPO = Path(__file__).resolve().parents[1]
+
+SCHEMA = json.loads((REPO / "schemas/skill-evals.schema.json").read_text(encoding="utf-8"))
+
+# The committed contracts and adapters, copied into every fixture repo so the
+# contract_version 2 rules are exercised against the real files rather than a
+# hand-kept restatement of them.
+CONTRACT_SOURCES = tuple(
+    sorted(
+        path.relative_to(REPO).as_posix()
+        for path in [
+            *REPO.glob("contracts/*.yaml"),
+            REPO / "adapters/vocabulary.yaml",
+            REPO / "adapters/adapter.schema.json",
+            *REPO.glob("adapters/*/adapter.yaml"),
+        ]
     )
 )
 
@@ -88,8 +101,14 @@ class ValidateRepoTest(unittest.TestCase):
         self._write(f"skills/{name}/SKILL.md", self._skill_md(name))
         self._write_json(f"skills/{name}/examples/evals.json", self._evals(name))
 
+    def _copy_contracts(self) -> None:
+        """Copy the committed contracts/ and adapters/ files into the fixture repo."""
+        for rel in CONTRACT_SOURCES:
+            self._write(rel, (REPO / rel).read_text(encoding="utf-8"))
+
     def _write_base_repo(self) -> None:
         self._write(".gitignore", "evals/workspaces/\n.env\n*.skill\n")
+        self._copy_contracts()
         self._write_json("schemas/skill-evals.schema.json", SCHEMA)
         self._write_skill("approved-skill")
         self._write_skill("pending-skill")
@@ -1552,6 +1571,482 @@ class ValidateRepoTest(unittest.TestCase):
             },
         )
         self.assertIs(validate_repo.frontmatter, validate_repo.parse_frontmatter)
+
+    # ------------------------------------------------------------------
+    # Task 12: namespaces, effects, runtime binding, version, listing budget.
+    # ------------------------------------------------------------------
+
+    def _v2_metadata(
+        self,
+        *,
+        version: str = "2.0.0",
+        runtime: str = "[openclaw, claude-code]",
+        reads_from: str | None = None,
+        writes_to: str | None = None,
+        effects: str | None = None,
+    ) -> str:
+        """A metadata.spike-os block with only the keys a case needs."""
+        block = (
+            "metadata:\n"
+            "  spike-os:\n"
+            f"    version: {version}\n"
+            f"    runtime: {runtime}\n"
+        )
+        for key, value in (
+            ("reads_from", reads_from),
+            ("writes_to", writes_to),
+            ("effects", effects),
+        ):
+            if value is not None:
+                block += f"    {key}: {value}\n"
+        return block
+
+    def test_undeclared_namespace_in_body_fails(self) -> None:
+        workflow = (
+            "1. Read the brief under projects/ before answering.\n"
+            "2. Emit the approved skill fixture verdict."
+        )
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={"Workflow": workflow},
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("body names namespace 'projects/'", output)
+
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(
+                reads_from="[projects]", effects="[datastore:read]"
+            ),
+            sections={"Workflow": workflow},
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+
+    def test_reserved_namespace_not_writable(self) -> None:
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(
+                writes_to="[calendar, ghost]", effects="[datastore:write]"
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "writes_to names 'calendar', whose contracts/datastore.yaml status is "
+            "'reserved'",
+            output,
+        )
+        self.assertIn("writes_to names unknown namespace 'ghost'", output)
+
+    def test_writes_to_requires_datastore_write_effect(self) -> None:
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(
+                reads_from="[profile]", writes_to="[decisions]"
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "writes_to is non-empty but datastore:write is not declared", output
+        )
+        self.assertIn(
+            "reads_from is non-empty but datastore:read is not declared", output
+        )
+
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(
+                reads_from="[profile]",
+                writes_to="[decisions]",
+                effects="[datastore:read, datastore:write]",
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+
+    def test_effect_enum_and_undeclared_effect_keyword(self) -> None:
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(effects="[datastore:teleport]"),
+            sections={
+                "Workflow": (
+                    "1. Publish the fixture verdict where the audience reads it.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("effects names unknown effect 'datastore:teleport'", output)
+        self.assertIn("implies publish:external", output)
+        self.assertIn("Publish the fixture verdict where the audience reads it", output)
+
+    def test_negated_effect_sentence_passes(self) -> None:
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. Publish the fixture verdict anywhere it is wanted.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("implies publish:external", output)
+
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. Never publish the fixture verdict anywhere.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+
+    def test_delegation_sentence_passes(self) -> None:
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. Hand the publish step to `ghost-skill` and stop.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("implies publish:external", output)
+
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. Hand the publish step to `pending-skill` and stop.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+
+    def test_runtime_binding_requires_vocabulary_coverage(self) -> None:
+        adapter = (self.root / "adapters/claude-code/adapter.yaml").read_text(
+            encoding="utf-8"
+        )
+        needle = (
+            "  scheduler:\n"
+            "    value: Claude Code /schedule routines, with launchd for host-local jobs\n"
+        )
+        self.assertIn(needle, adapter)
+        self._write(
+            "adapters/claude-code/adapter.yaml",
+            adapter.replace(needle, "  scheduler:\n    value:\n", 1),
+        )
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(
+                runtime="[openclaw, claude-code, ghost-runtime]"
+            ),
+            sections={
+                "Workflow": (
+                    "1. After a `runtime restart`, ask the `scheduler` for the next run.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "runtime names 'ghost-runtime', which has no "
+            "adapters/ghost-runtime/adapter.yaml",
+            output,
+        )
+        self.assertIn(
+            "body uses `scheduler` but adapters/claude-code/adapter.yaml binds no "
+            "value for it",
+            output,
+        )
+        self.assertIn("use `runtime reload`, not `runtime restart`", output)
+
+    def test_runtime_specific_token_fails_v2_warns_v1(self) -> None:
+        self._write(
+            "skills/pending-skill/SKILL.md",
+            self._skill_md("pending-skill").replace(
+                "## Workflow\nValidate the fixture.",
+                "## Workflow\nSend the Telegram note to Tapan, then read Todoist.",
+                1,
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+        self.assertIn("3 runtime-specific value(s)", output)
+        self.assertIn("tapan, telegram, todoist", output)
+
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. Read the Todoist mirror.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("runtime-specific value 'Todoist'", output)
+
+    def test_version_semver_and_catalog_parity(self) -> None:
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(version="2.0"),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("version must be a semver like 1.0.0, found '2.0'", output)
+
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(version="2.1.0"),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "version '2.1.0' does not match catalog/approved.yaml version '2.0.0'",
+            output,
+        )
+
+        validate_repo.REQUIRE_VERSION = True
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "skills/pending-skill/SKILL.md: metadata.spike-os.version must be a semver",
+            output,
+        )
+
+    def test_listing_budget(self) -> None:
+        original = self._skill_md("pending-skill")
+        self._write(
+            "skills/pending-skill/SKILL.md",
+            original.replace(
+                "description: Portable validation fixture for pending-skill behavior.",
+                "description: Use when " + "x" * 800,
+                1,
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "listing entry is at most 1618 characters; the per-skill budget is 1536",
+            output,
+        )
+
+        self._write("skills/pending-skill/SKILL.md", original)
+        self._git_add()
+        validate_repo.LISTING_BUDGET_CHARS = 150
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+        self.assertIn("the library listing is 142 characters, over 80%", output)
+
+        validate_repo.LISTING_BUDGET_CHARS = 120
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("the library listing is 142 characters; the budget is 120", output)
+
+    def test_adapter_files_cover_vocabulary_and_namespaces(self) -> None:
+        adapter = (self.root / "adapters/openclaw/adapter.yaml").read_text(
+            encoding="utf-8"
+        )
+        adapter = adapter.replace("  contacts_provider:\n    value: none configured\n", "", 1)
+        adapter = adapter.replace("    calendar: ops/calendar/\n", "", 1)
+        adapter = adapter.replace("scheduler: OpenClaw cron\n", "", 1)
+        adapter = adapter.replace(
+            "  owner_timezone:\n", "  invented_term:\n    value: nope\n  owner_timezone:\n", 1
+        )
+        self._write("adapters/openclaw/adapter.yaml", adapter)
+        self._write("adapters/ghost/adapter.yaml", "runtime: ghost\nversion: 1\n")
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "adapters/openclaw/adapter.yaml: binds no value for vocabulary term "
+            "'contacts_provider'",
+            output,
+        )
+        self.assertIn(
+            "adapters/openclaw/adapter.yaml: maps no path for namespace 'calendar'",
+            output,
+        )
+        self.assertIn(
+            "adapters/openclaw/adapter.yaml: binds unknown vocabulary term "
+            "'invented_term'",
+            output,
+        )
+        self.assertIn("adapters/openclaw/adapter.yaml: schema violation", output)
+        self.assertIn("adapters/ghost/adapter.yaml: 'ghost' is not a declared runtime", output)
+
+    def test_missing_contract_warns_on_v1_and_fails_on_v2(self) -> None:
+        (self.root / "contracts/datastore.yaml").unlink()
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+        self.assertIn("contracts/datastore.yaml: missing", output)
+
+        self._promote_to_v2(
+            "approved-skill", "pending-skill", metadata_block=self._v2_metadata()
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("contracts/datastore.yaml: missing", output)
+
+    def test_derived_hints_for_the_installer(self) -> None:
+        entries = validate_repo.effect_enum(
+            validate_repo.load_capabilities([], require=True) or {}
+        )
+
+        self.assertEqual(
+            validate_repo.derived_hints([], entries),
+            {
+                "readOnlyHint": True,
+                "destructiveHint": False,
+                "idempotentHint": True,
+                "openWorldHint": False,
+            },
+        )
+        self.assertEqual(
+            validate_repo.derived_hints(["datastore:read", "provider:read"]),
+            {
+                "readOnlyHint": True,
+                "destructiveHint": False,
+                "idempotentHint": True,
+                "openWorldHint": True,
+            },
+        )
+        self.assertEqual(
+            validate_repo.derived_hints(["datastore:read", "identity:write"], entries),
+            {
+                "readOnlyHint": False,
+                "destructiveHint": True,
+                "idempotentHint": False,
+                "openWorldHint": False,
+            },
+        )
+        self.assertEqual(
+            validate_repo.derived_hints(["not-an-effect"], entries),
+            {
+                "readOnlyHint": False,
+                "destructiveHint": True,
+                "idempotentHint": False,
+                "openWorldHint": True,
+            },
+        )
+
+    def test_catalog_index_hook_compares_build_index_render(self) -> None:
+        self._write("catalog/index.md", "# Index\n\nstale\n")
+        self._write(
+            "tools/build_index.py",
+            'def render() -> str:\n    return "# Index\\n\\nfresh\\n"\n',
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("catalog/index.md: out of date", output)
+
+        self._write("catalog/index.md", "# Index\n\nfresh\n")
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
 
 
 if __name__ == "__main__":
