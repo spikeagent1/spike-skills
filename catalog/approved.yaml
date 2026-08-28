@@ -216,8 +216,8 @@ skills:
     status: approved
     cohort: health-and-home-lifestyle
     workshop_proposal: meal-planner-20260824-9009e5524a
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: sleep-review
     classification: owned
