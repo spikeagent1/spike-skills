@@ -1,0 +1,6 @@
+{"intent":"Turn the validator work we shipped into drafts for the channels we're actually connected to.","expected_skill":"audience-content-engine"}
+{"intent":"We have a real artifact and no idea how to talk about it. Help me plan a few posts around it.","expected_skill":"audience-content-engine"}
+{"intent":"Adapt the approved entry for a professional-network audience without changing anything it claims.","expected_skill":"audience-content-engine"}
+{"intent":"Our readers never talk to each other. What would change that?","expected_skill":"community-management","ambiguous_with":["audience-content-engine"]}
+{"intent":"Draft the entry about the unmerged change and get it reviewed before it goes anywhere.","expected_skill":"public-post-workshop","ambiguous_with":["audience-content-engine"]}
+{"intent":"Design a logo for the project.","expected_skill":null}

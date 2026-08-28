@@ -1156,10 +1156,13 @@ class CaseLoaderTest(unittest.TestCase):
         with self.assertRaises(cases.CaseLoadError):
             self._load()
 
-    def test_repo_community_management_has_both_files_with_offset_ids(self) -> None:
+    def test_repo_behavioral_files_all_live_in_examples_without_id_offsets(self) -> None:
+        """Canary: one eval file per skill, so the second-file id offset never applies."""
         loaded = cases.load_behavioral_cases()
         cm = [c for c in loaded if c.skill == "community-management"]
-        self.assertEqual([c.eval_id for c in cm], [1, 2, 3, 4, 5, 6, 101, 102, 103, 104, 105, 106, 107, 108])
+        self.assertEqual([c.eval_id for c in cm], [1, 2, 3, 4, 5, 6])
+        self.assertTrue(all(c.file_rel.endswith("/examples/evals.json") for c in loaded))
+        self.assertTrue(all(c.eval_id < cases.EVAL_ID_FILE_OFFSET for c in loaded))
         self.assertEqual(len({c.key for c in cm}), len(cm))
         self.assertEqual(len({(c.skill, c.eval_id) for c in loaded}), len(loaded))
         self.assertTrue(all(c.prompt and c.assertions for c in loaded))
@@ -1305,29 +1308,32 @@ class RoutingLoaderTest(unittest.TestCase):
         self.assertEqual(case.phantom_ambiguous, ["ghost"])
         self.assertFalse(case.phantom_expected)
 
-    def test_repo_routing_files_classify_the_known_phantoms(self) -> None:
+    def test_repo_routing_files_name_only_real_skills(self) -> None:
+        """Canary: the repaired corpus has one file per skill and no phantom targets."""
         loaded = cases.load_routing_cases()
-        self.assertEqual(len(loaded), 32)
-        phantoms = {
-            (c.skill_file, c.expected_skill): c for c in loaded if c.phantom_expected
-        }
-        self.assertEqual(
-            sorted(phantoms),
-            [
-                ("draft-in-voice", "reports"),
-                ("draft-in-voice", "voice-note-ingest"),
-                ("fact-check", "academic-verify"),
-                ("fact-check", "citation-fixer"),
-            ],
-        )
-        self.assertTrue(phantoms[("fact-check", "academic-verify")].soft)
-        self.assertEqual(
-            phantoms[("fact-check", "citation-fixer")].must_not_route, "fact-check"
-        )
-        dropped = sorted(
-            {name for c in loaded for name in c.phantom_ambiguous}
-        )
-        self.assertEqual(dropped, ["bulk-ingestion", "daily-task-prep", "voice-note-ingest"])
+        known = set(cases.skill_names())
+        self.assertEqual(len(loaded), 179)
+        self.assertEqual(len({c.skill_file for c in loaded}), len(known))
+        self.assertEqual([c for c in loaded if c.phantom_expected], [])
+        self.assertEqual([name for c in loaded for name in c.phantom_ambiguous], [])
+        self.assertEqual([c for c in loaded if c.soft or c.must_not_route], [])
+        for case in loaded:
+            if case.expected_skill is not None:
+                self.assertIn(case.expected_skill, known, case.intent)
+            for name in case.ambiguous_with:
+                self.assertIn(name, known, case.intent)
+
+    def test_repo_routing_files_cover_own_skill_and_a_null_each(self) -> None:
+        """Canary: every file keeps at least two positives and one unroutable intent."""
+        loaded = cases.load_routing_cases()
+        for skill in sorted({c.skill_file for c in loaded}):
+            rows = [c for c in loaded if c.skill_file == skill]
+            self.assertGreaterEqual(
+                len([c for c in rows if c.expected_skill == skill]), 2, skill
+            )
+            self.assertGreaterEqual(
+                len([c for c in rows if c.expected_skill is None]), 1, skill
+            )
 
 
 class CacheKeyTest(unittest.TestCase):

@@ -1,0 +1,6 @@
+{"intent":"Connect my mail account end to end and tell me exactly which permissions it ended up with.","expected_skill":"mcp-connector-onboarding"}
+{"intent":"Here's the authorization callback URL. Finish the setup and verify it actually works.","expected_skill":"mcp-connector-onboarding"}
+{"intent":"The task provider shows as connected but the installer says unconfirmed. Which is it?","expected_skill":"mcp-connector-onboarding"}
+{"intent":"Half my tools are missing since the restart — work out what state we're in.","expected_skill":"runtime-handoff-onboarding","ambiguous_with":["mcp-connector-onboarding"]}
+{"intent":"Create the public accounts you'll be posting from and get them verified.","expected_skill":"social-agent-onboarding","ambiguous_with":["mcp-connector-onboarding"]}
+{"intent":"Explain what OAuth is to a friend who isn't technical.","expected_skill":null}

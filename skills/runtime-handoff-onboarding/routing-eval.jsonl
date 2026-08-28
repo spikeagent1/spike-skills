@@ -1,0 +1,6 @@
+{"intent":"You were just redeployed. What were you in the middle of, and what still works?","expected_skill":"runtime-handoff-onboarding"}
+{"intent":"Reconcile everything after the migration: memory, tools, scheduled jobs, and whatever was left unfinished.","expected_skill":"runtime-handoff-onboarding"}
+{"intent":"Write the handoff note for whoever picks this up next, and keep credentials out of it.","expected_skill":"runtime-handoff-onboarding"}
+{"intent":"The mail connector's token expired. Re-authorize it and check the scopes.","expected_skill":"mcp-connector-onboarding","ambiguous_with":["runtime-handoff-onboarding"]}
+{"intent":"Let's revisit the boundaries we agreed on — some of them no longer fit how I work.","expected_skill":"owner-context-onboarding","ambiguous_with":["runtime-handoff-onboarding"]}
+{"intent":"What's the difference between a container and a virtual machine?","expected_skill":null}

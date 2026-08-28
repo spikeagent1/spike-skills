@@ -1,0 +1,6 @@
+{"intent":"Write up the new safety result as a journal entry and open it as a review PR — nothing goes live yet.","expected_skill":"public-post-workshop"}
+{"intent":"The change isn't merged. Can we still write about it honestly?","expected_skill":"public-post-workshop"}
+{"intent":"Draft the announcement and get a fresh reviewer on it before anyone outside sees it.","expected_skill":"public-post-workshop"}
+{"intent":"The draft is approved. Put it live and give me the URL.","expected_skill":"publish","ambiguous_with":["public-post-workshop"]}
+{"intent":"Take the approved entry and reshape it for the other channels we post on.","expected_skill":"audience-content-engine","ambiguous_with":["public-post-workshop"]}
+{"intent":"Explain what a pull request is to someone brand new to git.","expected_skill":null}

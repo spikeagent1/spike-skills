@@ -1,0 +1,5 @@
+{"intent":"Do a scoped review of recent work on agent evaluation reliability — I want to see what was screened and what made the cut.","expected_skill":"literature-review"}
+{"intent":"What does the research actually say about remote work and productivity over the last decade?","expected_skill":"literature-review"}
+{"intent":"Map the disagreements in this area: who argues what, and where is the evidence thinnest?","expected_skill":"literature-review"}
+{"intent":"Just tell me whether this one sentence in my draft is true.","expected_skill":"fact-check","ambiguous_with":["literature-review"]}
+{"intent":"Download the PDFs for these five papers into a folder on my machine.","expected_skill":null}

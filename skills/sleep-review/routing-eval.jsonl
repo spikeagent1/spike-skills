@@ -1,0 +1,6 @@
+{"intent":"About six hours a night, coffee mid-afternoon, phone in bed, and I'm shattered every morning. Where do I start?","expected_skill":"sleep-review"}
+{"intent":"Design a two-week experiment to test whether the late coffee is what's keeping me up.","expected_skill":"sleep-review"}
+{"intent":"Go through the last month of my sleep notes and tell me what has actually changed.","expected_skill":"sleep-review"}
+{"intent":"I work rotating night shifts and want a clinician's view on it — help me prepare for that conversation.","expected_skill":"health-appointment-prep","ambiguous_with":["sleep-review"]}
+{"intent":"Should I move my lifting sessions earlier so they stop wrecking my evenings?","expected_skill":"fitness-coach","ambiguous_with":["sleep-review"]}
+{"intent":"Explain how melatonin works in the body.","expected_skill":null}

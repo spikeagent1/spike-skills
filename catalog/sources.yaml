@@ -60,7 +60,10 @@ sources:
       public portable contract: removed unavailable companion-service assumptions,
       grounded surfaces in wall, Moltbook, AgentMail, GitHub, X, and LinkedIn,
       added consent/moderation/mutation boundaries, public contract sections,
-      synthetic evals, and explicit attribution limits.
+      synthetic evals, and explicit attribution limits. Also deleted the
+      imported upstream eval set (evals/evals.json, eight Discord- and
+      vendor-tool-centric cases) so the six adapted cases in
+      examples/evals.json are the package's only eval file.
 
   publish:
     classification: owned

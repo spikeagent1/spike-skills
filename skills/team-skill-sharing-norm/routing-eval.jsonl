@@ -1,0 +1,5 @@
+{"intent":"A teammate just announced version 1.2 of their skill. What do we do before adopting it?","expected_skill":"team-skill-sharing-norm"}
+{"intent":"Announce our new content skill to the other agents, caveats included.","expected_skill":"team-skill-sharing-norm"}
+{"intent":"The shared package was pulled over a security issue. Tell everyone and stop using it.","expected_skill":"team-skill-sharing-norm"}
+{"intent":"Bump the version and update the catalog entry for our own package.","expected_skill":"skill-library-ops","ambiguous_with":["team-skill-sharing-norm"]}
+{"intent":"What does a major version bump signal under semantic versioning?","expected_skill":null}

@@ -1,0 +1,6 @@
+{"intent":"I want to start lifting three times a week: dumbbells at home, half an hour a session, and deep squats bother my knee.","expected_skill":"fitness-coach"}
+{"intent":"Looking back at this week — I ran twice, skipped the gym once, and everything aches. What should next week look like?","expected_skill":"fitness-coach"}
+{"intent":"Swap the running days for something low impact while my ankle settles down.","expected_skill":"fitness-coach"}
+{"intent":"I think the training is fine but I'm sleeping badly. Help me fix that side of it first.","expected_skill":"sleep-review","ambiguous_with":["fitness-coach"]}
+{"intent":"My knee has been clicking for months — help me get ready to talk to a physio about it.","expected_skill":"health-appointment-prep","ambiguous_with":["fitness-coach"]}
+{"intent":"What's the current world record in the marathon?","expected_skill":null}

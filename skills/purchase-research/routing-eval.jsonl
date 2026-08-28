@@ -1,0 +1,6 @@
+{"intent":"Which robot vacuum under five hundred actually handles pet hair on hardwood? I want one I can repair.","expected_skill":"purchase-research"}
+{"intent":"Here are three product links. What's likely to go wrong after I buy?","expected_skill":"purchase-research"}
+{"intent":"I don't actually know what I need yet — work out the requirements with me before we compare anything.","expected_skill":"purchase-research"}
+{"intent":"Whatever I end up buying I'll have to service it. Plan the upkeep.","expected_skill":"household-maintenance","ambiguous_with":["purchase-research"]}
+{"intent":"I need a warmer jacket for the trip — work out what I'm packing first.","expected_skill":"wardrobe-and-packing","ambiguous_with":["purchase-research"]}
+{"intent":"Cancel my subscription to that streaming service.","expected_skill":null}
