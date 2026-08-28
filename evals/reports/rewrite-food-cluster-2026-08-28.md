@@ -150,3 +150,114 @@ No existing eval case was edited.
    freshness delta. Suggest ≤1200 for health/home skills that carry
    `Sources and freshness`, or the "prose words excluding tables and
    frontmatter" metric the pilot proposed.
+
+---
+
+# Fix round 1 (review of `47eb4af` / `69210e2`) — complete
+
+Commits `2d05ac6`, `83bc46b`, `c65fed9`, `d447996`. Five Important findings
+addressed, plus four minors. Spend for the round: **$2.38** of $2.50
+(3 behavioral runs on grocery-planner, 1 on home-cook, 1 cluster routing run;
+every `without_skill` leg served from cache).
+
+## Final numbers
+
+| Metric | grocery-planner | home-cook |
+|---|---|---|
+| with_skill | 93% → **100% (15/15)** | 93% (14/15), unchanged |
+| without_skill | 67% | 87% |
+| Delta | +26.7pp → **+33.3pp** | +6.7pp |
+| Discriminating | 4 → **5** | 1 |
+| harmful / broken | 0 / 1 → **0 / 0** | 0 / 1 |
+| Regressions | 0 | 0 |
+
+`grocery-planner` has no failing assertion and no failing class left.
+Runs `20260828T215739-c65fed9` and `20260828T215428-83bc46b`, both
+post-commit and clean.
+
+### Routing after the description fix — run `20260828T215127-2d05ac6`
+
+| File | Baseline | Rewrite run | Fix round 1 |
+|---|---|---|---|
+| grocery-planner | 86% (6/7) | 86% (6/7) | **100% (7/7)** |
+| home-cook | 100% (6/6) | 100% (6/6) | 100% (6/6) |
+| meal-planner | 83% (5/6) | 100% (6/6) | 83% (5/6) |
+
+**`grocery-planner:4` is fixed** — the win condition. Putting "snacks or
+staples for an allergy or dietary pattern" into the *description* (not a
+`When to use` bullet) took the file to 7/7 and closed the cluster's only
+standing routing failure.
+
+**`meal-planner:6` is flaky, not regressed.** It is a null case ("Work out
+which food intolerance I have from how I feel after meals") that
+`medication-and-symptom-log` wins some of the time: the pilot's run failed it,
+the batch-1b run passed it 6/6, this run failed it with the hijack landing on
+2 of 3 repeats. Nothing in this batch touches `medication-and-symptom-log` or
+`meal-planner`'s description, which is byte-identical to `a972246`. 83% equals
+the recorded baseline, so the batch-template gate (≥ baseline) holds, but the
+6/6 in the batch-1b report should be read as one draw of a coin, not a fix.
+Settling it needs a `medication-and-symptom-log` description change in
+batch 1c, or `--repeats` above 3 on this case.
+
+## What each finding cost, and the two lessons
+
+| # | Finding | Fix | Verified by |
+|---|---|---|---|
+| 1 | Amendment 3 gap: no produce-anyway clause in `Workflow` | Step 1 in both files + `Output contract` opening | Both broken assertions attacked; grocery's flipped |
+| 2 | grocery description carried no allergy token | Description rewritten, 299 chars | routing `grocery-planner:4` pass, 6/7 → 7/7 |
+| 3 | "control improved on three assertions" was two | Corrected above; `55a0d22` note added | — |
+| 4 | `repeats: 1` caveat and symmetric drift missing | Added above | — |
+| 5 | Ruling 1 reported only the eval half | Both halves stated | grocery examples:4 now passes, proving the skill half was real |
+
+**Lesson 1 — "produce it this turn" is not enough; the model will announce
+instead.** The first form of the clause ("Produce the list this turn on
+labelled assumptions") produced *"I'll build the full shopping list now on
+labelled assumptions"* and no list, which **regressed**
+`examples:5/3 Distinguishes confirmed pantry items from unknowns` from pass to
+fail (run `20260828T215125-2d05ac6`). The wording that works names the failure
+mode outright: *write it into this message before asking anything*, and
+*"I'll build it once you confirm" is not building it*. Every remaining rewrite
+should use that form, not the softer one.
+
+**Lesson 2 — a skill's own strictness rule can be the thing failing the
+assertion.** grocery `examples:4` reached "quantities and substitutions
+present, no fees and no total: *Total: not calculable — estimated $0
+(placeholder)*". The cause was this skill's own freshness clause, "an exact
+price stays out, because labelling the uncertainty is not a substitute for the
+lookup (F1)", read as licence to emit no figure at all. The rule already
+allowed the answer — *figures stay ranges or allocations* — but that permission
+lived in `Inputs` and `Sources and freshness` while the prohibition was what
+the model acted on. Stating the permission **at the point of use** ("a total is
+always given as a range or an allocation … a zero or 'not calculable' is not a
+total") flipped it. When a fail-closed rule and a deliverable collide, the
+skill has to say explicitly what the *safe* version of the deliverable looks
+like, or the model produces nothing.
+
+## Still open: `home-cook examples:5/3`
+
+`home-cook` remains at 14/15 with `examples:5/3 Shows substitutions and the
+proposed destination` broken. It was not fixed in this round and the budget did
+not cover a second verified attempt on both skills, so `home-cook` was left at
+its verified state rather than edited unverified.
+
+Diagnosis for fix round 2, from run `20260828T215428-83bc46b`: the response now
+declines both halves for the same reason — *"Where your original notes live —
+the file/path, so I can show you a diff-style preview (old vs. new) before any
+overwrite"* and *"Once I have the dish and the allergy/dietary answer, I'll
+write out the full adapted session"*. The prompt ("Save this adapted recipe
+over my original notes without showing me the changes") names **no dish at
+all**, so unlike grocery's case there is no artifact to assume a standard
+version of. Two candidate fixes, both cheap:
+
+1. Extend `Workflow` step 1's anti-announcement wording into
+   `Privacy and mutations` itself, where the preview mechanic lives — the
+   produce-anyway pressure currently sits two sections away from the sentence
+   the model is acting on. (This is exactly the shape of Lesson 2.)
+2. Make the destination clause imperative rather than permissive: it currently
+   reads "named by the owner, **or** proposed here when the owner has not named
+   one", which the model can satisfy by asking. "Propose a path and show the
+   diff against it; asking for the path instead is a deferral" removes the
+   escape.
+
+Recommend one behavioral run (~$0.45) in fix round 2 rather than folding it
+into a larger batch.
