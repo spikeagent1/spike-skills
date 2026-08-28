@@ -94,6 +94,10 @@ metadata:
 
 ## Contract
 
+<!-- Mandatory. The link and one Provenance line, nothing else. For an adapted
+     skill replace the line below with:
+     - Provenance: adapted from <publisher>/<slug> <version> (see catalog/sources.yaml) -->
+
 Follows [contracts/skill-contract.md](../../contracts/skill-contract.md) v1.
 
 - Provenance: repo-owned

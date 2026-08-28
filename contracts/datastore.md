@@ -110,7 +110,7 @@ and `status: confirmed` — the adapter maps it; records are never renamed here.
 | Verb | Mutating | Semantics |
 |---|---|---|
 | `read(ns, id)` | no | The only way to obtain a record's content. |
-| `search(q, ns?, limit?)` | no | Keyword only; every hit must be `read` before it is used (`skills/briefing/SKILL.md:21`). |
+| `search(q, ns?, limit?)` | no | Keyword only; every hit must be `read` before it is used (design-derived). |
 | `list(ns, filter?)` | no | Enumeration; follow pagination and never infer absence from one page (`skills/daily-task-manager/SKILL.md:24`). |
 | `timeline(ns, id, range)` | no | Explicit range always; never "since last run" (`skills/briefing/SKILL.md:21`). |
 | `write(ns, record)` | yes | Put, then read back and compare envelope and body hash before claiming success. |

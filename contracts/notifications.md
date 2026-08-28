@@ -17,9 +17,11 @@ The only way a skill reaches the owner outside its own reply. Requires the
 ## Quiet hours
 
 Quiet hours come from the adapter (owner timezone plus a window). They govern
-**delivery, never execution**: a job still runs, and its notification is held
-(`skills/cron-scheduler/SKILL.md:40`). Held messages are released as one digest
-at the end of the window. Awake state is never inferred from activity signals.
+**delivery, not execution** — unless the job itself is unsafe to execute during
+quiet hours, in which case execution is deferred too. A job that runs has its
+notification held (`skills/cron-scheduler/SKILL.md:40`). Held messages are
+released as one digest at the end of the window. Awake state is never inferred
+from activity signals.
 
 Exactly two overrides send during quiet hours
 (`skills/owner-dream-cycle/SKILL.md:58`):

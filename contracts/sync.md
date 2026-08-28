@@ -11,11 +11,11 @@ A sync instance is one namespace (or one kind within it) bound to one provider.
 It declares:
 
 - **provider_role** — a `contracts/skill-contract.md` §R vocabulary term, never a product name.
-- **system_of_record** — `provider` or `datastore`; the owner may flip it per namespace, and the skill must say so when it does (`skills/daily-task-manager/SKILL.md:52`).
+- **system_of_record** — `provider` or `datastore`; the owner selects it per namespace (`skills/daily-task-manager/SKILL.md:12`) and the skill discloses the choice when it is not the provider (`skills/daily-task-manager/SKILL.md:42`).
 - **id_map** — a stable internal UID against, per provider, `{external_id, version_token, last_synced_with}`. Provider identity is authoritative; never mint a second internal ID for an existing provider object (`skills/daily-task-manager/SKILL.md:29`).
 - **semantic_key** — the normalized fields that identify an object before it has an `external_id` (`skills/daily-task-manager/SKILL.md:27`).
 - **readback_fields** — the fields compared after every provider write (`skills/daily-task-manager/SKILL.md:36`).
-- **conflict_policy** — provider-wins by default. A divergence is surfaced as a ConflictSet or duplicated on both sides, never silently merged (`skills/daily-task-manager/SKILL.md:53`).
+- **conflict_policy** — provider-wins unless the owner explicitly chose the datastore (`skills/daily-task-manager/SKILL.md:52`). A divergence is surfaced as a ConflictSet or duplicated on both sides, never silently merged (design-derived).
 - **pagination** — required on every listing; absence is never inferred from one page (`skills/daily-task-manager/SKILL.md:24`, `skills/cron-scheduler/SKILL.md:17`).
 - **match_fallback** — semantic-key matching runs against active objects only and fails closed on zero or more than one match (`skills/daily-task-manager/SKILL.md:22`).
 - **fast/slow rule** — per-record `dirty` and `deleted` flags are trusted only when `last_synced_with` equals the provider's current version token; otherwise do a full field compare.
@@ -50,14 +50,14 @@ object and re-read before writing the mirror (`skills/daily-task-manager/SKILL.m
 ## Reconciliation
 
 Review from the provider first, then reconcile
-(`skills/daily-task-manager/SKILL.md:48-53`):
+(`skills/daily-task-manager/SKILL.md:48`):
 
 | Case | Resolution |
 |---|---|
-| Provider-only object | Repair or create the mirror record. |
-| Mirror-only active object | Mark `EXTERNAL_MISSING`; never present it as provider-visible. |
-| Divergent fields | Apply `conflict_policy`; surface the ConflictSet either way. |
-| Duplicate semantic keys | Report and request a merge decision; never auto-delete. |
+| Provider-only object | Repair or create the mirror record (`skills/daily-task-manager/SKILL.md:50`). |
+| Mirror-only active object | Mark `EXTERNAL_MISSING`; never present it as provider-visible (`skills/daily-task-manager/SKILL.md:51`). |
+| Divergent fields | Apply `conflict_policy`; surface the ConflictSet either way (`skills/daily-task-manager/SKILL.md:52`). |
+| Duplicate semantic keys | Report and request a merge decision; never auto-delete (`skills/daily-task-manager/SKILL.md:53`). |
 
 ## Instances
 

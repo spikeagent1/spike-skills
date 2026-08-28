@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unittest
 
 import tools.contracts_check as contracts_check
@@ -66,6 +67,16 @@ class CapabilitiesTest(unittest.TestCase):
                 self.assertIn(entry["resource_class"], contracts_check.RESOURCE_CLASSES)
                 self.assertTrue(entry["derived_from"])
                 self.assertLessEqual(len(entry["summary"].split()), 15)
+
+    def test_derived_from_entries_are_traceable(self) -> None:
+        reference = re.compile(r"^skills/[a-z0-9-]+/SKILL\.md:\d+(-\d+)?$")
+        for entry in EFFECTS:
+            for source in entry["derived_from"]:
+                with self.subTest(effect=entry["name"], source=source):
+                    self.assertTrue(
+                        source == "design-derived" or reference.match(source),
+                        f"{source!r} is neither a SKILL.md line reference nor 'design-derived'",
+                    )
 
     def test_derivation_and_promotion_gate_present(self) -> None:
         self.assertEqual(CAPABILITIES["version"], 1)
