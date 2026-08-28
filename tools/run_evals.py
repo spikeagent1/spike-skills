@@ -2,9 +2,9 @@
 """Eval runner CLI for spike-skills.
 
 `doctor` probes isolation, `run` executes behavioral cases in paired configs and
-grades them, and `grade` re-grades an existing run directory. The analysis,
-reporting, comparison, baseline, and routing subcommands are declared so their
-flags stay stable while they land.
+grades them, `grade` re-grades an existing run directory, and `routing` measures
+which skill the router picks for each intent. `compare`, `report`, and `baseline`
+read what those wrote.
 """
 
 from __future__ import annotations
@@ -27,16 +27,22 @@ from tools.evalrunner import (  # noqa: E402
     executor,
     grader,
     report,
+    routing,
     workspace,
 )
-from tools.evalrunner.claude_cli import SubprocessClaudeRunner, strategy_flags, strategy_names  # noqa: E402
+from tools.evalrunner.claude_cli import (  # noqa: E402
+    ClaudeRequest,
+    SubprocessClaudeRunner,
+    strategy_flags,
+    strategy_names,
+)
 
 DEFAULT_MODEL = "sonnet"
 DEFAULT_TIMEOUT_S = 180.0
 DEFAULT_PROBE_BUDGET_USD = 0.05
 DEFAULT_RUN_BUDGET_USD = 0.50
 DEFAULT_WORKERS = 4
-NOT_IMPLEMENTED = ("routing",)
+DEFAULT_ROUTING_REPEATS = 3
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -147,9 +153,12 @@ def build_parser() -> argparse.ArgumentParser:
     baseline_sub = baseline_parser.add_subparsers(dest="baseline_command", required=True)
 
     baseline_update = baseline_sub.add_parser("update", help="Merge a run's results into the baseline.")
-    baseline_update.add_argument("--from", dest="from_run", required=True, help="Run id to merge in.")
     baseline_update.add_argument(
-        "--routing-from", help="Run id to merge routing results from (not implemented in this build)."
+        "--from", dest="from_run",
+        help="Behavioral run id to merge in; optional when only --routing-from is given.",
+    )
+    baseline_update.add_argument(
+        "--routing-from", help="Routing run id whose results.json fills the baseline's routing block.",
     )
     baseline_update.add_argument(
         "--require-clean", action="store_true", help="Refuse when the source run was recorded dirty."
@@ -159,19 +168,40 @@ def build_parser() -> argparse.ArgumentParser:
     baseline_check = baseline_sub.add_parser("check", help="Report staleness against the repo on disk.")
     baseline_check.set_defaults(handler=cmd_baseline_check)
 
-    for name in NOT_IMPLEMENTED:
-        stub = subparsers.add_parser(
-            name, help=f"{name} (not implemented in this build)", add_help=False
-        )
-        stub.set_defaults(handler=_not_implemented, command_name=name)
+    routing_parser = subparsers.add_parser(
+        "routing", help="Measure which skill the router picks for each routing intent."
+    )
+    routing_parser.add_argument("--skill", help="Comma-separated skill names (the file that owns the intents).")
+    routing_parser.add_argument("--all", action="store_true", help="Every routing intent in the repo.")
+    routing_parser.add_argument("--model", default=DEFAULT_MODEL)
+    routing_parser.add_argument(
+        "--mode", default=routing.MODE_NATIVE, choices=list(routing.MODES),
+        help="native: Claude Code picks with every skill installed. classify: one tool-less call over the descriptions.",
+    )
+    routing_parser.add_argument("--repeats", type=int, default=DEFAULT_ROUTING_REPEATS)
+    routing_parser.add_argument(
+        "--descriptions-from", help="Build the ballot from the SKILL.md files committed at this git ref."
+    )
+    routing_parser.add_argument(
+        "--extra-skill", action="append", default=[],
+        help="Path to a skill directory to add to the ballot (repeatable).",
+    )
+    routing_parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
+    routing_parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_S)
+    routing_parser.add_argument("--no-cache", action="store_true")
+    routing_parser.add_argument("--dry-run", action="store_true", help="Write request.json only.")
+    routing_parser.add_argument("--label", help="Suffix for the run id.")
+    routing_parser.set_defaults(handler=cmd_routing)
+
+    export_parser = subparsers.add_parser(
+        "export-trigger-set",
+        help="Write one skill's routing intents in skill-creator's trigger-eval format.",
+    )
+    export_parser.add_argument("--skill", required=True, help="Skill whose routing-eval.jsonl to export.")
+    export_parser.add_argument("--out", required=True, help="Destination JSON file.")
+    export_parser.set_defaults(handler=cmd_export_trigger_set)
 
     return parser
-
-
-def _not_implemented(args: argparse.Namespace) -> int:
-    name = getattr(args, "command_name", args.command)
-    print(f"run_evals.py {name}: not implemented in this build", file=sys.stderr)
-    return 2
 
 
 def load_doctor(claude_bin: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
@@ -516,6 +546,317 @@ def _execute_and_grade(
     }
 
 
+def _routing_run_dir(root: Path, case: cases.RoutingCase, repeat: int) -> Path:
+    """Artifacts for one (intent, repeat).
+
+    The directory is named after the fixture line the intent came from, so a
+    confusion-list row can be traced back to `routing-eval.jsonl` by line number.
+    """
+    return root / case.skill_file / f"intent-{case.line_no}" / f"run-{repeat}"
+
+
+def _write_intent_metadata(intent_dir: Path, case: cases.RoutingCase) -> None:
+    intent_dir.mkdir(parents=True, exist_ok=True)
+    (intent_dir / "intent_metadata.json").write_text(
+        json.dumps(
+            {
+                "skill_file": case.skill_file,
+                "line_no": case.line_no,
+                "intent": case.intent,
+                "expected_skill": case.expected_skill,
+                "ambiguous_with": case.ambiguous_with,
+                "phantom_expected": case.phantom_expected,
+                "phantom_ambiguous": case.phantom_ambiguous,
+                "must_not_route": case.must_not_route,
+                "soft": case.soft,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _routing_request(
+    case: cases.RoutingCase,
+    args: argparse.Namespace,
+    isolation_flags: Sequence[str],
+    proj: Path,
+    descriptions: Sequence[Tuple[str, str]],
+) -> ClaudeRequest:
+    """The invocation this mode makes for one intent."""
+    if args.mode == routing.MODE_CLASSIFY:
+        return routing.classify_request(case.intent, descriptions, args, list(isolation_flags), proj)
+    return routing.native_request(case.intent, proj, args, list(isolation_flags))
+
+
+def cmd_routing(args: argparse.Namespace) -> int:
+    """Run every selected routing intent in one mode and score the answers."""
+    if not (args.skill or args.all):
+        print("run_evals.py routing: choose --skill or --all", file=sys.stderr)
+        return 2
+
+    doctor_json, problem = load_doctor(args.claude_bin)
+    if doctor_json is None:
+        print(f"run_evals.py routing: {problem}", file=sys.stderr)
+        return 2
+
+    try:
+        skill_filter = _resolve_skills(args)
+        selected = routing.select_routing_cases(cases.load_routing_cases(), skills=skill_filter)
+    except cases.CaseLoadError as exc:
+        print(f"run_evals.py routing: {exc}", file=sys.stderr)
+        return 2
+    if not selected:
+        print("run_evals.py routing: no routing cases selected", file=sys.stderr)
+        return 2
+
+    args.isolation_strategy = doctor_json["strategy"]
+    args.structured_output_field = doctor_json.get("structured_output_field")
+    args.repo_root = None
+    isolation_flags = strategy_flags(args.isolation_strategy, workspace.WORKSPACE)
+
+    ws = workspace.ensure_dirs()
+    run_id = workspace.make_run_id(args.label)
+    run_root = ws / "routing" / run_id
+
+    warnings: List[str] = []
+    try:
+        proj = routing.build_routing_project(
+            run_root,
+            cases.SKILLS,
+            args.descriptions_from,
+            [Path(path) for path in args.extra_skill],
+            args=args,
+            warnings=warnings,
+        )
+    except (routing.RoutingError, OSError) as exc:
+        print(f"run_evals.py routing: {exc}", file=sys.stderr)
+        return 2
+    descriptions = routing.project_descriptions(proj)
+    digest = routing.descriptions_digest(descriptions)
+
+    run_json: Dict[str, Any] = {
+        "run_id": run_id,
+        "harness_version": HARNESS_VERSION,
+        "claude_code_version": doctor_json["claude_code_version"],
+        "model": {"alias": args.model, "resolved": None},
+        "commit": workspace.git_commit_short(),
+        "dirty": workspace.git_dirty(),
+        "started_at": workspace.utc_iso(),
+        "finished_at": None,
+        "argv": list(sys.argv),
+        "isolation": {
+            "strategy": args.isolation_strategy,
+            "flags": isolation_flags,
+            "doctor_checked_at": doctor_json.get("checked_at"),
+        },
+        "mode": args.mode,
+        "repeats": args.repeats,
+        "project_dir": str(proj),
+        "ballot_size": len(descriptions),
+        "descriptions_sha256": digest,
+        "descriptions_from": args.descriptions_from,
+        "extra_skills": list(args.extra_skill),
+        "filters": {"skill": args.skill, "all": args.all},
+        "cases": len(selected),
+        "dry_run": args.dry_run,
+        "cost_usd_total": 0.0,
+    }
+    _write_run_json(run_root / "run.json", run_json)
+    for case in selected:
+        _write_intent_metadata(run_root / case.skill_file / f"intent-{case.line_no}", case)
+
+    jobs = [(case, repeat) for case in selected for repeat in range(1, args.repeats + 1)]
+
+    if args.dry_run:
+        for case, repeat in jobs:
+            run_dir = _routing_run_dir(run_root, case, repeat)
+            req = _routing_request(case, args, isolation_flags, proj, descriptions)
+            executor.write_request_json_at(run_dir, req)
+        run_json["finished_at"] = workspace.utc_iso()
+        _write_run_json(run_root / "run.json", run_json)
+        print(f"run id     : {run_id}")
+        print(f"project    : {proj} ({len(descriptions)} skills on the ballot)")
+        print(f"dry run    : wrote {len(jobs)} request.json under {run_root}")
+        return 0
+
+    runner = SubprocessClaudeRunner(args.claude_bin)
+    store = cache.Cache(enabled=not args.no_cache)
+
+    def work(job: Tuple[cases.RoutingCase, int]) -> Dict[str, Any]:
+        # One failed intent must not abandon the run; record it and keep going.
+        case, repeat = job
+        try:
+            return _route_one(
+                job, run_root, args, isolation_flags, proj, descriptions, digest, runner, store
+            )
+        except Exception as exc:  # noqa: BLE001 - a worker never takes the run down.
+            print(f"  {case.skill_file}:{case.line_no}: {exc}", file=sys.stderr)
+            return {
+                "skill_file": case.skill_file,
+                "line_no": case.line_no,
+                "repeat": repeat,
+                "chosen": None,
+                "status": "harness_error",
+                "cost_usd": 0.0,
+                "cached": False,
+                "resolved_model": None,
+            }
+
+    outcomes: List[Dict[str, Any]] = []
+    with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
+        for outcome in pool.map(work, jobs):
+            outcomes.append(outcome)
+            print(
+                f"  {outcome['skill_file']}:{outcome['line_no']:<4} run-{outcome['repeat']} "
+                f"{outcome['status']:15} chose={outcome['chosen'] or '(none)':30} "
+                f"${outcome['cost_usd']:.4f}" + ("  (cached)" if outcome["cached"] else "")
+            )
+
+    by_case: Dict[Tuple[str, int], List[Dict[str, Any]]] = {}
+    for outcome in sorted(outcomes, key=lambda row: row["repeat"]):
+        by_case.setdefault((outcome["skill_file"], outcome["line_no"]), []).append(outcome)
+    scores = []
+    for case in selected:
+        repeats = by_case.get((case.skill_file, case.line_no), [])
+        scores.append(
+            routing.score_case(
+                case,
+                [row["chosen"] for row in repeats],
+                statuses=[row["status"] for row in repeats],
+            )
+        )
+    aggregate = routing.aggregate_routing(
+        selected, scores, mode=args.mode, repeats=args.repeats, run_id=run_id,
+        extra_warnings=warnings,
+    )
+
+    resolved = next((o["resolved_model"] for o in outcomes if o.get("resolved_model")), None)
+    run_json["model"]["resolved"] = resolved
+    run_json["finished_at"] = workspace.utc_iso()
+    run_json["cost_usd_total"] = round(sum(o["cost_usd"] for o in outcomes), 6)
+    run_json["cache_hits"] = store.hits
+    run_json["runs"] = len(outcomes)
+    _write_run_json(run_root / "run.json", run_json)
+
+    (run_root / "results.json").write_text(json.dumps(aggregate, indent=2) + "\n", encoding="utf-8")
+    (run_root / "report.md").write_text(
+        routing.render_routing_report(aggregate, run_json), encoding="utf-8"
+    )
+
+    totals = aggregate["totals"]
+    print(f"run id     : {run_id}")
+    print(f"mode       : {args.mode} (repeats {args.repeats}, ballot {len(descriptions)} skills)")
+    print(f"runs       : {len(outcomes)} ({store.hits} cache hits)")
+    print(
+        f"outcome    : {totals['pass']} pass, {totals['ambiguous_pass']} ambiguous, "
+        f"{totals['fail']} fail, {totals['phantom']} phantom of {aggregate['cases']} case(s)"
+    )
+    if aggregate["unanswered"]:
+        print(f"unanswered : {', '.join(aggregate['unanswered'])} (every repeat failed)")
+    print("confusion  :" + ("" if aggregate["confusion"] else " none"))
+    for row in aggregate["confusion"]:
+        print(
+            f"  {row['skill_file']}:{row['line_no']:<4} {row['intent'][:60]!r} "
+            f"expected={row['expected'] or '(none)'} chose={row['chosen'] or '(none)'}"
+        )
+    print("hijacks    :" + ("" if aggregate["hijacks"] else " none"))
+    for name, count in aggregate["hijacks"].items():
+        print(f"  {name}: {count}")
+    for warning in aggregate["warnings"]:
+        print(f"warning    : {warning}")
+    print(f"cost (usd) : {run_json['cost_usd_total']}")
+    print(f"wrote      : {run_root} (results.json, report.md)")
+    return 0
+
+
+def _route_one(
+    job: Tuple[cases.RoutingCase, int],
+    run_root: Path,
+    args: argparse.Namespace,
+    isolation_flags: Sequence[str],
+    proj: Path,
+    descriptions: Sequence[Tuple[str, str]],
+    descriptions_sha: str,
+    runner: SubprocessClaudeRunner,
+    store: cache.Cache,
+) -> Dict[str, Any]:
+    """Run one intent once and record which skill it routed to."""
+    case, repeat = job
+    run_dir = _routing_run_dir(run_root, case, repeat)
+    req = _routing_request(case, args, isolation_flags, proj, descriptions)
+
+    key = routing.routing_cache_key(
+        mode=args.mode,
+        model=args.model,
+        descriptions_sha=descriptions_sha,
+        intent=case.intent,
+        repeat=repeat,
+    )
+    cached = store.get(key)
+    executor.write_request_json_at(run_dir, req)
+    if cached is not None:
+        result = executor.result_from_json(cached)
+    else:
+        # Native mode kills the call as soon as the model names a skill: the answer
+        # is the choice, and running the skill would only add cost and latency.
+        result = runner.run(req, early_stop_on_skill=args.mode == routing.MODE_NATIVE)
+        if result.status == "ok":
+            store.put(key, executor.result_to_json(result))
+    executor.persist_result(run_dir, req, result)
+
+    chosen = routing.chosen_skill(
+        result, field=args.structured_output_field or routing.DEFAULT_STRUCTURED_FIELD
+    )
+    (run_dir / "chosen.json").write_text(
+        json.dumps(
+            {
+                "skill_file": case.skill_file,
+                "line_no": case.line_no,
+                "intent": case.intent,
+                "repeat": repeat,
+                "mode": args.mode,
+                "chosen": chosen,
+                "status": result.status,
+                "cached": cached is not None,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return {
+        "skill_file": case.skill_file,
+        "line_no": case.line_no,
+        "repeat": repeat,
+        "chosen": chosen,
+        "status": result.status,
+        "cost_usd": result.cost_usd,
+        "cached": cached is not None,
+        "resolved_model": executor.resolved_model(result),
+    }
+
+
+def cmd_export_trigger_set(args: argparse.Namespace) -> int:
+    """Write one skill's routing intents in skill-creator's trigger-eval format."""
+    try:
+        selected = routing.select_routing_cases(cases.load_routing_cases(), skills=[args.skill])
+    except cases.CaseLoadError as exc:
+        print(f"run_evals.py export-trigger-set: {exc}", file=sys.stderr)
+        return 2
+    payload = routing.trigger_set(selected, args.skill)
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    positives = sum(1 for query in payload["queries"] if query["should_trigger"])
+    print(
+        f"wrote trigger set: {out} ({len(payload['queries'])} queries, "
+        f"{positives} should-trigger)"
+    )
+    return 0
+
+
 def _case_from_metadata(path: Path, skill: str) -> Optional[cases.BehavioralCase]:
     """Rebuild the case a run directory was produced from."""
     try:
@@ -650,17 +991,35 @@ def cmd_compare(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_meta(run_root: Path) -> Dict[str, Any]:
+    path = run_root / "run.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+
+
 def cmd_report(args: argparse.Namespace) -> int:
-    """Render one run's Markdown report to stdout, or to --out."""
+    """Render a run's Markdown report to stdout, or to --out.
+
+    One run id can name a behavioral run, a routing run, or (with the same label)
+    both; every section that exists for it is rendered.
+    """
     run_root = workspace.WORKSPACE / "runs" / args.run
-    if not run_root.is_dir():
-        print(f"run_evals.py report: no run directory at {run_root}", file=sys.stderr)
+    routing_root = workspace.WORKSPACE / "routing" / args.run
+    routing_results = routing_root / "results.json"
+    if not run_root.is_dir() and not routing_results.is_file():
+        print(
+            f"run_evals.py report: no run directory at {run_root} and no routing "
+            f"results at {routing_results}",
+            file=sys.stderr,
+        )
         return 2
 
-    run_json_path = run_root / "run.json"
-    run_meta = json.loads(run_json_path.read_text(encoding="utf-8")) if run_json_path.is_file() else {}
-    results = analysis.aggregate_run(run_root)
-    text = report.render_run_report(results, run_meta)
+    sections: List[str] = []
+    if run_root.is_dir():
+        sections.append(report.render_run_report(analysis.aggregate_run(run_root), _run_meta(run_root)))
+    if routing_results.is_file():
+        aggregate = json.loads(routing_results.read_text(encoding="utf-8"))
+        sections.append(routing.render_routing_report(aggregate, _run_meta(routing_root)))
+    text = "\n".join(sections)
 
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8")
@@ -671,14 +1030,21 @@ def cmd_report(args: argparse.Namespace) -> int:
 
 
 def cmd_baseline_update(args: argparse.Namespace) -> int:
-    """Merge one run's results.json into evals/baseline.json."""
-    run_root = workspace.WORKSPACE / "runs" / args.from_run
-    if not run_root.is_dir():
-        print(f"run_evals.py baseline update: no run directory at {run_root}", file=sys.stderr)
+    """Merge a behavioral run, a routing run, or both into evals/baseline.json."""
+    if not args.from_run and not args.routing_from:
+        print("run_evals.py baseline update: pass --from, --routing-from, or both", file=sys.stderr)
         return 2
 
-    run_json_path = run_root / "run.json"
-    run_meta = json.loads(run_json_path.read_text(encoding="utf-8")) if run_json_path.is_file() else {}
+    run_root: Optional[Path] = None
+    run_meta: Dict[str, Any] = {}
+    if args.from_run:
+        run_root = workspace.WORKSPACE / "runs" / args.from_run
+        if not run_root.is_dir():
+            print(f"run_evals.py baseline update: no run directory at {run_root}", file=sys.stderr)
+            return 2
+        run_json_path = run_root / "run.json"
+        if run_json_path.is_file():
+            run_meta = json.loads(run_json_path.read_text(encoding="utf-8"))
     if args.require_clean and run_meta.get("dirty"):
         print(
             "run_evals.py baseline update: --require-clean was set and the source run "
@@ -686,19 +1052,48 @@ def cmd_baseline_update(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
+    routing_block = None
     if args.routing_from:
-        print(
-            "run_evals.py baseline update: --routing-from is not implemented in this build; "
-            "the routing section is carried over unchanged",
-            file=sys.stderr,
-        )
+        routing_block, routing_error = _load_routing_block(args.routing_from)
+        if routing_block is None:
+            print(f"run_evals.py baseline update: {routing_error}", file=sys.stderr)
+            return 2
 
-    results = analysis.aggregate_run(run_root)
     existing = report.load_baseline()
-    merged = report.merge_baseline(existing, results, run_meta, root=workspace.ROOT)
+    if run_root is None:
+        # Routing-only update: the behavioral half of the baseline is untouched,
+        # so nothing but the routing section (and its timestamp) may change.
+        if existing is None:
+            print(
+                "run_evals.py baseline update: no committed evals/baseline.json to add a "
+                "routing section to; pass --from as well",
+                file=sys.stderr,
+            )
+            return 2
+        merged = dict(existing)
+        merged["routing"] = routing_block
+        merged["generated_at"] = workspace.utc_iso()
+    else:
+        results = analysis.aggregate_run(run_root)
+        merged = report.merge_baseline(
+            existing, results, run_meta, routing=routing_block, root=workspace.ROOT
+        )
     path = report.write_baseline(merged, root=workspace.ROOT)
-    print(f"wrote baseline: {path} ({len(merged['skills'])} skill(s))")
+    routing_note = f", routing from {args.routing_from}" if args.routing_from else ""
+    print(f"wrote baseline: {path} ({len(merged.get('skills') or {})} skill(s){routing_note})")
     return 0
+
+
+def _load_routing_block(run_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """Baseline `routing` section from a routing run, or a message saying why not."""
+    results_path = workspace.WORKSPACE / "routing" / run_id / "results.json"
+    if not results_path.is_file():
+        return None, f"no routing results at {results_path}"
+    try:
+        aggregate = json.loads(results_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        return None, f"{results_path} is unreadable: {exc}"
+    return routing.baseline_routing_block(aggregate, run_id), None
 
 
 def cmd_baseline_check(args: argparse.Namespace) -> int:
@@ -719,13 +1114,7 @@ def cmd_baseline_check(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
-    # Stub subcommands accept the flags they will eventually take, so callers get
-    # the "not implemented" message rather than an argparse usage error.
-    args, extra = parser.parse_known_args(argv)
-    if getattr(args, "command_name", None):
-        return _not_implemented(args)
-    if extra:
-        parser.error("unrecognized arguments: " + " ".join(extra))
+    args = parser.parse_args(argv)
     return args.handler(args)
 
 

@@ -321,4 +321,58 @@ def check_baseline(baseline: Dict[str, Any], root: Path) -> List[str]:
     for name in sorted(on_disk - set(skills)):
         problems.append(f"{name}: no baseline entry")
 
+    problems.extend(_check_routing(baseline.get("routing"), skills_dir, on_disk))
+    return problems
+
+
+def routing_case_count(path: Path) -> Optional[int]:
+    """Data lines in a `routing-eval.jsonl`, or None when there is no such file.
+
+    Comment and blank lines are stripped the same way `cases._routing_lines`
+    strips them; the count is duplicated here rather than imported so this module
+    stays dependency-free (see the module docstring).
+    """
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except OSError:
+        return None
+    return sum(
+        1 for raw in text.splitlines() if raw.strip() and not raw.strip().startswith("//")
+    )
+
+
+def _check_routing(
+    section: Any, skills_dir: Path, on_disk: Sequence[str]
+) -> List[str]:
+    """Problems in a baseline's `routing` section; empty when it has none or is absent.
+
+    A baseline recorded before the routing runner existed has no routing section
+    at all, which is not a problem — only a section that disagrees with the
+    fixtures on disk is.
+    """
+    if not isinstance(section, dict):
+        return []
+    problems: List[str] = []
+    files = section.get("files") or {}
+    present = set(on_disk)
+
+    for name, entry in sorted(files.items()):
+        if name not in present:
+            problems.append(f"{name}: baseline routing entry has no skills/{name} directory on disk")
+            continue
+        fixture_cases = routing_case_count(skills_dir / name / "routing-eval.jsonl")
+        if fixture_cases is None:
+            problems.append(
+                f"{name}: baseline routing entry but no skills/{name}/routing-eval.jsonl on disk"
+            )
+        elif int((entry or {}).get("cases") or 0) != fixture_cases:
+            problems.append(
+                f"{name}: routing case count is stale (baseline "
+                f"{(entry or {}).get('cases')}, fixture {fixture_cases})"
+            )
+
+    for name in sorted(present - set(files)):
+        if (skills_dir / name / "routing-eval.jsonl").is_file():
+            problems.append(f"{name}: has routing-eval.jsonl but no baseline routing entry")
+
     return problems

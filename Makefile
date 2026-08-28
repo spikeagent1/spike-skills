@@ -1,7 +1,8 @@
-.PHONY: validate test eval-doctor eval-report eval-skill
+.PHONY: validate test eval-doctor eval-report eval-routing eval-skill
 
 EVAL_MODEL ?= sonnet
 EVAL_GRADER ?= opus
+ROUTING_MODE ?= native
 
 validate: test
 	python3 tools/validate_repo.py
@@ -15,6 +16,9 @@ eval-doctor:
 
 eval-report:
 	python3 tools/run_evals.py report --run $(RUN)
+
+eval-routing:
+	python3 tools/run_evals.py routing --all --model $(EVAL_MODEL) --mode $(ROUTING_MODE)
 
 eval-skill:
 	python3 tools/run_evals.py run --skill $(SKILL) --model $(EVAL_MODEL) --grader-model $(EVAL_GRADER) --compare-baseline

@@ -194,7 +194,7 @@ def parse_stream_lines(
     """
     text_parts: List[str] = []
     tool_uses: List[Dict[str, Any]] = []
-    seen_tool_ids = set()
+    seen_tool_ids: Dict[str, int] = {}
     result_event: Optional[Dict[str, Any]] = None
     events: List[Dict[str, Any]] = []
 
@@ -221,9 +221,16 @@ def parse_stream_lines(
         for use in _tool_uses_in_event(event):
             key = use.get("id")
             if key is not None and key in seen_tool_ids:
+                # `--include-partial-messages` announces one tool_use twice: an
+                # empty `content_block_start` first, then the complete assistant
+                # message. The later, fuller block supersedes the placeholder, so
+                # a caller reading `input` sees the arguments the model chose.
+                position = seen_tool_ids[key]
+                if use.get("input") and not tool_uses[position].get("input"):
+                    tool_uses[position] = use
                 continue
             if key is not None:
-                seen_tool_ids.add(key)
+                seen_tool_ids[key] = len(tool_uses)
             tool_uses.append(use)
 
     text = "".join(text_parts)
@@ -274,6 +281,12 @@ def extract_result_object(payload: Any) -> Optional[Dict[str, Any]]:
 
 
 def _line_has_skill_tool_use(line: str) -> bool:
+    """True when this line carries a `Skill` tool_use that names the skill.
+
+    The name is required, not incidental: under `--include-partial-messages` the
+    first announcement of the block has an empty `input`, and stopping there
+    would kill the process before the answer — which skill was picked — arrives.
+    """
     if "Skill" not in line:
         return False
     try:
@@ -282,7 +295,10 @@ def _line_has_skill_tool_use(line: str) -> bool:
         return False
     if not isinstance(event, dict):
         return False
-    return any(use.get("name") == "Skill" for use in _tool_uses_in_event(event))
+    return any(
+        use.get("name") == "Skill" and (use.get("input") or {}).get("skill")
+        for use in _tool_uses_in_event(event)
+    )
 
 
 def _is_rate_limit_http_status(value: Any) -> bool:

@@ -32,6 +32,7 @@ from tools.evalrunner import (
     executor,
     grader,
     report,
+    routing,
     workspace,
 )
 
@@ -582,7 +583,7 @@ class ProbeEnvironTest(unittest.TestCase):
 
 class HarnessVersionTest(unittest.TestCase):
     def test_version_is_pinned(self) -> None:
-        self.assertEqual(HARNESS_VERSION, "0.1.2")
+        self.assertEqual(HARNESS_VERSION, "0.1.3")
 
 
 def _write_json(path: Path, data: object) -> None:
@@ -623,6 +624,21 @@ def _write_skill_tree(
     if routing is not None:
         skill_dir.joinpath("routing-eval.jsonl").write_text(routing, encoding="utf-8")
     return skill_dir
+
+
+def _git_init(root: Path) -> None:
+    """Initialize a throwaway git repo at `root` and commit everything under it."""
+    for args in (
+        ("init", "--initial-branch", "main"),
+        ("config", "user.email", "eval@example.com"),
+        ("config", "user.name", "Eval"),
+        ("add", "."),
+        ("commit", "-m", "fixture"),
+    ):
+        subprocess.run(
+            ["git", *args], cwd=root, check=True,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
 
 
 class CaseLoaderTest(unittest.TestCase):
@@ -993,6 +1009,7 @@ class FakeClaudeRunner:
     def __init__(self, results: list) -> None:
         self.results = list(results)
         self.requests: list[claude_cli.ClaudeRequest] = []
+        self.early_stops: list[bool] = []
 
     def argv(self, *args: str) -> list[str]:
         return ["claude", *args]
@@ -1001,6 +1018,7 @@ class FakeClaudeRunner:
         self, req: claude_cli.ClaudeRequest, *, early_stop_on_skill: bool = False
     ) -> claude_cli.ClaudeResult:
         self.requests.append(req)
+        self.early_stops.append(early_stop_on_skill)
         if not self.results:
             raise AssertionError("FakeClaudeRunner ran out of scripted results")
         scripted = self.results.pop(0)
@@ -1630,9 +1648,8 @@ class RunCommandPlumbingTest(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()):
             return run_evals.main(argv)
 
-    def test_unimplemented_subcommands_still_exit_two(self) -> None:
-        for name in run_evals.NOT_IMPLEMENTED:
-            self.assertEqual(self._main_quietly([name]), 2, name)
+    def test_routing_without_a_selection_exits_two(self) -> None:
+        self.assertEqual(self._main_quietly(["routing", "--model", "sonnet"]), 2)
 
     def test_run_without_a_selection_exits_two(self) -> None:
         self.assertEqual(self._main_quietly(["run", "--model", "sonnet"]), 2)
@@ -2669,6 +2686,952 @@ class EndToEndRunTest(unittest.TestCase):
         self.assertEqual(problems, [])
 
         self.assertEqual(self._run_validator(), 0)
+
+
+def _routing_case(
+    skill_file: str = "alpha",
+    *,
+    line_no: int = 1,
+    intent: str = "do the alpha thing",
+    expected_skill: str | None = "alpha",
+    ambiguous_with: list[str] | None = None,
+    phantom_expected: bool = False,
+    phantom_ambiguous: list[str] | None = None,
+    must_not_route: str | None = None,
+    soft: bool = False,
+) -> cases.RoutingCase:
+    return cases.RoutingCase(
+        skill_file=skill_file,
+        line_no=line_no,
+        intent=intent,
+        expected_skill=expected_skill,
+        ambiguous_with=list(ambiguous_with or []),
+        phantom_expected=phantom_expected,
+        phantom_ambiguous=list(phantom_ambiguous or []),
+        must_not_route=must_not_route,
+        soft=soft,
+    )
+
+
+def _skill_result(skill: str, *, cost: float = 0.002) -> claude_cli.ClaudeResult:
+    """A native-mode result whose first tool_use is `Skill`."""
+    result = _ok_result("", cost=cost)
+    result.tool_uses = [{"id": "toolu_1", "name": "Skill", "input": {"skill": skill}}]
+    return result
+
+
+def _classify_result(
+    choice: str | None, *, alternatives: list[str] | None = None, cost: float = 0.001
+) -> claude_cli.ClaudeResult:
+    """A classify-mode result carrying structured output."""
+    result = _ok_result("", cost=cost)
+    assert result.result_event is not None
+    result.result_event["structured_output"] = {
+        "choice": choice,
+        "alternatives": list(alternatives or []),
+        "reason": "fixture",
+    }
+    return result
+
+
+class ChosenSkillTest(unittest.TestCase):
+    def test_first_skill_tool_use_wins(self) -> None:
+        result = _ok_result("")
+        result.tool_uses = [
+            {"id": "t1", "name": "Skill", "input": {"skill": "alpha"}},
+            {"id": "t2", "name": "Skill", "input": {"skill": "beta"}},
+        ]
+        self.assertEqual(routing.chosen_skill(result), "alpha")
+
+    def test_plugin_prefixed_name_is_normalized(self) -> None:
+        self.assertEqual(routing.chosen_skill(_skill_result("superpowers:brainstorming")), "brainstorming")
+
+    def test_non_skill_tool_uses_are_ignored(self) -> None:
+        result = _ok_result("")
+        result.tool_uses = [
+            {"id": "t1", "name": "Read", "input": {"file_path": "/tmp/x"}},
+            {"id": "t2", "name": "Skill", "input": {"skill": "beta"}},
+        ]
+        self.assertEqual(routing.chosen_skill(result), "beta")
+
+    def test_no_tool_use_is_none(self) -> None:
+        self.assertIsNone(routing.chosen_skill(_ok_result("I would just answer directly.")))
+
+    def test_classify_choice_is_read_from_structured_output(self) -> None:
+        self.assertEqual(routing.chosen_skill(_classify_result("alpha")), "alpha")
+
+    def test_classify_null_choice_is_none(self) -> None:
+        self.assertIsNone(routing.chosen_skill(_classify_result(None)))
+
+    def test_classify_none_sentinel_is_no_skill(self) -> None:
+        for sentinel in ("none", "None", "null", "no skill", ""):
+            self.assertIsNone(routing.chosen_skill(_classify_result(sentinel)), sentinel)
+
+    def test_skill_tool_use_from_a_partial_message_fixture(self) -> None:
+        # `native` mode passes --include-partial-messages, so the Skill tool_use
+        # arrives as a stream_event/content_block_start before the assistant message.
+        lines = _fixture_lines("skill_tool_use_partial.jsonl")
+        text, tool_uses, result_event, events = claude_cli.parse_stream_lines(lines)
+        self.assertTrue(
+            any(
+                (event.get("event") or {}).get("type") == "content_block_start"
+                for event in events
+                if event.get("type") == "stream_event"
+            )
+        )
+        self.assertEqual([use["name"] for use in tool_uses if use["name"] == "Skill"], ["Skill"])
+        result = claude_cli.ClaudeResult(
+            status="ok", text=text, tool_uses=tool_uses, result_event=result_event, events=events
+        )
+        self.assertEqual(routing.chosen_skill(result), "fact-check")
+
+    def test_empty_skill_input_is_none(self) -> None:
+        self.assertIsNone(routing.chosen_skill(_skill_result("")))
+
+
+class RoutingMajorityTest(unittest.TestCase):
+    def test_majority_over_three_repeats(self) -> None:
+        self.assertEqual(routing.majority(["alpha", "beta", "alpha"]), "alpha")
+
+    def test_majority_can_be_none(self) -> None:
+        self.assertIsNone(routing.majority([None, "alpha", None]))
+
+    def test_tie_breaks_on_first_occurrence(self) -> None:
+        self.assertEqual(routing.majority(["beta", "alpha"]), "beta")
+
+    def test_no_repeats_is_none(self) -> None:
+        self.assertIsNone(routing.majority([]))
+
+
+class RoutingScoringTest(unittest.TestCase):
+    def _score(self, case: cases.RoutingCase, chosen: list) -> dict:
+        return routing.score_case(case, chosen)
+
+    def test_expected_skill_chosen_is_a_pass(self) -> None:
+        score = self._score(_routing_case(), ["alpha"])
+        self.assertEqual(score["outcome"], "pass")
+        self.assertEqual(score["chosen"], "alpha")
+        self.assertEqual(score["rule"], "expected")
+
+    def test_ambiguous_alternative_is_an_ambiguous_pass(self) -> None:
+        score = self._score(_routing_case(ambiguous_with=["beta"]), ["beta"])
+        self.assertEqual(score["outcome"], "ambiguous_pass")
+
+    def test_unrelated_skill_is_a_fail(self) -> None:
+        score = self._score(_routing_case(ambiguous_with=["beta"]), ["gamma"])
+        self.assertEqual(score["outcome"], "fail")
+
+    def test_no_skill_for_an_expected_case_is_a_fail(self) -> None:
+        self.assertEqual(self._score(_routing_case(), [None])["outcome"], "fail")
+
+    def test_null_expected_passes_only_when_nothing_routed(self) -> None:
+        null_case = _routing_case(expected_skill=None)
+        self.assertEqual(self._score(null_case, [None])["outcome"], "pass")
+        self.assertEqual(self._score(null_case, ["alpha"])["outcome"], "fail")
+        self.assertEqual(self._score(null_case, [None])["rule"], "null")
+
+    def test_majority_decides_the_outcome(self) -> None:
+        score = self._score(_routing_case(), ["alpha", "beta", "alpha"])
+        self.assertEqual(score["outcome"], "pass")
+        self.assertEqual(score["chosen_by_repeat"], ["alpha", "beta", "alpha"])
+
+    def test_soft_phantom_passes_on_nothing_or_the_owning_skill(self) -> None:
+        soft = _routing_case(
+            expected_skill="ghost", ambiguous_with=[], phantom_expected=True, soft=True
+        )
+        self.assertEqual(self._score(soft, [None])["outcome"], "pass")
+        self.assertEqual(self._score(soft, ["alpha"])["outcome"], "pass")
+        self.assertEqual(self._score(soft, ["beta"])["outcome"], "fail")
+        self.assertEqual(self._score(soft, [None])["rule"], "soft")
+        self.assertTrue(self._score(soft, [None])["phantom"])
+
+    def test_must_not_route_phantom_fails_only_when_the_owner_hijacks(self) -> None:
+        strict = _routing_case(
+            expected_skill="ghost", phantom_expected=True, must_not_route="alpha"
+        )
+        self.assertEqual(self._score(strict, ["alpha"])["outcome"], "fail")
+        self.assertEqual(self._score(strict, ["beta"])["outcome"], "pass")
+        self.assertEqual(self._score(strict, [None])["outcome"], "pass")
+        self.assertEqual(self._score(strict, [None])["rule"], "must_not_route")
+
+    def test_a_failed_repeat_does_not_vote(self) -> None:
+        # A call that errored before answering says nothing about the router;
+        # counting its silence as "routed to nothing" would flip the verdict.
+        score = routing.score_case(
+            _routing_case(), [None, "alpha", None], statuses=["error", "ok", "timeout"]
+        )
+        self.assertEqual(score["chosen"], "alpha")
+        self.assertEqual(score["outcome"], "pass")
+        self.assertEqual(score["answered"], 1)
+
+    def test_an_answer_from_a_failed_call_still_counts(self) -> None:
+        score = routing.score_case(
+            _routing_case(), ["alpha", None], statuses=["budget_exceeded", "ok"]
+        )
+        self.assertEqual(score["chosen"], "alpha")
+        self.assertEqual(score["answered"], 2)
+
+    def test_a_case_where_every_repeat_failed_is_flagged(self) -> None:
+        null_case = _routing_case(expected_skill=None)
+        score = routing.score_case(null_case, [None, None], statuses=["error", "error"])
+        self.assertEqual(score["answered"], 0)
+        # Still scored — the matrix has no fifth outcome — but never silently.
+        self.assertEqual(score["outcome"], "pass")
+        self.assertTrue(any("every repeat failed" in item for item in score["warnings"]))
+
+        aggregate = routing.aggregate_routing([null_case], [score])
+        self.assertEqual(aggregate["unanswered"], ["alpha:1"])
+        self.assertIn("## Unanswered", routing.render_routing_report(aggregate, {}))
+
+    def test_statuses_are_optional(self) -> None:
+        score = routing.score_case(_routing_case(), [None])
+        self.assertEqual(score["answered"], 1)
+        self.assertEqual(routing.aggregate_routing([_routing_case()], [score])["unanswered"], [])
+
+    def test_dropped_phantom_ambiguous_entries_are_warned_about(self) -> None:
+        score = self._score(
+            _routing_case(ambiguous_with=["beta"], phantom_ambiguous=["ghost"]), ["beta"]
+        )
+        self.assertEqual(score["outcome"], "ambiguous_pass")
+        self.assertEqual(len(score["warnings"]), 1)
+        self.assertIn("ghost", score["warnings"][0])
+        self.assertIn("alpha:1", score["warnings"][0])
+
+
+class AggregateRoutingTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.cases = [
+            _routing_case("alpha", line_no=1, intent="alpha one"),
+            _routing_case("alpha", line_no=2, intent="alpha two"),
+            _routing_case("alpha", line_no=3, intent="alpha three", expected_skill=None),
+            _routing_case(
+                "beta", line_no=1, intent="beta one", expected_skill="beta",
+                ambiguous_with=["alpha"],
+            ),
+            _routing_case(
+                "beta", line_no=2, intent="beta ghost", expected_skill="ghost",
+                phantom_expected=True, must_not_route="beta",
+            ),
+        ]
+        self.chosen = {
+            ("alpha", 1): ["alpha"],
+            ("alpha", 2): ["gamma"],
+            ("alpha", 3): ["gamma"],
+            ("beta", 1): ["alpha"],
+            ("beta", 2): ["beta"],
+        }
+        self.scores = [
+            routing.score_case(case, self.chosen[(case.skill_file, case.line_no)])
+            for case in self.cases
+        ]
+
+    def test_per_file_counts(self) -> None:
+        agg = routing.aggregate_routing(self.cases, self.scores)
+        self.assertEqual(
+            agg["files"]["alpha"],
+            {"cases": 3, "pass": 1, "ambiguous_pass": 0, "fail": 2, "phantom": 0},
+        )
+        self.assertEqual(
+            agg["files"]["beta"],
+            {"cases": 2, "pass": 0, "ambiguous_pass": 1, "fail": 1, "phantom": 1},
+        )
+
+    def test_totals_cover_every_case(self) -> None:
+        agg = routing.aggregate_routing(self.cases, self.scores)
+        self.assertEqual(agg["cases"], 5)
+        self.assertEqual(agg["totals"]["pass"], 1)
+        self.assertEqual(agg["totals"]["ambiguous_pass"], 1)
+        self.assertEqual(agg["totals"]["fail"], 3)
+        self.assertEqual(agg["totals"]["phantom"], 1)
+
+    def test_confusion_list_maps_intent_to_what_was_chosen(self) -> None:
+        agg = routing.aggregate_routing(self.cases, self.scores)
+        confusion = [(row["intent"], row["expected"], row["chosen"]) for row in agg["confusion"]]
+        self.assertEqual(
+            confusion,
+            [
+                ("alpha two", "alpha", "gamma"),
+                ("alpha three", None, "gamma"),
+                ("beta ghost", "ghost", "beta"),
+            ],
+        )
+
+    def test_hijack_counts_name_the_absorbing_skill(self) -> None:
+        agg = routing.aggregate_routing(self.cases, self.scores)
+        self.assertEqual(agg["hijacks"], {"gamma": 2, "beta": 1})
+
+    def test_warnings_are_collected_once_per_case(self) -> None:
+        cases_with_phantom = [_routing_case("alpha", phantom_ambiguous=["ghost"])]
+        scores = [routing.score_case(cases_with_phantom[0], ["alpha"])]
+        agg = routing.aggregate_routing(cases_with_phantom, scores)
+        self.assertEqual(len(agg["warnings"]), 1)
+
+    def test_phantom_targets_are_listed(self) -> None:
+        agg = routing.aggregate_routing(self.cases, self.scores)
+        self.assertEqual(agg["phantom_targets"], ["ghost"])
+
+
+class BuildRoutingProjectTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.sandbox = self.root / "sandbox"
+        self.args = _run_args(repo_root=self.root, sandbox_root=self.sandbox)
+        self.run_dir = self.root / "evals" / "workspaces" / "routing" / "run-1"
+        _write_skill_tree(self.root, "alpha", examples={"skill_name": "alpha", "evals": []})
+        _write_skill_tree(self.root, "beta")
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _build(self, **kwargs: object) -> Path:
+        return routing.build_routing_project(
+            self.run_dir, self.root / "skills", args=self.args, **kwargs
+        )
+
+    def test_every_skill_contributes_only_its_skill_md(self) -> None:
+        proj = self._build()
+        skills_dir = proj / ".claude" / "skills"
+        self.assertEqual(sorted(p.name for p in skills_dir.iterdir()), ["alpha", "beta"])
+        self.assertTrue((skills_dir / "alpha" / "SKILL.md").is_file())
+        self.assertEqual([p.name for p in (skills_dir / "alpha").iterdir()], ["SKILL.md"])
+        self.assertFalse((proj / "CLAUDE.md").exists())
+
+    def test_project_is_built_outside_the_repository(self) -> None:
+        proj = self._build()
+        self.assertFalse(proj.is_relative_to(workspace.ROOT))
+        self.assertTrue(proj.is_relative_to(self.sandbox))
+
+    def test_extra_skill_is_added_under_its_directory_name(self) -> None:
+        extra = self.root / "outside" / "gamma"
+        extra.mkdir(parents=True)
+        extra.joinpath("SKILL.md").write_text(
+            "---\nname: gamma\ndescription: Outside skill.\n---\n\n# Gamma\n", encoding="utf-8"
+        )
+        proj = self._build(extra_skills=[extra])
+        self.assertTrue((proj / ".claude" / "skills" / "gamma" / "SKILL.md").is_file())
+
+    def test_extra_skill_without_a_skill_md_is_an_error(self) -> None:
+        empty = self.root / "outside" / "delta"
+        empty.mkdir(parents=True)
+        with self.assertRaises(routing.RoutingError):
+            self._build(extra_skills=[empty])
+
+    def test_descriptions_from_ref_materializes_the_committed_skill_md(self) -> None:
+        _git_init(self.root)
+        self.root.joinpath("skills", "alpha", "SKILL.md").write_text(
+            "---\nname: alpha\ndescription: The new description.\n---\n\n# Alpha\n",
+            encoding="utf-8",
+        )
+        proj = self._build(descriptions_from="HEAD")
+        text = (proj / ".claude" / "skills" / "alpha" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("Fixture skill alpha.", text)
+        self.assertNotIn("The new description.", text)
+
+    def test_descriptions_from_an_unknown_ref_is_an_error(self) -> None:
+        _git_init(self.root)
+        with self.assertRaises(routing.RoutingError):
+            self._build(descriptions_from="no-such-ref")
+
+    def test_descriptions_read_back_from_the_built_project(self) -> None:
+        proj = self._build()
+        self.assertEqual(
+            routing.project_descriptions(proj),
+            [("alpha", "Fixture skill alpha."), ("beta", "Fixture skill beta.")],
+        )
+
+
+class NativeRequestTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.args = _run_args(repo_root=self.root, sandbox_root=self.root / "sandbox")
+        self.proj = self.root / "sandbox" / "proj"
+        self.proj.mkdir(parents=True)
+        self.req = routing.native_request(
+            "fact check this draft", self.proj, self.args, ["--setting-sources", "project"]
+        )
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_only_the_skill_tool_is_offered(self) -> None:
+        self.assertEqual(self.req.argv[self.req.argv.index("--tools") + 1], "Skill")
+
+    def test_partial_messages_are_requested(self) -> None:
+        self.assertIn("--include-partial-messages", self.req.argv)
+        self.assertEqual(self.req.argv[self.req.argv.index("--output-format") + 1], "stream-json")
+
+    def test_the_default_claude_code_system_prompt_is_kept(self) -> None:
+        # The product's own router prompt is the thing under test.
+        self.assertNotIn("--system-prompt", self.req.argv)
+        self.assertNotIn("--append-system-prompt", self.req.argv)
+
+    def test_budget_and_isolation_flags_are_set(self) -> None:
+        self.assertEqual(self.req.argv[self.req.argv.index("--max-budget-usd") + 1], "0.15")
+        for flag in ("--strict-mcp-config", "--no-session-persistence", "--setting-sources"):
+            self.assertIn(flag, self.req.argv)
+
+    def test_it_runs_in_the_routing_project(self) -> None:
+        self.assertEqual(self.req.cwd, self.proj)
+
+    def test_nesting_env_is_scrubbed(self) -> None:
+        self.assertNotIn("CLAUDECODE", self.req.env)
+
+
+class ClassifyRequestTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.args = _run_args(repo_root=self.root, sandbox_root=self.root / "sandbox")
+        self.descriptions = [("alpha", "Does alpha things."), ("beta", "Does beta things.")]
+        self.req = routing.classify_request(
+            "do an alpha", self.descriptions, self.args, ["--setting-sources", "project"]
+        )
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_the_call_is_tool_less_and_structured(self) -> None:
+        self.assertEqual(self.req.argv[self.req.argv.index("--tools") + 1], "")
+        schema = json.loads(self.req.argv[self.req.argv.index("--json-schema") + 1])
+        self.assertEqual(schema, routing.CLASSIFY_SCHEMA)
+        self.assertEqual(sorted(schema["required"]), ["alternatives", "choice", "reason"])
+        # A required property with a JSON null reads as missing to this CLI's
+        # structured-output validator, so "no skill" is a sentinel string.
+        self.assertEqual(schema["properties"]["choice"]["type"], "string")
+
+    def test_every_skill_is_listed_in_the_system_prompt(self) -> None:
+        prompt = self.req.argv[self.req.argv.index("--system-prompt") + 1]
+        self.assertIn("alpha: Does alpha things.", prompt)
+        self.assertIn("beta: Does beta things.", prompt)
+        self.assertIn(routing.CLASSIFY_NONE, prompt)
+
+    def test_classify_does_not_stream_partial_messages(self) -> None:
+        self.assertNotIn("--include-partial-messages", self.req.argv)
+        self.assertEqual(self.req.argv[self.req.argv.index("--output-format") + 1], "json")
+
+    def test_cwd_defaults_outside_the_repository(self) -> None:
+        self.assertTrue(self.req.cwd.is_relative_to(self.root / "sandbox"))
+        self.assertFalse(self.req.cwd.is_relative_to(workspace.ROOT))
+
+
+class RoutingEarlyStopTest(unittest.TestCase):
+    """The native runner must return as soon as the model names a skill."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.tmpdir = Path(self.tmp.name)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_partial_stream_stops_before_eof_and_names_the_skill(self) -> None:
+        script = FakeClaudeScript(
+            self.tmpdir,
+            f'cat "{FIXTURES / "skill_tool_use_partial.jsonl"}"\n'
+            f'{sys.executable} -c "import time; time.sleep(10)"\n'
+            'echo \'{"type":"result","subtype":"success","is_error":false}\'\n',
+        )
+        runner = claude_cli.SubprocessClaudeRunner(str(script.path))
+        req = claude_cli.ClaudeRequest(
+            argv=runner.argv("-p", "fact check this draft"),
+            cwd=self.tmpdir,
+            env=claude_cli.scrub_env(os.environ),
+            timeout_s=30.0,
+        )
+        started = time.monotonic()
+        result = runner.run(req, early_stop_on_skill=True)
+        elapsed = time.monotonic() - started
+
+        self.assertEqual(result.status, "ok")
+        self.assertLess(elapsed, 10.0)
+        self.assertIsNone(result.result_event, "returned before the process reached its result event")
+        self.assertEqual(routing.chosen_skill(result), "fact-check")
+
+    def test_the_empty_partial_block_does_not_trigger_the_stop(self) -> None:
+        # Stopping at `content_block_start` would kill the call before the skill
+        # name arrives in the input_json_deltas, and the name is the whole answer.
+        starts, completed = [], []
+        for line in _fixture_lines("skill_tool_use_partial.jsonl"):
+            event = json.loads(line)
+            uses = claude_cli._tool_uses_in_event(event)
+            if not any(use.get("name") == "Skill" for use in uses):
+                continue
+            (starts if event.get("type") == "stream_event" else completed).append(line)
+        self.assertEqual(len(starts), 1)
+        self.assertEqual(len(completed), 1)
+        self.assertFalse(claude_cli._line_has_skill_tool_use(starts[0]))
+        self.assertTrue(claude_cli._line_has_skill_tool_use(completed[0]))
+
+    def test_a_partial_block_is_superseded_by_the_complete_one(self) -> None:
+        _, tool_uses, _, _ = claude_cli.parse_stream_lines(
+            _fixture_lines("skill_tool_use_partial.jsonl")
+        )
+        skill_uses = [use for use in tool_uses if use["name"] == "Skill"]
+        self.assertEqual(len(skill_uses), 1, "the same block must not be counted twice")
+        self.assertEqual(skill_uses[0]["input"]["skill"], "fact-check")
+
+
+class RoutingCacheKeyTest(unittest.TestCase):
+    BASE = {
+        "mode": "native",
+        "model": "sonnet",
+        "descriptions_sha": "abc",
+        "intent": "fact check this",
+        "repeat": 1,
+    }
+
+    def test_key_is_stable(self) -> None:
+        self.assertEqual(
+            routing.routing_cache_key(**self.BASE), routing.routing_cache_key(**self.BASE)
+        )
+
+    def test_every_input_changes_the_key(self) -> None:
+        base = routing.routing_cache_key(**self.BASE)
+        for field, value in (
+            ("mode", "classify"),
+            ("model", "opus"),
+            ("descriptions_sha", "def"),
+            ("intent", "something else"),
+            ("repeat", 2),
+        ):
+            changed = dict(self.BASE)
+            changed[field] = value
+            self.assertNotEqual(base, routing.routing_cache_key(**changed), field)
+
+    def test_harness_version_is_part_of_the_key(self) -> None:
+        self.assertIn(HARNESS_VERSION, cache.key_material(kind="routing", **self.BASE))
+
+    def test_the_ballot_digest_tracks_the_descriptions(self) -> None:
+        first = routing.descriptions_digest([("alpha", "one"), ("beta", "two")])
+        self.assertEqual(first, routing.descriptions_digest([("alpha", "one"), ("beta", "two")]))
+        self.assertNotEqual(first, routing.descriptions_digest([("alpha", "one"), ("beta", "three")]))
+
+
+class TriggerSetTest(unittest.TestCase):
+    def test_should_trigger_is_ownership_by_the_named_skill(self) -> None:
+        payload = routing.trigger_set(
+            [
+                _routing_case("alpha", line_no=1, intent="do alpha", expected_skill="alpha"),
+                _routing_case("alpha", line_no=2, intent="do beta", expected_skill="beta"),
+                _routing_case("alpha", line_no=3, intent="chit chat", expected_skill=None),
+            ],
+            "alpha",
+        )
+        self.assertEqual(
+            payload,
+            {
+                "queries": [
+                    {"query": "do alpha", "should_trigger": True},
+                    {"query": "do beta", "should_trigger": False},
+                    {"query": "chit chat", "should_trigger": False},
+                ]
+            },
+        )
+
+
+class RoutingSelectionTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.cases = [
+            _routing_case("alpha", line_no=1),
+            _routing_case("beta", line_no=1, expected_skill="beta"),
+        ]
+
+    def test_no_filter_keeps_everything(self) -> None:
+        self.assertEqual(len(routing.select_routing_cases(self.cases)), 2)
+
+    def test_filter_keeps_only_the_named_files(self) -> None:
+        picked = routing.select_routing_cases(self.cases, skills=["beta"])
+        self.assertEqual([case.skill_file for case in picked], ["beta"])
+
+    def test_a_skill_without_routing_cases_is_an_error(self) -> None:
+        with self.assertRaises(cases.CaseLoadError):
+            routing.select_routing_cases(self.cases, skills=["gamma"])
+
+
+class RenderRoutingReportTest(unittest.TestCase):
+    def test_report_carries_the_run_facts_and_the_confusion_rows(self) -> None:
+        aggregate = routing.aggregate_routing(
+            [_routing_case("alpha", line_no=2, intent="do alpha")],
+            [routing.score_case(_routing_case("alpha", line_no=2, intent="do alpha"), ["gamma"])],
+            mode="native",
+            repeats=3,
+            run_id="20260827T000000-abc123-routing",
+        )
+        text = routing.render_routing_report(
+            aggregate,
+            {
+                "model": {"alias": "sonnet", "resolved": "claude-sonnet-5"},
+                "claude_code_version": "2.1.250",
+                "harness_version": HARNESS_VERSION,
+                "commit": "abc123",
+                "started_at": "2026-08-27T00:00:00+00:00",
+                "isolation": {"strategy": "project-sources"},
+                "ballot_size": 30,
+                "cost_usd_total": 0.1234,
+            },
+        )
+        self.assertIn("# Routing report: 20260827T000000-abc123-routing", text)
+        self.assertIn("claude-sonnet-5", text)
+        self.assertIn("2.1.250", text)
+        self.assertIn(HARNESS_VERSION, text)
+        self.assertIn("abc123", text)
+        self.assertIn("| alpha | 1 | 0 | 0 | 1 | 0 |", text)
+        self.assertIn("do alpha", text)
+        self.assertIn("gamma", text)
+
+
+class CheckBaselineRoutingTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        _write_skill_tree(
+            self.root,
+            "alpha",
+            routing='// comment\n{"intent":"one","expected_skill":"alpha"}\n\n'
+            '{"intent":"two","expected_skill":null}\n',
+        )
+        self.baseline = {
+            "schema_version": 1,
+            "skills": {
+                "alpha": {
+                    "skill_sha256": report.skill_sha256("alpha", self.root),
+                    "evals_sha256": report.evals_sha256("alpha", self.root),
+                    "classes": {"discriminating": 3},
+                }
+            },
+        }
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_absent_routing_section_is_not_a_problem(self) -> None:
+        self.assertEqual(report.check_baseline(self.baseline, self.root), [])
+
+    def test_matching_routing_section_is_clean(self) -> None:
+        self.baseline["routing"] = {
+            "run_id": "r1",
+            "files": {"alpha": {"cases": 2, "pass": 2, "ambiguous_pass": 0, "fail": 0, "phantom": 0}},
+        }
+        self.assertEqual(report.check_baseline(self.baseline, self.root), [])
+
+    def test_a_stale_case_count_is_reported(self) -> None:
+        self.baseline["routing"] = {"files": {"alpha": {"cases": 5}}}
+        problems = report.check_baseline(self.baseline, self.root)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("routing case count is stale", problems[0])
+
+    def test_a_skill_with_a_fixture_but_no_entry_is_reported(self) -> None:
+        self.baseline["routing"] = {"files": {}}
+        problems = report.check_baseline(self.baseline, self.root)
+        self.assertEqual(problems, ["alpha: has routing-eval.jsonl but no baseline routing entry"])
+
+    def test_an_entry_for_a_deleted_skill_is_reported(self) -> None:
+        self.baseline["routing"] = {"files": {"ghost": {"cases": 1}}}
+        problems = report.check_baseline(self.baseline, self.root)
+        self.assertIn("ghost: baseline routing entry has no skills/ghost directory on disk", problems)
+
+    def test_case_count_ignores_comments_and_blank_lines(self) -> None:
+        self.assertEqual(
+            report.routing_case_count(self.root / "skills" / "alpha" / "routing-eval.jsonl"), 2
+        )
+        self.assertIsNone(report.routing_case_count(self.root / "skills" / "alpha" / "nope.jsonl"))
+
+
+class RoutingCLITest(unittest.TestCase):
+    """`routing` end to end over a temp repo with `FakeClaudeRunner`.
+
+    Covers both modes, the run-directory layout, scoring through the CLI, the
+    cache, `report`, `baseline update --routing-from`, and `export-trigger-set`.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        _write_skill_tree(
+            self.root,
+            "alpha",
+            routing=(
+                "// alpha intents\n"
+                '{"intent":"do the alpha thing","expected_skill":"alpha"}\n'
+                '{"intent":"ghost work","expected_skill":"ghost-skill"}\n'
+            ),
+        )
+        _write_skill_tree(
+            self.root,
+            "beta",
+            routing='{"intent":"nothing to do here","expected_skill":null}\n',
+        )
+
+        self._saved = {
+            "workspace.WORKSPACE": workspace.WORKSPACE,
+            "workspace.ROOT": workspace.ROOT,
+            "cases.ROOT": cases.ROOT,
+            "cases.SKILLS": cases.SKILLS,
+            "executor.ROOT": executor.ROOT,
+            "routing.ROOT": routing.ROOT,
+            "run_evals.SubprocessClaudeRunner": run_evals.SubprocessClaudeRunner,
+        }
+        workspace.WORKSPACE = self.root / "evals" / "workspaces"
+        workspace.ROOT = self.root
+        cases.ROOT = self.root
+        cases.SKILLS = self.root / "skills"
+        executor.ROOT = self.root
+        routing.ROOT = self.root
+        self.sandbox = self.root / "sandbox"
+        self._saved_env = os.environ.get(executor.SANDBOX_ENV_VAR)
+        os.environ[executor.SANDBOX_ENV_VAR] = str(self.sandbox)
+
+        script = FakeClaudeScript(self.root, 'echo "9.9.9 (Claude Code)"\n')
+        self.claude_bin = str(script.path)
+        _write_json(
+            workspace.WORKSPACE / "doctor.json",
+            {
+                "strategy": "project-sources",
+                "claude_code_version": "9.9.9",
+                "structured_output_field": "structured_output",
+                "checked_at": "2026-08-28T00:00:00+00:00",
+            },
+        )
+
+    def tearDown(self) -> None:
+        modules = {
+            "workspace": workspace, "cases": cases, "executor": executor,
+            "routing": routing, "run_evals": run_evals,
+        }
+        for name, value in self._saved.items():
+            module_name, attr = name.split(".")
+            setattr(modules[module_name], attr, value)
+        if self._saved_env is None:
+            os.environ.pop(executor.SANDBOX_ENV_VAR, None)
+        else:
+            os.environ[executor.SANDBOX_ENV_VAR] = self._saved_env
+        self.tmp.cleanup()
+
+    def _patch_runner(self, fake: "FakeClaudeRunner") -> None:
+        run_evals.SubprocessClaudeRunner = lambda claude_bin: fake
+
+    def _main(self, argv: list[str]) -> int:
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            code = run_evals.main(["--claude-bin", self.claude_bin, *argv])
+        self.stdout = out.getvalue()
+        return code
+
+    def _native_answers(self) -> list:
+        # Job order is (case, repeat): alpha:2 x3, alpha:3 x3, beta:2 x3.
+        return [
+            _skill_result("alpha"), _skill_result("alpha"), _skill_result("beta"),
+            _skill_result("alpha"), _skill_result("alpha"), _skill_result("alpha"),
+            _ok_result("I can answer that directly."),
+            _ok_result("I can answer that directly."),
+            _ok_result("I can answer that directly."),
+        ]
+
+    def _routing_run_dir(self, label: str) -> Path:
+        matches = list((workspace.WORKSPACE / "routing").glob(f"*-{label}"))
+        self.assertEqual(len(matches), 1, f"expected one routing run for label {label}")
+        return matches[0]
+
+    def test_native_run_writes_the_layout_and_scores_the_intents(self) -> None:
+        fake = FakeClaudeRunner(self._native_answers())
+        self._patch_runner(fake)
+        code = self._main(
+            ["routing", "--all", "--model", "sonnet", "--mode", "native",
+             "--repeats", "3", "--workers", "1", "--label", "nat"]
+        )
+        self.assertEqual(code, 0)
+        run_dir = self._routing_run_dir("nat")
+
+        self.assertTrue((run_dir / "run.json").is_file())
+        self.assertTrue((run_dir / "results.json").is_file())
+        self.assertTrue((run_dir / "report.md").is_file())
+        self.assertTrue((run_dir / "alpha" / "intent-2" / "run-1" / "stream.jsonl").is_file())
+        self.assertTrue((run_dir / "alpha" / "intent-2" / "run-3" / "chosen.json").is_file())
+        self.assertTrue((run_dir / "alpha" / "intent-2" / "intent_metadata.json").is_file())
+        self.assertTrue((run_dir / "beta" / "intent-1" / "run-1" / "request.json").is_file())
+
+        results = json.loads((run_dir / "results.json").read_text(encoding="utf-8"))
+        self.assertEqual(results["cases"], 3)
+        self.assertEqual(results["totals"], {"pass": 2, "ambiguous_pass": 0, "fail": 1, "phantom": 1})
+        self.assertEqual(results["hijacks"], {"alpha": 1})
+        self.assertEqual([row["intent"] for row in results["confusion"]], ["ghost work"])
+        self.assertEqual(results["mode"], "native")
+        self.assertEqual(results["repeats"], 3)
+        self.assertEqual(results["phantom_targets"], ["ghost-skill"])
+        # Majority over repeats, not last-write-wins.
+        first = [score for score in results["scores"] if score["line_no"] == 2][0]
+        self.assertEqual(first["chosen_by_repeat"], ["alpha", "alpha", "beta"])
+        self.assertEqual(first["chosen"], "alpha")
+
+    def test_native_run_requests_the_early_kill_and_a_project_outside_the_repo(self) -> None:
+        fake = FakeClaudeRunner(self._native_answers())
+        self._patch_runner(fake)
+        self.assertEqual(
+            self._main(
+                ["routing", "--all", "--model", "sonnet", "--repeats", "3",
+                 "--workers", "1", "--label", "kill"]
+            ),
+            0,
+        )
+        self.assertEqual(fake.early_stops, [True] * 9)
+
+        run_json = json.loads((self._routing_run_dir("kill") / "run.json").read_text(encoding="utf-8"))
+        proj = Path(run_json["project_dir"])
+        self.assertFalse(proj.is_relative_to(self.root / "skills"))
+        self.assertTrue(proj.is_relative_to(self.sandbox))
+        self.assertTrue((proj / ".claude" / "skills" / "alpha" / "SKILL.md").is_file())
+        self.assertEqual(run_json["ballot_size"], 2)
+        self.assertEqual(fake.requests[0].cwd, proj)
+
+    def test_second_identical_run_is_served_from_the_cache(self) -> None:
+        self._patch_runner(FakeClaudeRunner(self._native_answers()))
+        self.assertEqual(
+            self._main(["routing", "--all", "--model", "sonnet", "--repeats", "3",
+                        "--workers", "1", "--label", "c1"]),
+            0,
+        )
+        empty = FakeClaudeRunner([])
+        self._patch_runner(empty)
+        self.assertEqual(
+            self._main(["routing", "--all", "--model", "sonnet", "--repeats", "3",
+                        "--workers", "1", "--label", "c2"]),
+            0,
+        )
+        self.assertEqual(empty.requests, [])
+        results = json.loads(
+            (self._routing_run_dir("c2") / "results.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(results["totals"]["pass"], 2)
+
+    def test_classify_mode_reads_the_structured_choice(self) -> None:
+        fake = FakeClaudeRunner(
+            [_classify_result("alpha"), _classify_result("beta"), _classify_result(None)]
+        )
+        self._patch_runner(fake)
+        self.assertEqual(
+            self._main(["routing", "--all", "--model", "sonnet", "--mode", "classify",
+                        "--repeats", "1", "--workers", "1", "--label", "cls"]),
+            0,
+        )
+        self.assertEqual(fake.early_stops, [False] * 3)
+        argv = fake.requests[0].argv
+        self.assertEqual(argv[argv.index("--tools") + 1], "")
+        prompt = argv[argv.index("--system-prompt") + 1]
+        self.assertIn("alpha: Fixture skill alpha.", prompt)
+        self.assertIn("beta: Fixture skill beta.", prompt)
+
+        results = json.loads(
+            (self._routing_run_dir("cls") / "results.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(results["totals"], {"pass": 3, "ambiguous_pass": 0, "fail": 0, "phantom": 1})
+
+    def test_dry_run_writes_requests_without_calling_claude(self) -> None:
+        empty = FakeClaudeRunner([])
+        self._patch_runner(empty)
+        self.assertEqual(
+            self._main(["routing", "--all", "--model", "sonnet", "--repeats", "2",
+                        "--dry-run", "--label", "dry"]),
+            0,
+        )
+        self.assertEqual(empty.requests, [])
+        run_dir = self._routing_run_dir("dry")
+        self.assertEqual(len(list(run_dir.glob("*/intent-*/run-*/request.json"))), 6)
+        self.assertFalse((run_dir / "results.json").exists())
+
+    def test_skill_filter_selects_one_file_and_an_unknown_one_exits_two(self) -> None:
+        fake = FakeClaudeRunner([_skill_result("alpha"), _skill_result("alpha")])
+        self._patch_runner(fake)
+        self.assertEqual(
+            self._main(["routing", "--skill", "alpha", "--model", "sonnet", "--repeats", "1",
+                        "--workers", "1", "--label", "one"]),
+            0,
+        )
+        results = json.loads(
+            (self._routing_run_dir("one") / "results.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(sorted(results["files"]), ["alpha"])
+        with contextlib.redirect_stderr(io.StringIO()):
+            code = run_evals.main(
+                ["--claude-bin", self.claude_bin, "routing", "--skill", "ghost", "--model", "sonnet"]
+            )
+        self.assertEqual(code, 2)
+
+    def test_report_renders_the_routing_section_for_a_routing_run(self) -> None:
+        self._patch_runner(FakeClaudeRunner(self._native_answers()))
+        self.assertEqual(
+            self._main(["routing", "--all", "--model", "sonnet", "--repeats", "3",
+                        "--workers", "1", "--label", "rep"]),
+            0,
+        )
+        run_id = self._routing_run_dir("rep").name
+        self.assertEqual(self._main(["report", "--run", run_id]), 0)
+        self.assertIn("# Routing report:", self.stdout)
+        self.assertIn("ghost work", self.stdout)
+
+    def test_baseline_update_fills_the_routing_block(self) -> None:
+        self._patch_runner(FakeClaudeRunner(self._native_answers()))
+        self.assertEqual(
+            self._main(["routing", "--all", "--model", "sonnet", "--repeats", "3",
+                        "--workers", "1", "--label", "base"]),
+            0,
+        )
+        run_id = self._routing_run_dir("base").name
+
+        # No committed baseline yet: a routing-only update has nothing to merge into.
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(
+                run_evals.main(["baseline", "update", "--routing-from", run_id]), 2
+            )
+
+        report.write_baseline({"schema_version": 1, "skills": {}}, root=self.root)
+        self.assertEqual(self._main(["baseline", "update", "--routing-from", run_id]), 0)
+        baseline = json.loads(
+            (self.root / "evals" / "baseline.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(baseline["routing"]["run_id"], run_id)
+        self.assertEqual(baseline["routing"]["mode"], "native")
+        self.assertEqual(baseline["routing"]["repeats"], 3)
+        self.assertEqual(
+            baseline["routing"]["files"]["alpha"],
+            {"cases": 2, "pass": 1, "ambiguous_pass": 0, "fail": 1, "phantom": 1},
+        )
+        self.assertEqual(baseline["routing"]["phantom_targets"], ["ghost-skill"])
+        # The behavioral half of this fixture baseline is deliberately empty, so
+        # only the routing problems are meaningful here.
+        problems = [item for item in report.check_baseline(baseline, self.root) if "routing" in item]
+        self.assertEqual(problems, [])
+
+    def test_baseline_update_rejects_a_missing_routing_run(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(
+                run_evals.main(["baseline", "update", "--routing-from", "no-such-run"]), 2
+            )
+
+    def test_baseline_update_without_any_source_exits_two(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(run_evals.main(["baseline", "update"]), 2)
+
+    def test_export_trigger_set_writes_skill_creator_shape(self) -> None:
+        out = self.root / "exports" / "alpha-triggers.json"
+        self.assertEqual(self._main(["export-trigger-set", "--skill", "alpha", "--out", str(out)]), 0)
+        payload = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(
+            payload,
+            {
+                "queries": [
+                    {"query": "do the alpha thing", "should_trigger": True},
+                    {"query": "ghost work", "should_trigger": False},
+                ]
+            },
+        )
+
+    def test_export_trigger_set_rejects_a_skill_without_routing_cases(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()):
+            code = run_evals.main(
+                ["export-trigger-set", "--skill", "ghost", "--out", str(self.root / "x.json")]
+            )
+        self.assertEqual(code, 2)
 
 
 if __name__ == "__main__":
