@@ -1644,6 +1644,49 @@ class RunCommandPlumbingTest(unittest.TestCase):
         )
 
 
+class ReportDependencyFreeTest(unittest.TestCase):
+    """`check_baseline` is imported by `tools/validate_repo.py` (T8), so
+    `tools.evalrunner.report` must not import anything that imports
+    `tools.validate_repo` back (executor.py -> cases.py -> `from tools import
+    validate_repo`), or that import becomes a circular-import ImportError the
+    moment the validator actually does the import. Checked in a fresh
+    interpreter since an already-imported module would hide the cycle.
+    """
+
+    def test_importing_report_never_pulls_in_validate_repo(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import tools.evalrunner.report, sys; "
+                "assert 'tools.validate_repo' not in sys.modules, sys.modules.keys()",
+            ],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_validate_repo_can_still_import_check_baseline_afterwards(self) -> None:
+        # The actual T8 hook shape: validate_repo imports report.check_baseline.
+        # This must not raise a partially-initialized-module ImportError.
+        root = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import tools.validate_repo\n"
+                "from tools.evalrunner.report import check_baseline\n"
+                "assert callable(check_baseline)\n",
+            ],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+
 class GraderUngradedShapeTest(unittest.TestCase):
     """`_empty_grading`'s summary must not read as a 0% pass rate (Task 4 addendum)."""
 
@@ -1883,14 +1926,78 @@ class AggregateRunTest(unittest.TestCase):
         self.assertGreater(self.skill["configs"]["without_skill"]["cost_usd_total"], 0.0)
 
 
+class AllUngradedConfigTest(unittest.TestCase):
+    """A config with zero graded cases must report `pass_rate.mean: null`, never a
+    fabricated 0.0 — `calculate_stats([])` returns a 0.0 mean, so `_finalize_skill`
+    has to special-case the empty-list config rather than feed it straight through.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.run_root = Path(self.tmp.name) / "runs" / "r1"
+        _write_json(self.run_root / "run.json", {"run_id": "r1", "repeats": 1})
+        eval1 = self.run_root / "briefing" / "eval-1"
+        _write_eval_metadata(eval1, eval_id=1, key="briefing:examples:1", assertions=["A1"])
+        _write_timing(eval1 / "with_skill" / "run-1")
+        _write_ungraded(eval1 / "with_skill" / "run-1", ["A1"])
+        _write_timing(eval1 / "without_skill" / "run-1")
+        _write_grading(eval1 / "without_skill" / "run-1", ["A1"], [True])
+        self.results = analysis.aggregate_run(self.run_root)
+        self.skill = self.results["skills"]["briefing"]
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_all_ungraded_config_pass_rate_is_null_not_zero(self) -> None:
+        self.assertIsNone(self.skill["configs"]["with_skill"]["pass_rate"]["mean"])
+        self.assertIsNone(self.skill["configs"]["with_skill"]["pass_rate"]["stddev"])
+
+    def test_delta_is_null_when_either_side_has_no_pass_rate(self) -> None:
+        self.assertIsNone(self.skill["delta"])
+
+    def test_report_pct_renders_n_a_not_0_percent(self) -> None:
+        text = report.render_run_report(self.results, {"run_id": "r1"})
+        self.assertIn("| n/a |", text)
+        self.assertNotIn("| 0% |", text)
+
+    def test_baseline_stores_a_null_pass_rate_not_zero(self) -> None:
+        run_results = {"run_id": "r1", "skills": self.results["skills"]}
+        run_meta = {"run_id": "r1"}
+        merged = report.merge_baseline(None, run_results, run_meta, root=Path(self.tmp.name))
+        self.assertIsNone(merged["skills"]["briefing"]["with_skill"]["pass_rate"])
+
+
 class CompareTest(unittest.TestCase):
+    """`compare`'s regression signal is the with_skill pass rate, `b` minus `a`
+    (a two-sided drop the old with-minus-without delta could hide), itemized
+    flips come only from names present on both sides, and non_discriminating/
+    flaky list diffs surface as non-failing `signal_lost`/`signal_gained`.
+    """
+
     @staticmethod
-    def _skill(*, delta: float, assertions: int, broken: list[str], harmful: list[str]) -> dict:
-        return {"delta": delta, "assertions": assertions, "broken": broken, "harmful": harmful}
+    def _skill(
+        *,
+        with_rate: float | None,
+        assertions: int,
+        broken: list[str] | None = None,
+        harmful: list[str] | None = None,
+        non_discriminating: list[str] | None = None,
+        flaky: list[str] | None = None,
+    ) -> dict:
+        entry: dict = {
+            "assertions": assertions,
+            "broken": broken or [],
+            "harmful": harmful or [],
+            "non_discriminating": non_discriminating or [],
+            "flaky": flaky or [],
+        }
+        if with_rate is not None:
+            entry["configs"] = {"with_skill": {"pass_rate": {"mean": with_rate}}}
+        return entry
 
     def test_a_regression_is_an_assertion_that_moved_into_the_fail_set(self) -> None:
-        a = {"skills": {"briefing": self._skill(delta=0.5, assertions=10, broken=[], harmful=[])}}
-        b = {"skills": {"briefing": self._skill(delta=0.4, assertions=10, broken=["examples:1/1 X"], harmful=[])}}
+        a = {"skills": {"briefing": self._skill(with_rate=0.9, assertions=10)}}
+        b = {"skills": {"briefing": self._skill(with_rate=0.9, assertions=10, broken=["examples:1/1 X"])}}
         result = analysis.compare(a, b)
         self.assertEqual(result["regressions"], 1)
         self.assertEqual(result["gains"], 0)
@@ -1899,36 +2006,108 @@ class CompareTest(unittest.TestCase):
         )
 
     def test_a_gain_is_an_assertion_that_left_the_fail_set(self) -> None:
-        a = {"skills": {"briefing": self._skill(delta=0.4, assertions=10, broken=["examples:1/1 X"], harmful=[])}}
-        b = {"skills": {"briefing": self._skill(delta=0.5, assertions=10, broken=[], harmful=[])}}
+        a = {"skills": {"briefing": self._skill(with_rate=0.9, assertions=10, broken=["examples:1/1 X"])}}
+        b = {"skills": {"briefing": self._skill(with_rate=0.9, assertions=10)}}
         result = analysis.compare(a, b)
         self.assertEqual(result["gains"], 1)
         self.assertEqual(result["regressions"], 0)
 
-    def test_a_sub_one_assertion_delta_is_flagged_as_noise_not_a_regression(self) -> None:
-        a = {"skills": {"briefing": self._skill(delta=0.500, assertions=20, broken=[], harmful=[])}}
-        b = {"skills": {"briefing": self._skill(delta=0.520, assertions=20, broken=[], harmful=[])}}
+    def test_a_two_sided_drop_is_a_regression_even_though_the_old_delta_would_hide_it(self) -> None:
+        # Both configs would drop together in a real run (the with-minus-without
+        # gap stays flat), which is exactly the case the old with-minus-without
+        # delta metric could not see.
+        a = {"skills": {"briefing": self._skill(with_rate=0.90, assertions=20)}}
+        b = {"skills": {"briefing": self._skill(with_rate=0.50, assertions=20)}}
         result = analysis.compare(a, b)
-        self.assertEqual(result["skills"][0]["noise"], True)
+        self.assertEqual(result["skills"][0]["with_pass_rate_delta"], -0.4)
+        self.assertTrue(result["skills"][0]["regression"])
+        self.assertFalse(result["skills"][0]["noise"])
+        self.assertEqual(result["regressions"], 1)
+
+    def test_a_sub_one_assertion_drop_is_flagged_as_noise_not_a_regression(self) -> None:
+        a = {"skills": {"briefing": self._skill(with_rate=0.50, assertions=20)}}
+        b = {"skills": {"briefing": self._skill(with_rate=0.48, assertions=20)}}
+        result = analysis.compare(a, b)
+        self.assertTrue(result["skills"][0]["noise"])
+        self.assertFalse(result["skills"][0]["regression"])
         self.assertEqual(result["regressions"], 0)
 
-    def test_a_full_assertion_delta_is_not_noise(self) -> None:
-        a = {"skills": {"briefing": self._skill(delta=0.50, assertions=10, broken=[], harmful=[])}}
-        b = {"skills": {"briefing": self._skill(delta=0.30, assertions=10, broken=[], harmful=[])}}
+    def test_a_full_assertion_drop_is_not_noise(self) -> None:
+        a = {"skills": {"briefing": self._skill(with_rate=0.50, assertions=10)}}
+        b = {"skills": {"briefing": self._skill(with_rate=0.30, assertions=10)}}
         result = analysis.compare(a, b)
-        self.assertEqual(result["skills"][0]["noise"], False)
+        self.assertFalse(result["skills"][0]["noise"])
+        self.assertTrue(result["skills"][0]["regression"])
 
-    def test_skill_filter_restricts_the_comparison(self) -> None:
+    def test_a_rise_is_never_a_regression(self) -> None:
+        a = {"skills": {"briefing": self._skill(with_rate=0.30, assertions=10)}}
+        b = {"skills": {"briefing": self._skill(with_rate=0.90, assertions=10)}}
+        result = analysis.compare(a, b)
+        self.assertFalse(result["skills"][0]["regression"])
+        self.assertEqual(result["regressions"], 0)
+
+    def test_missing_pass_rate_data_on_either_side_is_not_a_regression(self) -> None:
+        a = {"skills": {"briefing": self._skill(with_rate=None, assertions=10)}}
+        b = {"skills": {"briefing": self._skill(with_rate=0.1, assertions=10)}}
+        result = analysis.compare(a, b)
+        self.assertIsNone(result["skills"][0]["with_pass_rate_delta"])
+        self.assertFalse(result["skills"][0]["regression"])
+        self.assertEqual(result["regressions"], 0)
+
+    def test_a_skill_present_on_only_one_side_is_not_itemized_as_a_flip(self) -> None:
+        # Not-yet-baselined (only in b) and dropped-from-this-run (only in a)
+        # skills must not read as every one of their findings flipping.
         a = {
             "skills": {
-                "briefing": self._skill(delta=0.5, assertions=10, broken=[], harmful=[]),
-                "other": self._skill(delta=0.5, assertions=10, broken=[], harmful=[]),
+                "briefing": self._skill(with_rate=0.9, assertions=10),
+                "gamma": self._skill(with_rate=0.9, assertions=10, broken=["examples:1/1 Z"]),
             }
         }
         b = {
             "skills": {
-                "briefing": self._skill(delta=0.1, assertions=10, broken=["x"], harmful=[]),
-                "other": self._skill(delta=0.1, assertions=10, broken=["y"], harmful=[]),
+                "briefing": self._skill(with_rate=0.9, assertions=10),
+                "delta-skill": self._skill(with_rate=0.1, assertions=10, broken=["examples:1/1 Y"]),
+            }
+        }
+        result = analysis.compare(a, b)
+        self.assertEqual(result["flips"], [])
+        self.assertEqual(result["regressions"], 0)
+        self.assertEqual(result["gains"], 0)
+        self.assertEqual(result["no_baseline"], ["delta-skill"])
+        self.assertEqual(result["not_in_run"], ["gamma"])
+        self.assertEqual([s["skill"] for s in result["skills"]], ["briefing"])
+
+    def test_signal_lost_is_a_non_discriminating_or_flaky_list_diff_and_never_a_regression(self) -> None:
+        a = {"skills": {"briefing": self._skill(with_rate=0.9, assertions=10)}}
+        b = {
+            "skills": {
+                "briefing": self._skill(
+                    with_rate=0.9, assertions=10, non_discriminating=["examples:1/2 Y"]
+                )
+            }
+        }
+        result = analysis.compare(a, b)
+        self.assertEqual(result["signal_lost"], [{"skill": "briefing", "assertion": "examples:1/2 Y"}])
+        self.assertEqual(result["signal_gained"], [])
+        self.assertEqual(result["regressions"], 0)
+
+    def test_signal_gained_is_reported_when_a_soft_label_disappears(self) -> None:
+        a = {"skills": {"briefing": self._skill(with_rate=0.9, assertions=10, flaky=["examples:1/1 Z"])}}
+        b = {"skills": {"briefing": self._skill(with_rate=0.9, assertions=10)}}
+        result = analysis.compare(a, b)
+        self.assertEqual(result["signal_gained"], [{"skill": "briefing", "assertion": "examples:1/1 Z"}])
+
+    def test_skill_filter_restricts_the_comparison(self) -> None:
+        a = {
+            "skills": {
+                "briefing": self._skill(with_rate=0.9, assertions=10),
+                "other": self._skill(with_rate=0.9, assertions=10),
+            }
+        }
+        b = {
+            "skills": {
+                "briefing": self._skill(with_rate=0.9, assertions=10, broken=["x"]),
+                "other": self._skill(with_rate=0.9, assertions=10, broken=["y"]),
             }
         }
         result = analysis.compare(a, b, skills=["briefing"])

@@ -1,8 +1,11 @@
 """Markdown rendering for a run's `results.json`, and the committed baseline.
 
 `check_baseline` is imported by `tools/validate_repo.py` (a later task), so this
-module stays dependency-free: stdlib only, no import of `tools.validate_repo` or
-`tools.evalrunner.analysis` (avoiding an import cycle back through the validator).
+module stays dependency-free: stdlib only, plus `. workspace` (itself
+stdlib-only). No import of `tools.evalrunner.executor` or `.cases` — either one
+pulls in `tools.validate_repo`, which would cycle back through this module when
+the validator imports `check_baseline`. `CONFIG_WITH_SKILL`/`CONFIG_WITHOUT_SKILL`
+are therefore duplicated as local constants rather than imported from `executor`.
 """
 
 from __future__ import annotations
@@ -13,10 +16,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
 from . import workspace
-from .executor import CONFIG_WITH_SKILL, CONFIG_WITHOUT_SKILL
 
 SCHEMA_VERSION = 1
 BASELINE_REL = Path("evals") / "baseline.json"
+
+# Duplicated from `executor.py` (see module docstring) — must stay in sync.
+CONFIG_WITH_SKILL = "with_skill"
+CONFIG_WITHOUT_SKILL = "without_skill"
 
 # Same three candidates `tools.validate_repo.eval_files` recognizes, duplicated
 # rather than imported so this module stays dependency-free (see module docstring).
@@ -111,6 +117,7 @@ def render_run_report(results: Dict[str, Any], run_meta: Dict[str, Any]) -> str:
             ("Non-discriminating", skill.get("non_discriminating") or []),
             ("Broken", skill.get("broken") or []),
             ("Harmful", skill.get("harmful") or []),
+            ("Flaky", skill.get("flaky") or []),
         )
         if not any(items for _, items in sections):
             continue
@@ -225,6 +232,7 @@ def _condense_skill(name: str, full: Dict[str, Any], run_id: Optional[str], root
         "non_discriminating": full.get("non_discriminating"),
         "broken": full.get("broken"),
         "harmful": full.get("harmful"),
+        "flaky": full.get("flaky"),
         "ungraded": full.get("ungraded"),
     }
     for cname in (CONFIG_WITH_SKILL, CONFIG_WITHOUT_SKILL):

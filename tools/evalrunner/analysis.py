@@ -27,7 +27,7 @@ CLASS_HARMFUL = "harmful"
 CLASS_FLAKY = "flaky"
 CLASS_UNGRADED = "ungraded"
 CLASSES = (CLASS_DISCRIMINATING, CLASS_NON_DISCRIMINATING, CLASS_BROKEN, CLASS_HARMFUL, CLASS_FLAKY)
-_LABELED_CLASSES = (CLASS_NON_DISCRIMINATING, CLASS_BROKEN, CLASS_HARMFUL)
+_LABELED_CLASSES = (CLASS_NON_DISCRIMINATING, CLASS_BROKEN, CLASS_HARMFUL, CLASS_FLAKY)
 
 
 def classify_assertion(p_with: Optional[float], p_without: Optional[float], repeats: int) -> str:
@@ -119,6 +119,7 @@ def _new_bucket() -> Dict[str, Any]:
         "non_discriminating": [],
         "broken": [],
         "harmful": [],
+        "flaky": [],
         "ungraded": 0,
         "executor_issues": {},
     }
@@ -130,11 +131,17 @@ def _config_entry(bucket: Dict[str, Any], config: str) -> Dict[str, Any]:
     )
 
 
+_NO_DATA_STATS = {"mean": None, "stddev": None, "min": None, "max": None}
+
+
 def _finalize_skill(bucket: Dict[str, Any]) -> Dict[str, Any]:
     configs: Dict[str, Any] = {}
     for config, data in bucket["configs"].items():
         configs[config] = {
-            "pass_rate": calculate_stats(data["pass_rates"]),
+            # A config with zero graded cases has no pass rate to report, not a
+            # 0.0 one: `calculate_stats([])` would silently fabricate a mean of
+            # 0.0, which then gets committed straight into evals/baseline.json.
+            "pass_rate": calculate_stats(data["pass_rates"]) if data["pass_rates"] else dict(_NO_DATA_STATS),
             "tokens": calculate_stats(data["tokens"]),
             "time_seconds": calculate_stats(data["time"]),
             "cost_usd_total": round(data["cost"], 6),
@@ -152,6 +159,7 @@ def _finalize_skill(bucket: Dict[str, Any]) -> Dict[str, Any]:
         "non_discriminating": list(bucket["non_discriminating"]),
         "broken": list(bucket["broken"]),
         "harmful": list(bucket["harmful"]),
+        "flaky": list(bucket["flaky"]),
         "ungraded": bucket["ungraded"],
         "skill_invoked": None,  # populated once --load-mode discover lands
         "executor_issues": dict(bucket["executor_issues"]),
@@ -319,38 +327,74 @@ def aggregate_run(run_dir: Path) -> Dict[str, Any]:
     }
 
 
+def _with_pass_rate(skill: Dict[str, Any]) -> Optional[float]:
+    """with_skill config's mean pass rate, from either shape `compare` accepts.
+
+    An `aggregate_run()` skill nests it under `configs.with_skill.pass_rate.mean`;
+    a condensed `evals/baseline.json` entry stores it flat as `with_skill.pass_rate`.
+    """
+    configs = skill.get("configs")
+    if isinstance(configs, dict):
+        return ((configs.get(CONFIG_WITH_SKILL) or {}).get("pass_rate") or {}).get("mean")
+    condensed = skill.get(CONFIG_WITH_SKILL)
+    if isinstance(condensed, dict):
+        return condensed.get("pass_rate")
+    return None
+
+
 def compare(
     a: Dict[str, Any], b: Dict[str, Any], *, skills: Optional[Sequence[str]] = None
 ) -> Dict[str, Any]:
     """Per-skill delta between two aggregate-shaped results (or a baseline: same `skills` shape).
 
-    The delta is the change in each skill's own with-minus-without `delta`
-    between `a` and `b` (did the skill get more or less effective), converted to
-    an assertion-count equivalent to flag a skill whose delta moved by less than
-    one assertion as `noise` — real but too small to act on, not a failure.
-    Itemized regressions/gains come from the `broken`/`harmful` label lists: an
-    assertion that appears in one side's fail set and not the other's flipped.
+    Only skills present on *both* sides are diffed — a skill missing from one
+    side (not yet baselined, or dropped from this run) would otherwise read as
+    every one of its findings flipping; those names are surfaced separately in
+    `no_baseline` (only in `b`) / `not_in_run` (only in `a`) instead, and never
+    affect `regressions`.
+
+    The regression signal is the with_skill config's own pass rate, `b` minus
+    `a`: the with-minus-without gap can hold steady while both configs drop
+    together, and that two-sided drop — the skill actually performing worse —
+    is what `--fail-on-regression` should catch. A drop under one
+    assertion-equivalent is `noise`, not a `regression`. Itemized flips come
+    from the `broken`/`harmful` label lists (an assertion that entered or left
+    the fail set); `non_discriminating`/`flaky` list diffs are reported as
+    `signal_lost`/`signal_gained` — informational, never a regression on their
+    own, since there is no stored identity for the residual `discriminating`
+    class to confirm what an assertion moved *from*.
     """
     skills_a = a.get("skills") or {}
     skills_b = b.get("skills") or {}
-    names = sorted(set(skills_a) | set(skills_b))
+    names_both = sorted(set(skills_a) & set(skills_b))
+    only_a = sorted(set(skills_a) - set(skills_b))
+    only_b = sorted(set(skills_b) - set(skills_a))
     if skills is not None:
         wanted = set(skills)
-        names = [name for name in names if name in wanted]
+        names_both = [name for name in names_both if name in wanted]
+        only_a = [name for name in only_a if name in wanted]
+        only_b = [name for name in only_b if name in wanted]
 
     per_skill: List[Dict[str, Any]] = []
     flips: List[Dict[str, Any]] = []
+    signal_lost: List[Dict[str, Any]] = []
+    signal_gained: List[Dict[str, Any]] = []
+    regressions = 0
 
-    for name in names:
-        sa = skills_a.get(name) or {}
-        sb = skills_b.get(name) or {}
-        delta_a, delta_b = sa.get("delta"), sb.get("delta")
-        skill_delta = None
-        noise = False
+    for name in names_both:
+        sa, sb = skills_a[name], skills_b[name]
+        with_a, with_b = _with_pass_rate(sa), _with_pass_rate(sb)
         n_assertions = int(sb.get("assertions") or sa.get("assertions") or 0)
-        if delta_a is not None and delta_b is not None:
-            skill_delta = round(delta_b - delta_a, 4)
-            noise = n_assertions > 0 and abs(skill_delta) * n_assertions < 1.0
+        with_delta = None
+        noise = False
+        regression = False
+        if with_a is not None and with_b is not None:
+            with_delta = round(with_b - with_a, 4)
+            below_floor = n_assertions == 0 or abs(with_delta) * n_assertions < 1.0
+            noise = below_floor
+            regression = with_delta < 0 and not below_floor
+            if regression:
+                regressions += 1
 
         fail_a = set(sa.get("broken") or []) | set(sa.get("harmful") or [])
         fail_b = set(sb.get("broken") or []) | set(sb.get("harmful") or [])
@@ -359,17 +403,34 @@ def compare(
         for label in sorted(fail_a - fail_b):
             flips.append({"skill": name, "assertion": label, "direction": "gain"})
 
+        soft_a = set(sa.get("non_discriminating") or []) | set(sa.get("flaky") or [])
+        soft_b = set(sb.get("non_discriminating") or []) | set(sb.get("flaky") or [])
+        for label in sorted(soft_b - soft_a):
+            signal_lost.append({"skill": name, "assertion": label})
+        for label in sorted(soft_a - soft_b):
+            signal_gained.append({"skill": name, "assertion": label})
+
         per_skill.append(
             {
                 "skill": name,
-                "delta_a": delta_a,
-                "delta_b": delta_b,
-                "delta": skill_delta,
+                "with_pass_rate_a": with_a,
+                "with_pass_rate_b": with_b,
+                "with_pass_rate_delta": with_delta,
                 "assertions": n_assertions,
                 "noise": noise,
+                "regression": regression,
             }
         )
 
-    regressions = sum(1 for flip in flips if flip["direction"] == "regression")
+    regressions += sum(1 for flip in flips if flip["direction"] == "regression")
     gains = sum(1 for flip in flips if flip["direction"] == "gain")
-    return {"skills": per_skill, "flips": flips, "regressions": regressions, "gains": gains}
+    return {
+        "skills": per_skill,
+        "flips": flips,
+        "signal_lost": signal_lost,
+        "signal_gained": signal_gained,
+        "regressions": regressions,
+        "gains": gains,
+        "no_baseline": only_b,
+        "not_in_run": only_a,
+    }

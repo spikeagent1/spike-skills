@@ -615,12 +615,20 @@ def _load_compare_side(token: str) -> Tuple[Optional[Dict[str, Any]], Optional[s
 def _print_compare(comparison: Dict[str, Any], *, label_a: str, label_b: str) -> None:
     print(f"compare    : {label_a} -> {label_b}")
     for skill in comparison["skills"]:
-        delta = skill["delta"]
+        delta = skill["with_pass_rate_delta"]
         delta_str = f"{delta:+.4f}" if delta is not None else "n/a"
-        flag = " (noise)" if skill["noise"] else ""
-        print(f"  {skill['skill']:26} delta={delta_str}{flag}")
+        flag = " REGRESSION" if skill["regression"] else (" (noise)" if skill["noise"] else "")
+        print(f"  {skill['skill']:26} with_pass_rate_delta={delta_str}{flag}")
     for flip in comparison["flips"]:
         print(f"  {flip['direction']:10} {flip['skill']}: {flip['assertion']}")
+    for entry in comparison.get("signal_lost") or []:
+        print(f"  signal_lost  {entry['skill']}: {entry['assertion']}")
+    for entry in comparison.get("signal_gained") or []:
+        print(f"  signal_gained {entry['skill']}: {entry['assertion']}")
+    if comparison.get("no_baseline"):
+        print(f"  no_baseline (in {label_b} only): {', '.join(comparison['no_baseline'])}")
+    if comparison.get("not_in_run"):
+        print(f"  not_in_run (in {label_a} only): {', '.join(comparison['not_in_run'])}")
     print(f"regressions: {comparison['regressions']}  gains: {comparison['gains']}")
 
 
