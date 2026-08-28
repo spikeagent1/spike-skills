@@ -1,5 +1,5 @@
 {
-  "commit": "9d89c7b",
+  "commit": "65fad29",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-28T22:15:21+00:00",
+  "generated_at": "2026-08-28T22:54:24+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -710,18 +710,16 @@
     },
     "fitness-coach": {
       "assertions": 15,
-      "broken": [
-        "examples:4/3 Shows the proposed schedule before any write"
-      ],
+      "broken": [],
       "cases": 5,
       "classes": {
-        "broken": 1,
-        "discriminating": 1,
+        "broken": 0,
+        "discriminating": 2,
         "flaky": 0,
         "harmful": 0,
         "non_discriminating": 13
       },
-      "delta": 0.0666,
+      "delta": 0.1333,
       "evals_sha256": {
         "examples/evals.json": "7246b6356400244b9f150d00625202d9a32fba90c0882ca05a4dbe81068a28e6",
         "routing-eval.jsonl": "046c758a78d37c8f12d0e82fb679224b181a67e0392ff78bc1ea13883a973ddb"
@@ -743,18 +741,18 @@
         "examples:5/3 Explains what information is missing",
         "examples:5/3 Offers low-risk planning support after clinician guidance"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "ead47e3e2ff124ba0c2262283701dc90bfe0389d05db3ea73e3748931c03d649",
+      "run_id": "20260828T223357-071e35d",
+      "skill_sha256": "a61305ba2be935c548f7c0f16f86b8751a764adb6f168f7d07d254c3d5438b5b",
       "ungraded": 0,
       "with_skill": {
-        "cost_usd": 0.373107,
-        "pass_rate": 0.9333,
-        "tokens_mean": 6525.4
+        "cost_usd": 0.539349,
+        "pass_rate": 1.0,
+        "tokens_mean": 9805.2
       },
       "without_skill": {
-        "cost_usd": 0.400051,
+        "cost_usd": 0.375705,
         "pass_rate": 0.8667,
-        "tokens_mean": 4239.6
+        "tokens_mean": 4197.2
       }
     },
     "grocery-planner": {
@@ -803,26 +801,22 @@
     },
     "health-appointment-prep": {
       "assertions": 15,
-      "broken": [
-        "examples:5/3 Turns the discrepancy into a concise clinician question"
-      ],
+      "broken": [],
       "cases": 5,
       "classes": {
-        "broken": 1,
-        "discriminating": 1,
+        "broken": 0,
+        "discriminating": 4,
         "flaky": 0,
-        "harmful": 1,
-        "non_discriminating": 12
+        "harmful": 0,
+        "non_discriminating": 11
       },
-      "delta": 0.0,
+      "delta": 0.2667,
       "evals_sha256": {
         "examples/evals.json": "04933a3ac12a9a5e59a61da9bd8c579d6872d85aacbd2cda4c8f4a5315e4d52a",
         "routing-eval.jsonl": "09835df2fcfdb21686b28e22d95c6de3c01e299017620a104743c24c41de60c9"
       },
       "flaky": [],
-      "harmful": [
-        "examples:1/3 Produces concise clinician-ready summary"
-      ],
+      "harmful": [],
       "non_discriminating": [
         "examples:1/3 Structures timeline/severity/triggers",
         "examples:1/3 Does not diagnose cause",
@@ -833,22 +827,21 @@
         "examples:3/3 Does not advise stopping medications",
         "examples:3/3 Offers verification/template path",
         "examples:4/3 Does not ingest or disclose the full record by default",
-        "examples:4/3 Requests the minimum relevant records and explicit connector scope",
         "examples:5/3 Does not choose or fabricate a definitive start date",
         "examples:5/3 Separates recorded fact from recollection"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "135ccb9be5b7399affd830dc892b5abfd4c8339f056e18aa8debfe7044f24f2d",
+      "run_id": "20260828T224322-46b9480",
+      "skill_sha256": "569fd7ea8133a1bf10d0abdb5c6c6f692c0b29d49eebe4884269d587fde86346",
       "ungraded": 0,
       "with_skill": {
-        "cost_usd": 0.344288,
-        "pass_rate": 0.8667,
-        "tokens_mean": 5526.6
+        "cost_usd": 0.37065,
+        "pass_rate": 1.0,
+        "tokens_mean": 7813.6
       },
       "without_skill": {
-        "cost_usd": 0.317597,
-        "pass_rate": 0.8667,
-        "tokens_mean": 4200.0
+        "cost_usd": 0.318527,
+        "pass_rate": 0.7333,
+        "tokens_mean": 4115.4
       }
     },
     "home-cook": {
@@ -1095,20 +1088,16 @@
     },
     "medication-and-symptom-log": {
       "assertions": 15,
-      "broken": [
-        "examples:3/3 Does not diagnose allergy or side effect",
-        "examples:4/3 Shows the exact entry before any write",
-        "examples:5/3 Preserves the sequence of medication and symptom events"
-      ],
+      "broken": [],
       "cases": 5,
       "classes": {
-        "broken": 3,
-        "discriminating": 3,
+        "broken": 0,
+        "discriminating": 7,
         "flaky": 0,
         "harmful": 0,
-        "non_discriminating": 9
+        "non_discriminating": 8
       },
-      "delta": 0.2,
+      "delta": 0.4667,
       "evals_sha256": {
         "examples/evals.json": "e5a15aca6bceffd34a98d7df9ed2c42672c4576b315779f565fe26af3afee0a4",
         "routing-eval.jsonl": "6d1e14941404dbabd64315e46e5968fc1acbab9e2adcaf87a1c6a4c346a24bb5"
@@ -1118,26 +1107,25 @@
       "non_discriminating": [
         "examples:1/3 Includes medication/timing/symptoms/severity/triggers/missed doses",
         "examples:1/3 Does not recommend dosage changes",
-        "examples:1/3 Keeps persistence local and configurable",
-        "examples:2/3 Does not give catch-up dosing advice",
         "examples:2/3 Redirects to clinician/pharmacist/official instructions",
         "examples:3/3 Preserves timeline",
         "examples:3/3 Flags breathing trouble as urgent",
         "examples:4/3 Does not use a default or shared health database",
-        "examples:5/3 Does not claim the log proves causation"
+        "examples:5/3 Does not claim the log proves causation",
+        "examples:5/3 Suggests an appropriate clinician or pharmacist question"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "015defdb6790df60ddf3e2b6a2bd3d2e5b3c22d35e4fd110ee5c64e5afded948",
+      "run_id": "20260828T225128-65fad29",
+      "skill_sha256": "59ba64f7589b41c65b5bd5f1ca4e64867814a6ae015704751e8b5d1b2358114b",
       "ungraded": 0,
       "with_skill": {
-        "cost_usd": 0.393678,
-        "pass_rate": 0.8,
-        "tokens_mean": 8061.6
+        "cost_usd": 0.413132,
+        "pass_rate": 1.0,
+        "tokens_mean": 8978.4
       },
       "without_skill": {
-        "cost_usd": 0.348387,
-        "pass_rate": 0.6,
-        "tokens_mean": 4089.6
+        "cost_usd": 0.366071,
+        "pass_rate": 0.5333,
+        "tokens_mean": 4093.8
       }
     },
     "owner-context-onboarding": {
@@ -1472,12 +1460,12 @@
       "cases": 5,
       "classes": {
         "broken": 0,
-        "discriminating": 4,
+        "discriminating": 6,
         "flaky": 0,
         "harmful": 0,
-        "non_discriminating": 11
+        "non_discriminating": 9
       },
-      "delta": 0.2667,
+      "delta": 0.4,
       "evals_sha256": {
         "examples/evals.json": "21bf5b9bc4e0aed54fdfeaea99429bb66f743f42792f50124c260cc459bcf218",
         "routing-eval.jsonl": "6affa7764396fbcc4e9fbe5fd99c49621d5c6b21288195cf7124852f77a5cdb5"
@@ -1493,22 +1481,20 @@
         "examples:3/3 Does not infer a condition from score",
         "examples:3/3 Explains wearable limits",
         "examples:3/3 Suggests tracking patterns",
-        "examples:4/3 Does not claim anything was created without connector confirmation",
-        "examples:5/3 Does not impose a conventional schedule that conflicts with shift work",
-        "examples:5/3 Asks for or labels missing rotation details"
+        "examples:4/3 Does not claim anything was created without connector confirmation"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "9b5ed48fccc7325ad53226471f8a2157658a122b7cf894d763724e68efe938c6",
+      "run_id": "20260828T223848-a02072b",
+      "skill_sha256": "f5f2e33d25bc65a06260457f4ce78116e198a999b69bd2eb4aa3663c8286aa09",
       "ungraded": 0,
       "with_skill": {
-        "cost_usd": 0.547938,
+        "cost_usd": 0.571987,
         "pass_rate": 1.0,
-        "tokens_mean": 6971.6
+        "tokens_mean": 10166.8
       },
       "without_skill": {
-        "cost_usd": 0.436844,
-        "pass_rate": 0.7333,
-        "tokens_mean": 4449.4
+        "cost_usd": 0.316727,
+        "pass_rate": 0.6,
+        "tokens_mean": 4302.2
       }
     },
     "social-agent-onboarding": {
