@@ -1,73 +1,108 @@
 ---
-name: "medication-and-symptom-log"
-description: "Structure local medication and symptom notes for review without hidden storage, diagnosis, or medication advice."
+name: medication-and-symptom-log
+description: "Use when the record itself is the ask: starting a medication or symptom diary, adding today's doses and how the day went, or summarising entries kept so far — what shows up most often, and when. Not for deciding a dose, working out what causes a symptom, or visit questions (health-appointment-prep)."
+metadata:
+  spike-os:
+    version: 2.0.0
+    runtime: [openclaw, claude-code]
+    reads_from: [profile]
+    writes_to: [journal]
+    effects: [datastore:read, datastore:write, fs:write-local]
 ---
 
 # Medication And Symptom Log
 
-## Purpose
+## Overview
 
-Help create, review, and summarize a local log of medications, symptoms, triggers, questions, and clinician follow-ups. The skill provides structure and summaries, not medical advice.
-
-## Dependencies
-
-Optional user-supplied notes, calendar, files, or an explicit local path. If persistence is needed, use only a configurable user-local path owned by this skill. No hidden hosted dependency, shared user database, or cross-skill private storage.
-
-## Provenance
-
-Owned by Spike. Based on general medication and symptom log workflow patterns and repository privacy constraints; no upstream skill was copied.
+Produces the record and what it shows: a dated entry in a fixed shape, the shape itself, or a summary of the entries kept — what appears, how often, in what order. Structure only; nothing here says what an entry means, names a cause, or touches a dose. Every write is shown as the exact text it would add, in the turn that asks for it.
 
 ## When to use
 
-Use this skill to create, append, summarize, or prepare a medication and symptom log. If a new entry reveals an acute red flag, trigger the safety escalation path before routine logging; never turn the log into diagnosis or dosing advice.
+- "I start a new medication tomorrow — how do I keep track of doses and how I feel?"
+- Adding today: what was taken, what was missed, what was felt, and when
+- Summarising a stretch of entries: what shows up most often, on which days, in what order
+- Fixing the shape of the record — fields, units, a severity scale — so entries stay comparable
+- Noting a missed or skipped dose without deciding what to do about it
 
 ## When not to use
 
-Do not use this skill to make professional medical, legal, financial, structural, electrical, gas, fire-safety, or other high-stakes determinations; to bypass urgent escalation; or to mutate records without explicit authorization.
+- The visit is the point — the brief, the timeline for the clinician, the questions to ask → use `health-appointment-prep`
+- Sleep is the subject and the ask is the pattern or an experiment, not an entry → use `sleep-review`
+- Training load, soreness, and how the week's sessions went → use `fitness-coach`
+- What caused a symptom, whether a medication is working, or what a pattern means → no professional determination is made here (S1); the entries and the question go to the clinician or pharmacist
+- Whether to take, skip, halve, double, catch up on, or stop a dose → a prescribing decision (S1); the record notes what happened and the prescriber, pharmacist, or label answers what next
+- Trouble breathing, fainting, a rapidly spreading rash, a suspected overdose, or any acute symptom → escalation path first and alone, routine logging waits (S2)
 
-## Required inputs
+## Inputs
 
-- requested operation: create, append, summarize, or appointment prep
-- medication name, dose, route, schedule, and indication only as supplied
-- symptom time, severity, duration, context, and user wording
-- explicit destination and format if the user asks to persist data
+| Input | Required | If missing |
+|---|---|---|
+| What is wanted: the shape to fill, an entry to add, or a summary of entries | yes | ask once, in the same turn as the shape, built to the strictest safe default and labelled |
+| The entry's own content — date, item, dose or symptom, note | yes, to add | render the entry anyway, every unsupplied field written `unknown`, and name which line the answer fills (X1, X3) |
+| The entries themselves, for a summary | yes, to summarise | put in order whatever the request itself states, and name the entries that were not supplied (X1) |
+| Destination: an owner-named local path, or the `journal` namespace | yes, to write | propose one, show the exact text against it, and take authorization for that exact write (M2, X4) |
+| Severity scale, units, the owner's day boundary | no | assume the owner's own words and a plain 1–10 scale, labelled (O2) |
 
-Ask a focused question only when missing information changes safety or feasibility. Otherwise continue with labeled assumptions and make them easy to correct.
-
-## Optional inputs
-
-Optional inputs include preferences, budget, schedule, location, authorized connector data, prior attempts, and desired output format. Missing optional inputs remain unknown and must not be invented.
+**Dependencies:** none beyond the contract; owner-stated boundaries already in the `profile` namespace are read when present. Entries land in the `journal` namespace or an owner-named local path and nowhere else — there is no default, shared, or hidden health database here, and no other skill's namespace or files are touched (D3, P3).
 
 ## Workflow
 
-1. Screen the new entry for urgent symptoms before routine logging.
-2. Record only supplied facts; represent unknown, skipped, and uncertain fields explicitly.
-3. Preserve chronology and distinguish medication events from symptoms and interpretations.
-4. For summaries, show patterns and missing data without claiming causation.
-5. Preview any write, confirm the skill-owned local path, then report exactly what changed.
+1. Write the entry, the shape, or the summary into this message before asking anything — the exact text, with `unknown` in every field the request did not supply; a question about the date, the dose, or the destination rides alongside it, never in place of it, and "send me the entry and I'll show you the preview" is not showing one (O2).
+2. Screen the content for acute symptoms before anything else: one found leads the turn alone as advice, the escalation path with nothing added to it (S2, O1) — the entry below it is still recorded verbatim, because a record is not advice.
+3. Record only what was supplied, field by field, in the owner's own wording; a field nobody answered is `unknown` and a dose the owner chose not to take is `skipped` — the two are never merged and neither is filled from memory (P2, X3).
+4. Keep medication events and symptom events on separate lines of one timeline, in the order the owner stated, so the sequence survives without anything being claimed about it.
+5. For a summary: count what appears, say when it appeared, and stop there — no cause, no trend, no improvement or worsening, no correlation offered as one (S1, X3).
+6. Show the exact text and the exact destination, take authorization for that write (M2), then write, read back, and report only the state read back (M4, O3).
+7. Close with the questions the entries raise for the clinician or pharmacist, and the fields still to fill.
 
-## Sources and freshness
+### The entry shape
 
-Browse only when the user asks for current official medication instructions or safety information. Prefer the medication label, dispensing pharmacy, regulator, or clinician. Never use a general web result to decide dosing for the user.
+One line per event, four fields and a note, so entries stay comparable and a summary can count them:
 
-## Privacy and mutations
+```
+<date> <local time> | medication | <name> <dose> <route> | taken|missed|skipped|unknown | note: <owner's words>
+<date> <local time> | symptom    | <owner's words>      | severity <n>/10 or unknown    | note: <context as stated>
+```
 
-Use only data the user supplied in this request or an explicitly authorized connector. Do not infer private facts from memory or read another skill's files. Minimize sensitive details. Before writing a file, calendar, note, list, or connector record, show the proposed change and obtain explicit authorization; then report the destination and result. Do not persist data unless the user asks.
-
-## Safety boundaries
-
-Do not recommend starting, stopping, doubling, tapering, or catching up medication. Direct dosing questions to the prescriber, pharmacist, or official label. Escalate severe breathing trouble, fainting, rapidly spreading rash, overdose, or other acute symptoms to urgent local help.
+Anything the owner did not supply is written `unknown` rather than guessed, and the owner's own severity words are kept beside any scale.
 
 ## Output contract
 
-- log schema, proposed entry, or summary
-- unknown and missing fields
-- chronology and clinician questions
-- red-flag and non-advice status
-- previewed write result and local path, only when authorized
+The entry, the shape, or the summary is in this message, not promised for the next one: a description of the fields, an announcement that a preview is coming, or a request for the content that would produce one is a failure to deliver it. In order: any acute symptom, first and alone as advice (O1, S2); the artifact itself — for an add, the exact lines that would be written, verbatim, `unknown` in every unsupplied field; for a shape, the fields with one filled example line; for a summary, the events in time order with medication and symptom on their own lines, then the counts; the destination path or namespace, proposed when the owner has not named one, with the change shown against whatever is already there; the questions for the clinician or pharmacist; and the fields still to fill.
 
-Keep facts, assumptions, estimates, and sourced current claims visibly distinct. Prefer a compact answer that the user can act on or correct.
+Report each write as **previewed** (the exact text is shown, authorization pending), **written** (authorized, performed, and read back from the destination), or **blocked** (no destination, or no authorization for that exact write) — never a later state than reached (M4, O3). **Previewed** and **blocked** both still carry the full entry text in this turn: the preview is the deliverable, and no state beyond the one read back is ever reported (X5).
+
+## Sources and freshness
+
+Official medication instructions — the label, the dispensing pharmacy, the regulator, the prescriber's own directions — are the only sources for what a medication is or how it is taken, read this turn rather than recalled (F2) and timestamped beside the claim (F3); labelling the uncertainty is not a substitute for that lookup (F1). A general web result is never the basis for anything about a dose (S1). Nothing external is consulted to explain a symptom: an entry is a record, and the explanation is the clinician's (S1, P2).
+
+## Privacy and mutations
+
+Mutating, inside one boundary: entries go to the `journal` namespace or an owner-named local path, and nowhere else (P3, M8). Every write is previewed as the exact text this turn — the lines as they would appear, `unknown` where content was not supplied — against the exact destination, proposing a path when the owner has not named one and showing the change against what is already there; only then is authorization taken for that exact write (M2, M6). Asking which path to use, or promising the preview once the entry arrives, is a deferral rather than a preview. Authorization covers the write named in this turn and nothing else: another entry, another destination, or the same entry again later each need their own (M5, M6). An append is keyed by date, time, and item, so the identical entry twice is one entry rather than two (M3); an overwrite is previewed against what it replaces, which it destroys. After the write the destination is read back and only the state read back is reported (M4, O3). Health detail is minimised inside the record too: the owner's words about what happened, never a raw transcript, a clinical document, an account identifier, or a credential (P4, P6).
+
+## Safety boundaries
+
+- No dose decision is made here in any direction — starting, stopping, halving, doubling, tapering, catching up, shifting a time (S1); the record notes what happened, and the prescriber, pharmacist, or label answers what to do about it.
+- No cause is named for anything in the record: not an allergy, a hypersensitivity, an adverse reaction, a side effect, or an interaction, and not as a possibility, a pattern, a hedge, or a "consistent with" either (S1, X3). Two entries close together in time are two entries; the causal question is written down for the clinician instead.
+- Trouble breathing, fainting, a rapidly spreading rash, chest pain, a suspected overdose, or any symptom the owner calls severe: urgent local help now, first and alone as advice (S2). The entries are preserved verbatim below it, unchanged and uninterpreted.
+- A summary counts and orders. It never claims a trend, an improvement, a worsening, or that a medication is or is not working (S1, X3).
 
 ## Failure conditions
 
-Fail the skill invocation if it ignores a hard constraint, fabricates personal or current facts, presents an estimate as verified, hides material uncertainty, mutates state without explicit authorization, reads another skill's storage, or crosses the safety boundary above.
+Fail closed — name what is missing, then give the part of the record that is safe without it — when a write was asked for and the destination is unnamed or ambiguous (X1, X4); when a date, a dose, a time, or an entry nobody supplied would have to be invented (X3); when the owner asks for a causal or dosing conclusion the record cannot support (X2); when the readback of a write is unavailable (X5); or when a write would land anywhere but the `journal` namespace or the owner-named path (X2, X4). An acute symptom leads the turn alone as advice (S2); the record itself is still written out below it.
+
+## Common mistakes
+
+| Mistake | Why wrong | Do instead |
+|---|---|---|
+| Promising to show the entry once the content arrives | The preview is what authorization is given for, and a write nobody has seen cannot be authorized (M2) | Render the exact lines this turn with `unknown` in every unsupplied field, against a proposed destination |
+| Linking a rash and a breathing symptom into a "possible reaction", even hedged | Naming a cause is a clinical determination, and the hedge does not survive: the pattern is what gets repeated to the clinician as fact (S1) | Escalate the acute symptom, keep the entries side by side in time order, and write the causal question down for the clinician |
+| Withholding the sequence because the log file was not attached | The order the request itself states is a record; refusing it leaves the owner with nothing to take anywhere | Put what the request states in time order, medication and symptom on separate lines, and name what was not supplied |
+| Answering a missed-dose question with a catch-up rule | Dosing is the prescriber's decision, and a wrong catch-up is a double dose (S1) | Log the miss with its time, and put the question to the prescriber, pharmacist, or label |
+| Writing into a "default health database" because the request named one | No shared or default destination exists here, and a health record in the wrong place cannot be taken back (D3, P3) | Name the `journal` namespace or an owner-given path, show the exact text, and take authorization for that exact write |
+
+## Contract
+
+Follows [contracts/skill-contract.md](../../contracts/skill-contract.md) v1.
+
+- Provenance: repo-owned
