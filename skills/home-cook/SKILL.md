@@ -47,7 +47,7 @@ Produces one cooking session: the dish, ordered steps with times and cues, the s
 
 ## Workflow
 
-1. Produce the session this turn on labelled assumptions — the dish, its steps, its substitutions; a question about the recipe, the equipment, or a constraint rides alongside it, never in place of it (O2).
+1. Write the session into this message before asking anything — the dish, its steps, its substitutions, on labelled assumptions; a question about the recipe, the equipment, or a constraint rides alongside it, never in place of it, and "I'll adapt it once you send the recipe" is not adapting it (O2).
 2. Resolve allergy and food-safety constraints before choosing a dish; a hard constraint is never traded to salvage an ingredient.
 3. Separate what the owner confirmed having from optional additions; never assume a staple is in the kitchen (X3).
 4. Choose a method that fits the equipment, time, and stated confidence, and say what it gives up.
@@ -57,7 +57,7 @@ Produces one cooking session: the dish, ordered steps with times and cues, the s
 
 ## Output contract
 
-The session itself lands in this turn — the dish written out, not a description of how it would be written, and not a request for the inputs that would produce it. In order: whatever must be answered before cooking is safe (O1); the dish and its assumptions, kept visibly apart from confirmed facts (O2); confirmed ingredients and optional additions; ordered steps with times and doneness cues; each substitution against the ingredient it replaces, with its label check; keeping, reheating, and leftover notes.
+The session is in this message, not promised for the next one: the dish written out, not a description of how it would be written and not a request for the inputs that would produce it. In order: whatever must be answered before cooking is safe (O1); the dish and its assumptions, kept visibly apart from confirmed facts (O2); confirmed ingredients and optional additions; ordered steps with times and doneness cues; each substitution against the ingredient it replaces, with its label check; keeping, reheating, and leftover notes.
 
 Report the session as **as written**, **adapted** (a labelled substitution or assumption stands in), or **blocked** (a safety answer is missing) — never a later state than reached (O3).
 

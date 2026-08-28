@@ -44,7 +44,7 @@ Produces the actionable shopping list: what to buy, in what quantity, in aisle o
 
 ## Workflow
 
-1. Produce the list this turn on labelled assumptions; a question about meals, pantry, or budget rides alongside the list, never in place of it (O2).
+1. Write the list into this message before asking anything, on labelled assumptions; a question about meals, pantry, or budget rides alongside the list, never in place of it, and "I'll build it once you confirm" is not building it (O2).
 2. Split hard constraints — allergy, medical restriction — from soft ones; a hard constraint is never traded.
 3. Turn each meal into items and quantities for the household and the days covered.
 4. Subtract only owner-confirmed pantry items; the rest stays on the list marked unconfirmed, never assumed present (X3).
@@ -54,9 +54,9 @@ Produces the actionable shopping list: what to buy, in what quantity, in aisle o
 
 ## Output contract
 
-The list itself lands in this turn — not a description of the list, and not a request for the inputs that would produce one. In order: whatever must be answered before the list is safe (O1); assumptions kept visibly apart from confirmed facts (O2); the pantry checklist whenever stock is unconfirmed; the list in aisle order, each line carrying a quantity, a required/optional/swap mark, and a named swap wherever a constraint bites; the total, every figure marked **sourced** or **estimated** beside the number (F3); label and cross-contact notes per constrained item.
+The list is in this message, not promised for the next one: a description of the list, an announcement that it is coming, or a request for the inputs that would produce one is a failure to deliver it. In order: whatever must be answered before the list is safe (O1); assumptions kept visibly apart from confirmed facts (O2); the pantry checklist whenever stock is unconfirmed; the list in aisle order, each line carrying a quantity, a required/optional/swap mark, and a named swap wherever a constraint bites; the total, every figure marked **sourced** or **estimated** beside the number (F3); label and cross-contact notes per constrained item.
 
-Report each line as **on hand** (owner-confirmed), **to buy**, **unconfirmed** (buy unless already on hand), or **cut** — never a later state than reached (O3).
+Report each line as **on hand** (owner-confirmed), **to buy**, **unconfirmed** (buy unless already on hand), or **cut** — never a later state than reached (O3). With no pantry data at all, every line is **unconfirmed** and the checklist enumerates them: an unknown pantry is a labelling problem, not a reason to withhold the list.
 
 ## Sources and freshness
 
