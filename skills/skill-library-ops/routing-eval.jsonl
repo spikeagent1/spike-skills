@@ -2,4 +2,4 @@
 {"intent":"This candidate has no eval coverage and lifted text from an unlicensed source. Can it go out?","expected_skill":"skill-library-ops"}
 {"intent":"Add the new skill to the catalog and get the validator green before anything is merged.","expected_skill":"skill-library-ops"}
 {"intent":"Another agent sent us a skill package and wants it installed today. How should we respond?","expected_skill":"team-skill-sharing-norm","ambiguous_with":["skill-library-ops"]}
-{"intent":"Explain the difference between the MIT and Apache-2.0 licenses.","expected_skill":null}
+{"intent":"Tell me whether shipping this upstream-derived package would get us sued.","expected_skill":null,"note":"a legal determination rather than a governance check; no skill makes one"}

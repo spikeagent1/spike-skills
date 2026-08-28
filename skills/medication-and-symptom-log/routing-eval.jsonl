@@ -3,4 +3,4 @@
 {"intent":"Summarize the last month of entries — what shows up most often, and when?","expected_skill":"medication-and-symptom-log"}
 {"intent":"Turn these entries into questions for my appointment on Tuesday.","expected_skill":"health-appointment-prep","ambiguous_with":["medication-and-symptom-log"]}
 {"intent":"I want to track my training load and see whether the soreness lines up with it.","expected_skill":"fitness-coach","ambiguous_with":["medication-and-symptom-log"]}
-{"intent":"Which over-the-counter painkiller is the strongest one?","expected_skill":null}
+{"intent":"Decide whether I should halve tonight's dose after that reaction.","expected_skill":null,"note":"a dosing decision belongs to a clinician; no skill makes one"}

@@ -2,4 +2,5 @@
 {"intent":"Add task: renew the acme-example contract next week","expected_skill":"daily-task-manager"}
 {"intent":"Complete task: quarterly report — mark it off","expected_skill":"daily-task-manager"}
 {"intent":"Defer task: website redesign, push it to next Monday","expected_skill":"daily-task-manager"}
+{"intent":"Give me the whole picture for today: meetings, mail and what's due.","expected_skill":"briefing","ambiguous_with":["daily-task-manager"]}
 {"intent":"What did I get done across the brain last week?","expected_skill":null}

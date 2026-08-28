@@ -1312,7 +1312,7 @@ class RoutingLoaderTest(unittest.TestCase):
         """Canary: the repaired corpus has one file per skill and no phantom targets."""
         loaded = cases.load_routing_cases()
         known = set(cases.skill_names())
-        self.assertEqual(len(loaded), 179)
+        self.assertEqual(len(loaded), 184)
         self.assertEqual(len({c.skill_file for c in loaded}), len(known))
         self.assertEqual([c for c in loaded if c.phantom_expected], [])
         self.assertEqual([name for c in loaded for name in c.phantom_ambiguous], [])

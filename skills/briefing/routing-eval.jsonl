@@ -2,4 +2,5 @@
 {"intent":"Run the pre-briefing pull: salience, anomalies, and recall before you compose today's briefing","expected_skill":"briefing"}
 {"intent":"Morning briefing please, and lead with anything high-salience or anomalous in the brain","expected_skill":"briefing"}
 {"intent":"What's happening today across my meetings and hot topics","expected_skill":"briefing","ambiguous_with":["daily-task-manager"]}
+{"intent":"Just list what's still open on my task list this morning, nothing else.","expected_skill":"daily-task-manager","ambiguous_with":["briefing"]}
 {"intent":"Why did the page for acme-example suddenly spike in edits last Tuesday — dig into the cause","expected_skill":null}

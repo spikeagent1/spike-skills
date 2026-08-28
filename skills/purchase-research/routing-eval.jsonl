@@ -3,4 +3,4 @@
 {"intent":"I don't actually know what I need yet — work out the requirements with me before we compare anything.","expected_skill":"purchase-research"}
 {"intent":"Whatever I end up buying I'll have to service it. Plan the upkeep.","expected_skill":"household-maintenance","ambiguous_with":["purchase-research"]}
 {"intent":"I need a warmer jacket for the trip — work out what I'm packing first.","expected_skill":"wardrobe-and-packing","ambiguous_with":["purchase-research"]}
-{"intent":"Cancel my subscription to that streaming service.","expected_skill":null}
+{"intent":"Tell me whether I can afford this and whether to finance it over twenty-four months.","expected_skill":null,"note":"a personal-finance determination rather than a product comparison; no skill advises on it"}

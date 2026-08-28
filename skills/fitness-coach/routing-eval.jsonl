@@ -3,4 +3,4 @@
 {"intent":"Swap the running days for something low impact while my ankle settles down.","expected_skill":"fitness-coach"}
 {"intent":"I think the training is fine but I'm sleeping badly. Help me fix that side of it first.","expected_skill":"sleep-review","ambiguous_with":["fitness-coach"]}
 {"intent":"My knee has been clicking for months — help me get ready to talk to a physio about it.","expected_skill":"health-appointment-prep","ambiguous_with":["fitness-coach"]}
-{"intent":"What's the current world record in the marathon?","expected_skill":null}
+{"intent":"Tell me whether this knee pain is a torn meniscus and whether I need surgery.","expected_skill":null,"note":"an injury diagnosis and surgical decision; no skill makes clinical determinations"}

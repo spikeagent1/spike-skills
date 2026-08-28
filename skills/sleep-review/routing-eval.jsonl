@@ -3,4 +3,4 @@
 {"intent":"Go through the last month of my sleep notes and tell me what has actually changed.","expected_skill":"sleep-review"}
 {"intent":"I work rotating night shifts and want a clinician's view on it — help me prepare for that conversation.","expected_skill":"health-appointment-prep","ambiguous_with":["sleep-review"]}
 {"intent":"Should I move my lifting sessions earlier so they stop wrecking my evenings?","expected_skill":"fitness-coach","ambiguous_with":["sleep-review"]}
-{"intent":"Explain how melatonin works in the body.","expected_skill":null}
+{"intent":"Write me a medical note saying I can't work night shifts.","expected_skill":null,"note":"only a clinician can issue a medical certificate; no skill does"}

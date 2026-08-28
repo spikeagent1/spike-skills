@@ -3,4 +3,5 @@
 {"intent":"search my conversations with Claude and Perplexity about agent memory and build me a timeline","expected_skill":"conversation-archive"}
 {"intent":"archive my session transcripts from this agent and backfill missing conversations from last month","expected_skill":"conversation-archive"}
 {"intent":"I have a claude export with 4000 threads — import my conversations and keep the archive gap-free","expected_skill":"conversation-archive"}
+{"intent":"Look back over what I've said about my goals this year and tell me where I've drifted.","expected_skill":"owner-dream-cycle","ambiguous_with":["conversation-archive"]}
 {"intent":"did my colleague answer in the group channel last night?","expected_skill":null}

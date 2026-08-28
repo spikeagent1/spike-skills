@@ -3,4 +3,4 @@
 {"intent":"Sunday prep: give me a week of lunches I can batch on one afternoon and keep the whole week cheap.","expected_skill":"meal-planner"}
 {"intent":"The dinners for the week are already picked — turn them into a shopping list grouped by aisle.","expected_skill":"grocery-planner","ambiguous_with":["meal-planner"]}
 {"intent":"I've got chicken thighs and half an hour tonight. What can I actually make?","expected_skill":"home-cook","ambiguous_with":["meal-planner"]}
-{"intent":"Summarize the history of the Mediterranean diet for my kid's school report.","expected_skill":null}
+{"intent":"Work out which food intolerance I have from how I feel after meals.","expected_skill":null,"note":"diagnosing an intolerance is a medical determination; no skill makes one"}
