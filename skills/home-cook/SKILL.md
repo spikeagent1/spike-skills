@@ -59,7 +59,7 @@ Produces one cooking session: the dish, ordered steps with times and cues, the s
 
 The session is in this message, not promised for the next one: the dish written out, not a description of how it would be written and not a request for the inputs that would produce it. In order: whatever must be answered before cooking is safe (O1); the dish and its assumptions, kept visibly apart from confirmed facts (O2); confirmed ingredients and optional additions; ordered steps with times and doneness cues; each substitution against the ingredient it replaces, with its label check; keeping, reheating, and leftover notes.
 
-Report the session as **as written**, **adapted** (a labelled substitution or assumption stands in), or **blocked** (a safety answer is missing) — never a later state than reached (O3).
+Report the session as **as written**, **adapted** (a labelled substitution or assumption stands in), or **blocked** (a safety answer is missing) — never a later state than reached (O3). **Blocked** still carries the session: the dish, its steps, and its substitutions written out on the strictest safe assumption, with the missing answer named beside them and the line it would change. It is a label on a delivered session, never an empty reply.
 
 ## Sources and freshness
 
