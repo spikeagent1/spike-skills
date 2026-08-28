@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import re
 import unittest
+from pathlib import Path
 
 import tools.contracts_check as contracts_check
 import tools.validate_repo as validate_repo
@@ -9,8 +11,11 @@ import tools.validate_repo as validate_repo
 
 CAPABILITIES = contracts_check.load_capabilities()
 DATASTORE = contracts_check.load_datastore()
+VOCABULARY = contracts_check.load_vocabulary()
+ADAPTERS = contracts_check.load_adapters()
 EFFECTS = CAPABILITIES["effects"]
 NAMESPACES = DATASTORE["namespaces"]
+TERMS = VOCABULARY["terms"]
 
 
 class ParserTest(unittest.TestCase):
@@ -147,6 +152,108 @@ class TemplateTest(unittest.TestCase):
         contract = validate_repo.section_body(text, "Contract") or ""
         self.assertIn(validate_repo.CONTRACT_LINK, contract)
         self.assertIn("Provenance:", contract)
+
+
+class VocabularyTest(unittest.TestCase):
+    def test_terms_match_the_contract_glossary(self) -> None:
+        glossary = contracts_check.glossary_terms()
+        self.assertEqual(len(glossary), 31)
+        self.assertEqual([entry["term"] for entry in TERMS], glossary)
+
+    def test_every_term_is_fully_declared(self) -> None:
+        for entry in TERMS:
+            with self.subTest(term=entry.get("term")):
+                self.assertIn(entry["kind"], contracts_check.VOCABULARY_KINDS)
+                self.assertTrue(entry["meaning"].strip())
+                self.assertLessEqual(len(entry["meaning"].split()), 20)
+
+    def test_keys_are_derived_from_terms_and_unique(self) -> None:
+        keys = [entry["key"] for entry in TERMS]
+        self.assertEqual(len(set(keys)), len(keys))
+        for entry in TERMS:
+            with self.subTest(term=entry["term"]):
+                self.assertEqual(entry["key"], contracts_check.term_key(entry["term"]))
+
+    def test_aliases_are_never_terms_in_their_own_right(self) -> None:
+        terms = {entry["term"] for entry in TERMS}
+        for entry in TERMS:
+            for alias in entry.get("aliases") or []:
+                with self.subTest(term=entry["term"], alias=alias):
+                    self.assertNotIn(alias, terms)
+
+
+class AdapterTest(unittest.TestCase):
+    def test_both_declared_runtimes_load(self) -> None:
+        self.assertEqual(sorted(ADAPTERS), sorted(contracts_check.RUNTIMES))
+        for runtime, adapter in ADAPTERS.items():
+            with self.subTest(runtime=runtime):
+                self.assertEqual(adapter["runtime"], runtime)
+                self.assertEqual(adapter["version"], 1)
+
+    def test_every_adapter_binds_every_vocabulary_term(self) -> None:
+        for runtime, adapter in ADAPTERS.items():
+            with self.subTest(runtime=runtime):
+                self.assertEqual(contracts_check.missing_terms(adapter, VOCABULARY), [])
+                self.assertEqual(contracts_check.extra_terms(adapter, VOCABULARY), [])
+                for entry in TERMS:
+                    binding = adapter["vocabulary"][entry["key"]]
+                    self.assertTrue(str(binding["value"]).strip(), entry["term"])
+
+    def test_every_adapter_maps_every_datastore_namespace(self) -> None:
+        for runtime, adapter in ADAPTERS.items():
+            with self.subTest(runtime=runtime):
+                self.assertEqual(contracts_check.missing_namespaces(adapter, DATASTORE), [])
+                self.assertEqual(len(adapter["datastore"]["paths"]), len(NAMESPACES))
+
+    def test_every_adapter_maps_every_datastore_verb(self) -> None:
+        verbs = [verb["name"] for verb in DATASTORE["verbs"]]
+        for runtime, adapter in ADAPTERS.items():
+            with self.subTest(runtime=runtime):
+                self.assertEqual(sorted(adapter["datastore"]["verbs"]), sorted(verbs))
+
+    def test_structured_keys_agree_with_the_vocabulary(self) -> None:
+        for runtime, adapter in ADAPTERS.items():
+            with self.subTest(runtime=runtime):
+                vocabulary = adapter["vocabulary"]
+                self.assertEqual(adapter["skills_dir"], vocabulary["skills_dir"]["value"])
+                stated = vocabulary["identity_files"]["value"]
+                for path in adapter["identity_files"]:
+                    self.assertIn(Path(path).name, stated)
+                self.assertEqual(
+                    adapter["notification"]["quiet_hours"]["timezone_term"], "owner_timezone"
+                )
+
+    def test_personal_values_stay_placeholders(self) -> None:
+        forbidden = re.compile(
+            r"(America/[A-Za-z_]+|\b\d{9,}\b|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+)"
+        )
+        for runtime in contracts_check.RUNTIMES:
+            for name in ("adapter.yaml", "ADAPTER.md"):
+                path = contracts_check.ADAPTERS_DIR / runtime / name
+                with self.subTest(file=f"{runtime}/{name}"):
+                    self.assertIsNone(forbidden.search(path.read_text(encoding="utf-8")))
+
+    def test_adapter_markdown_stays_readable(self) -> None:
+        for runtime in contracts_check.RUNTIMES:
+            path = contracts_check.ADAPTERS_DIR / runtime / "ADAPTER.md"
+            lines = path.read_text(encoding="utf-8").splitlines()
+            with self.subTest(runtime=runtime):
+                self.assertLess(len(lines), 80)
+                for heading in contracts_check.ADAPTER_MD_SECTIONS:
+                    self.assertIn(heading, lines)
+
+    def test_adapters_match_the_json_schema(self) -> None:
+        try:
+            import jsonschema
+        except ModuleNotFoundError:
+            self.skipTest("optional jsonschema package is unavailable")
+        schema = json.loads(
+            (contracts_check.ADAPTERS_DIR / "adapter.schema.json").read_text(encoding="utf-8")
+        )
+        validator = jsonschema.Draft202012Validator(schema)
+        for runtime, adapter in ADAPTERS.items():
+            with self.subTest(runtime=runtime):
+                self.assertEqual(list(validator.iter_errors(adapter)), [])
 
 
 if __name__ == "__main__":

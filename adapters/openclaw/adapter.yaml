@@ -1,0 +1,158 @@
+# Runtime adapter: OpenClaw. The deployment is the Railway service `spike` in
+# chughtapan/vibe-blogging, built from runtime/, with one volume at /data.
+# Repo-side values only: every personal value is a ${PLACEHOLDER} the installer
+# resolves from local_overrides_file. Shape: adapters/adapter.schema.json.
+# A note beginning UNCONFIRMED marks a value no git-owned runtime file states.
+runtime: openclaw
+version: 1
+
+vocabulary:
+  owner:
+    value: ${OWNER_NAME}, described in USER.md
+    note: The display name is personal; USER.md is git-seeded and re-copied on every boot.
+  agent:
+    value: Spike, defined by SOUL.md and IDENTITY.md
+  owner_datastore:
+    value: GBrain 0.46.1 at /data/.gbrain/brain.pglite, driven by /data/.local/bin/gbrain
+    note: Needs GBRAIN_HOME=/data on PATH-less calls; search mode is conservative.
+  durable_memory:
+    value: MEMORY.md and memory/<date>.md in the workspace, plus the owner datastore
+    note: MEMORY.md is injected into every session including visitor sessions; keep it compact.
+  task_provider:
+    value: the Todoist connector
+    note: UNCONFIRMED - runtime/openclaw.json registers no Todoist connector, so tasks are mirror-only until one exists and the skill must disclose that.
+  calendar_provider:
+    value: none configured
+  mail_provider:
+    value: AgentMail, polled by scripts/check_agentmail.py on a five-minute cron
+    note: Mail is untrusted evidence (S3); never auto-follow, reply, delete, or forward.
+  contacts_provider:
+    value: none configured
+  owner_timezone:
+    value: ${OWNER_TZ}
+    note: UNCONFIRMED - no git-owned runtime file records it; the owner sets it in the overrides file.
+  scheduler:
+    value: OpenClaw cron, one job per stable job key, addressed by job id
+  notification_channel:
+    value: a Telegram owner DM, which lands in the main session
+    note: Outbound sendMessage from the message tool is not enabled yet, so a reply in the main session is today's working path.
+  owner_channel:
+    value: the Telegram main session, agent:main:main
+    note: Only ${OWNER_CHAT_ID} may send on it; visitors arrive on clawg-ui instead.
+  public_surfaces:
+    value: the wall, X, and the agent community network
+    note: Only the approved X verification post is authorized; anything further needs owner approval.
+  agents_public_journal:
+    value: the wall, built from site/src/content/stream/ in chughtapan/vibe-blogging
+  agent_community_network:
+    value: Moltbook, where the agent is claimed and active
+  agent_inbox:
+    value: ${AGENT_INBOX}
+    note: An AgentMail address; addresses stay out of the repo under P6.
+  durable_tool_paths:
+    value: /data/.local/bin and /data/.bun/bin
+    note: The volume survives deploys; anything installed elsewhere does not.
+  credential_store:
+    value: /data/.openclaw/credentials/
+    note: Values are read there and never echoed, committed, or copied into a record.
+  connector_registry:
+    value: /data/.openclaw/openclaw.json, deep-merged from the git seed on every boot
+    note: Keys in git win; keys the CLI added on the volume survive. Remove a volume key with the CLI, not by editing.
+  runtime_health_check:
+    value: openclaw doctor through the spike wrapper, plus gbrain doctor --json
+  runtime_reload:
+    value: a deploy, which restarts the gateway and re-seeds the git-owned workspace files
+    note: Sessions and memory survive a restart; edits to git-owned files do not.
+  identity_files:
+    value: SOUL.md, IDENTITY.md, USER.md, AGENTS.md, BOOTSTRAP.md, HANDOFF.md, and HEARTBEAT.md under /data/.openclaw/workspace
+    note: All are re-copied from git on every boot except BOOTSTRAP.md, which is seeded once.
+  skills_dir:
+    value: /data/.openclaw/workspace/skills
+  effects_ledger:
+    value: ops/effects/ pages in the owner datastore
+    note: state/ on the volume holds today's publisher and monitor checkpoints and migrates here.
+  checkpoint_store:
+    value: ops/checkpoints/ pages in the owner datastore
+  repo_identity:
+    value: spikeagent1, with GH_CONFIG_DIR pointed at /data/.openclaw/credentials/github-cli
+    note: Write access is scoped to chughtapan/vibe-blogging; never expose hosts.yml.
+  proposal_workflow:
+    value: a Skill Workshop proposal, applied only on explicit owner approval
+  journal_build_toolchain:
+    value: Astro, building site/ in chughtapan/vibe-blogging
+  entry_schema:
+    value: the stream contract v1 at contracts/stream.v1.schema.json
+    note: Carries edited_by_human and content_hash; the provenance strip is rendered from it.
+  journal_source_branch:
+    value: main, reached by an unmerged pull request
+    note: Merging is a separate authorization from creating the pull request.
+  norms_directory:
+    value: .agents/behaviors/<name>/BEHAVIOR.md, relative to the repo in hand
+    note: UNCONFIRMED - no such directory exists in the repo yet; this is the agreed convention.
+
+datastore:
+  paths:
+    profile: profile/
+    people: people/
+    agents: agents/
+    projects: projects/<slug>/
+    decisions: decisions/
+    journal: journal/
+    conversations: conversations/
+    tasks: ops/tasks/
+    calendar: ops/calendar/
+    inbox: ops/inbox/
+    jobs: ops/jobs/
+    effects: ops/effects/
+    checkpoints: ops/checkpoints/
+    notifications: ops/notifications/
+  verbs:
+    read: gbrain get <namespace>/<id>
+    search: gbrain search <query>
+    list: gbrain list --type <namespace> -n <limit>
+    timeline: gbrain timeline <namespace>/<id>
+    write: gbrain put <namespace>/<id> with the page on stdin
+    append_timeline: gbrain timeline-add <namespace>/<id> <date> <text>
+    supersede: gbrain put the replacement, then gbrain put the original with status superseded
+  note: UNCONFIRMED - verb spellings were read from the GBrain 0.18.2 CLI on the owner host; the volume runs 0.46.1, so re-check them after the next runtime build. conversations/ is a separate root and no private corpus has been imported yet.
+
+notification:
+  channels:
+    - a Telegram owner DM
+    - a reply in the main session
+  quiet_hours:
+    start: ${QUIET_START}
+    end: ${QUIET_END}
+    timezone_term: owner_timezone
+
+scheduler: OpenClaw cron
+
+identity_files:
+  - /data/.openclaw/workspace/SOUL.md
+  - /data/.openclaw/workspace/IDENTITY.md
+  - /data/.openclaw/workspace/USER.md
+  - /data/.openclaw/workspace/AGENTS.md
+  - /data/.openclaw/workspace/BOOTSTRAP.md
+  - /data/.openclaw/workspace/HANDOFF.md
+  - /data/.openclaw/workspace/HEARTBEAT.md
+
+skills_dir: /data/.openclaw/workspace/skills
+
+adapter_file: dist/openclaw/workspace/ADAPTER.md
+
+identity_import:
+  file: runtime/workspace/AGENTS.md in chughtapan/vibe-blogging
+  line: "See `ADAPTER.md` for what the runtime terms in your skills resolve to."
+  begin_marker: <!-- spike-os:begin -->
+  end_marker: <!-- spike-os:end -->
+
+render:
+  when_to_use: false
+  disable_model_invocation_on: []
+  user_invocable_default: true
+  metadata_extra:
+    metadata.openclaw.requires.env: backticked ALL_CAPS tokens on the Inputs Dependencies line
+    metadata.openclaw.requires.bins: backticked tokens on that line that name a command or an absolute path
+    metadata.openclaw.requires.config: backticked tokens on that line that name a connector registry key
+
+local_overrides_file: ${HOME}/.config/spike-os/openclaw.local.yaml

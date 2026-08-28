@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chughtapan/spike-skills/adapters/adapter.schema.json",
+  "title": "Runtime adapter",
+  "description": "Shape of adapters/<runtime>/adapter.yaml. Term and namespace coverage is checked by tools/contracts_check.py against adapters/vocabulary.yaml and contracts/datastore.yaml; this schema checks shape only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runtime",
+    "version",
+    "vocabulary",
+    "datastore",
+    "notification",
+    "scheduler",
+    "identity_files",
+    "skills_dir",
+    "adapter_file",
+    "render",
+    "local_overrides_file"
+  ],
+  "properties": {
+    "runtime": {
+      "description": "Value a skill may name in metadata.spike-os.runtime.",
+      "enum": ["openclaw", "claude-code"]
+    },
+    "version": {
+      "description": "Adapter version; the installed SKILL.md trailer cites it.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "vocabulary": {
+      "description": "One binding per adapters/vocabulary.yaml key.",
+      "type": "object",
+      "minProperties": 31,
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"},
+      "additionalProperties": {"$ref": "#/$defs/binding"}
+    },
+    "datastore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["paths", "verbs"],
+      "properties": {
+        "paths": {
+          "description": "One path or slug prefix per contracts/datastore.yaml namespace.",
+          "type": "object",
+          "minProperties": 14,
+          "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"},
+          "additionalProperties": {"type": "string", "minLength": 1}
+        },
+        "verbs": {
+          "description": "One invocation per contracts/datastore.md verb.",
+          "type": "object",
+          "minProperties": 7,
+          "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"},
+          "additionalProperties": {"type": "string", "minLength": 1}
+        },
+        "field_map": {
+          "description": "Record-envelope field name on the left, this store's name on the right.",
+          "type": "object",
+          "additionalProperties": {"type": "string", "minLength": 1}
+        },
+        "note": {"type": "string", "minLength": 1}
+      }
+    },
+    "notification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["channels", "quiet_hours"],
+      "properties": {
+        "channels": {
+          "description": "Delivery targets in preference order; the first that works wins.",
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "quiet_hours": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start", "end", "timezone_term"],
+          "properties": {
+            "start": {"type": "string", "minLength": 1},
+            "end": {"type": "string", "minLength": 1},
+            "timezone_term": {
+              "description": "The vocabulary key the window is read in.",
+              "const": "owner_timezone"
+            }
+          }
+        }
+      }
+    },
+    "scheduler": {"type": "string", "minLength": 1},
+    "identity_files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "skills_dir": {"type": "string", "minLength": 1},
+    "adapter_file": {
+      "description": "Where the installer writes the rendered ADAPTER.md.",
+      "type": "string",
+      "minLength": 1
+    },
+    "identity_import": {
+      "description": "How the rendered ADAPTER.md is reached from an identity file.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "line", "begin_marker", "end_marker"],
+      "properties": {
+        "file": {"type": "string", "minLength": 1},
+        "line": {"type": "string", "minLength": 1},
+        "begin_marker": {"type": "string", "minLength": 1},
+        "end_marker": {"type": "string", "minLength": 1}
+      }
+    },
+    "render": {
+      "description": "What the installer adds to a SKILL.md for this runtime.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["when_to_use", "disable_model_invocation_on", "user_invocable_default"],
+      "properties": {
+        "when_to_use": {"type": "boolean"},
+        "disable_model_invocation_on": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"]}
+        },
+        "user_invocable_default": {"type": "boolean"},
+        "background_skills": {
+          "description": "Adapter-side list; these render user-invocable false.",
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "metadata_extra": {
+          "description": "Runtime-only frontmatter the installer emits, key to derivation rule.",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "local_overrides_file": {
+      "description": "Gitignored file holding the personal values the placeholders stand for.",
+      "type": "string",
+      "pattern": "^\\$\\{HOME\\}/"
+    }
+  },
+  "$defs": {
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value"],
+      "properties": {
+        "value": {"type": "string", "minLength": 1},
+        "note": {
+          "description": "Caveats; a value this runtime could not confirm starts with UNCONFIRMED.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

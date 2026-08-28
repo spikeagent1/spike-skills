@@ -1,0 +1,155 @@
+# Runtime adapter: Claude Code on the owner's Mac. The datastore is the
+# Tapan-Brain vault; the gbrain MCP server, the local CLI, and plain Markdown
+# are three ordered ways into it, and the fallbacks are first-class because the
+# MCP server is not always up. Repo-side values only: every personal value is a
+# ${PLACEHOLDER} the installer resolves from local_overrides_file. Shape:
+# adapters/adapter.schema.json. A note beginning UNCONFIRMED marks a value this
+# host does not currently support.
+runtime: claude-code
+version: 1
+
+vocabulary:
+  owner:
+    value: ${OWNER_NAME}, described in ~/.claude/CLAUDE.md and the profile namespace
+  agent:
+    value: the Claude Code session, operating under ~/.claude/CLAUDE.md
+  owner_datastore:
+    value: the Tapan-Brain vault at ~/Tapan-Brain, indexed by _system/shared-context.pglite
+    note: The Markdown files are canonical and the index is rebuilt from them, which is why the direct-Markdown fallback is safe.
+  durable_memory:
+    value: the same vault; ~/.claude/CLAUDE.md is its always-loaded summary
+  task_provider:
+    value: the Todoist MCP server when the connector registry declares one, otherwise mirror-only
+    note: UNCONFIRMED - no Todoist server is registered on this host, so tasks are mirror-only and the skill must disclose that.
+  calendar_provider:
+    value: the Google Calendar MCP server
+  mail_provider:
+    value: the agentmail MCP server for the agent, the Gmail MCP server for the owner
+    note: UNCONFIRMED - agentmail is not registered on this host; Gmail is connected.
+  contacts_provider:
+    value: none configured
+  owner_timezone:
+    value: ${OWNER_TZ}
+    note: The host zone is not authoritative; the owner sets it in the overrides file.
+  scheduler:
+    value: Claude Code /schedule routines, with launchd for host-local jobs
+  notification_channel:
+    value: an in-session reply, then the agent inbox, then a routine notification
+    note: First channel that works wins; a held delivery waits for the next interactive session.
+  owner_channel:
+    value: the interactive Claude Code session
+  public_surfaces:
+    value: none unless ${PUBLIC_SURFACES} names one
+    note: A skill declaring publish:external is blocked here until the overrides file names a surface.
+  agents_public_journal:
+    value: none in this runtime
+  agent_community_network:
+    value: none in this runtime
+  agent_inbox:
+    value: ${AGENT_INBOX}
+    note: UNCONFIRMED - reached through the agentmail MCP server, which is not registered on this host.
+  durable_tool_paths:
+    value: ~/.bun/bin, ~/.local/bin, and ~/dev/tapan-agent/bin
+    note: UNCONFIRMED - ~/dev/tapan-agent/bin does not exist on this host; the first two do.
+  credential_store:
+    value: the macOS keychain, plus per-server env in ~/.claude.json
+    note: Read a credential where it lives; never copy a value into a record, a log, or a reply.
+  connector_registry:
+    value: the mcpServers block of ~/.claude.json
+  runtime_health_check:
+    value: mcp__gbrain__get_health, or claude mcp list for the registry as a whole
+  runtime_reload:
+    value: restart the session, or reconnect one server with /mcp
+  identity_files:
+    value: ~/.claude/CLAUDE.md and the profile pages under ~/Tapan-Brain/profile/
+    note: ~/.claude is a git repo; the installer prints the commit command and does not run it.
+  skills_dir:
+    value: ~/.claude/skills
+    note: About a hundred unrelated skills already live here; install only into directories carrying a spike-os stamp.
+  effects_ledger:
+    value: ~/Tapan-Brain/ops/effects/
+    note: The vault has no ops/ tree yet; the installer creates it.
+  checkpoint_store:
+    value: ~/Tapan-Brain/ops/checkpoints/
+  repo_identity:
+    value: chughtapan, through the gh CLI
+  proposal_workflow:
+    value: pull-request review on the repository in hand
+  journal_build_toolchain:
+    value: none in this runtime
+  entry_schema:
+    value: none in this runtime
+  journal_source_branch:
+    value: none in this runtime
+  norms_directory:
+    value: .agents/behaviors/<name>/BEHAVIOR.md, relative to the repo in hand
+    note: UNCONFIRMED - no such directory exists yet; this is the agreed convention, shared with the openclaw adapter.
+
+datastore:
+  paths:
+    profile: profile/
+    people: people/
+    agents: agents/
+    projects: projects/<name>/
+    decisions: decisions/
+    journal: ops/journal/
+    conversations: ${CONVERSATIONS_ROOT}
+    tasks: ops/tasks/
+    calendar: ops/calendar/
+    inbox: ops/inbox/
+    jobs: ops/jobs/
+    effects: ops/effects/
+    checkpoints: ops/checkpoints/
+    notifications: ops/notifications/
+  verbs:
+    read: mcp__gbrain__get_page slug=<namespace>/<id>
+    search: mcp__gbrain__search query=<query>
+    list: mcp__gbrain__list_pages type=<namespace>
+    timeline: mcp__gbrain__get_timeline slug=<namespace>/<id>
+    write: mcp__gbrain__put_page slug=<namespace>/<id> with full Markdown and frontmatter
+    append_timeline: mcp__gbrain__add_timeline_entry slug=<namespace>/<id> date summary detail
+    supersede: put the replacement page, then put the original with status superseded
+  field_map:
+    namespace: type
+    visibility: sensitivity
+    status.active: confirmed
+    provenance.source_ids: source_ids
+    id: the page slug, which is the filename without .md
+    kind: no vault equivalent; written through as frontmatter
+  note: Paths are relative to ~/Tapan-Brain except conversations, a separate root defaulting to ~/Tapan-Brain-imports/conversations/. Fallback order for every verb is the gbrain MCP server, then ~/Tapan-Brain/bin/gbrain-local with the same subcommands, then reading or writing the Markdown file directly. Embeddings are off, so search is keyword-only; prefer exact slugs.
+
+notification:
+  channels:
+    - an in-session reply
+    - the agent inbox
+    - a routine notification
+  quiet_hours:
+    start: ${QUIET_START}
+    end: ${QUIET_END}
+    timezone_term: owner_timezone
+
+scheduler: Claude Code /schedule routines, with launchd for host-local jobs
+
+identity_files:
+  - ~/.claude/CLAUDE.md
+  - ~/Tapan-Brain/profile/
+
+skills_dir: ~/.claude/skills
+
+adapter_file: ${HOME}/.claude/spike-os/ADAPTER.md
+
+identity_import:
+  file: ${HOME}/.claude/CLAUDE.md
+  line: "@~/.claude/spike-os/ADAPTER.md"
+  begin_marker: <!-- spike-os:begin -->
+  end_marker: <!-- spike-os:end -->
+
+render:
+  when_to_use: true
+  disable_model_invocation_on: [destructiveHint, openWorldHint]
+  user_invocable_default: true
+  background_skills: []
+  metadata_extra:
+    paths: file globs from the Inputs Dependencies line, when the skill is file-scoped
+
+local_overrides_file: ${HOME}/.config/spike-os/claude-code.local.yaml
