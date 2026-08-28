@@ -100,13 +100,13 @@ namespaces:
   - name: journal
     status: active
     system_of_record: datastore
-    kinds: [dream-report, candidate-ledger, reflection-cycle, run-report]
+    kinds: [dream-report, candidate-ledger, reflection-cycle, run-report, health-log]
     authority: any session kind
     scope: dated run artifacts
     mutability: append-only per run key
     provenance: run identity
     recoverability: rerun is idempotent
-    actionability: candidates only, never authority
+    actionability: run artifacts are candidates only, never authority; health-log entries are owner records, authoritative for what was recorded, never for clinical truth
   - name: conversations
     status: active
     system_of_record: datastore

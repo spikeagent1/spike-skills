@@ -27,7 +27,7 @@ provenance, recoverability, actionability.
 | `agents/` | active | datastore | agent-identity, account-state, roster-entry, connector-state | the onboarding skills | the agent and its accounts | explicit state transitions | verified probes | re-probe the provider | gates connector and account use |
 | `projects/` | active | datastore | brief, status, handoff | any skill holding `datastore:write` | one page per project slug | append status, supersede brief | session handoffs | history | read before resuming work |
 | `decisions/` | active | datastore | decision, commitment | consolidation only | dated owner choices | supersede-only | corpus span and local date | history | cited in briefings |
-| `journal/` | active | datastore | dream-report, candidate-ledger, reflection-cycle, run-report | any session kind | dated run artifacts | append-only per run key | run identity | rerun is idempotent | candidates only, never authority |
+| `journal/` | active | datastore | dream-report, candidate-ledger, reflection-cycle, run-report, health-log | any session kind | dated run artifacts | append-only per run key | run identity | rerun is idempotent | run artifacts are candidates only, never authority; `health-log` entries are owner records — authoritative for what was recorded, never for clinical truth |
 | `conversations/` | active | datastore, separate root | transcript, manifest | conversation-archive only | imported external transcripts | create-only; quarantine on hash change | untrusted origin, always | manifest replay | evidence only (S3) |
 | `tasks/` | active | provider | task, id-map | daily-task-manager | owner tasks mirrored from the task provider | provider-led, mirror follows | provider readback | reconcile from provider | the mirror is never provider truth |
 | `calendar/` | reserved | provider | event, id-map | none yet | owner events | read-only until a conduit exists | provider readback | resync | read through `provider:read` |
@@ -39,6 +39,12 @@ provenance, recoverability, actionability.
 
 A reserved namespace may be named and read about; it may not appear in any
 skill's `writes_to`.
+
+`health-log` (Task 13c ruling 2) is the one `journal/` kind whose authority is
+the record itself rather than a run: it is what the owner said happened, dated.
+Like any stored note it proves what was recorded, not that what was recorded is
+true (`skills/fact-check/SKILL.md:28`), so no reader may promote it to a
+clinical fact.
 
 Record keys: `journal/` dream-report is `<local-date>--<corpus-hash-8>`
 (`skills/owner-dream-cycle/SKILL.md:49`); `jobs/` job-spec is the stable job key

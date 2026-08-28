@@ -39,7 +39,7 @@ Produces the training week or the session review: named sessions with movements,
 | Goal and current activity level | yes | ask once, in the same turn as a week built for a beginner returning to training, labelled |
 | Days available, time per session, equipment, space | yes | ask once, in the same turn as a week on the strictest safe assumption — three non-consecutive days, thirty minutes, bodyweight only — labelled |
 | Injuries, symptoms, mobility limits | yes | build the version that leaves the named region out entirely and say which line the answer changes (X1) |
-| Clinician restrictions, whenever a diagnosed condition is named | yes | ask once; give the self-limiting version and name no ceiling, target rate, maximum, or clearance (X1, X3) |
+| Clinician restrictions, whenever a diagnosed condition is named | yes | ask once, in the same turn as the self-limiting version, which names no ceiling, target rate, maximum, or clearance (X1, X3) |
 | Recovery signals — sleep, soreness, stress, resting figures | no | use only what was supplied; a wearable number nobody gave is never inferred (X3) |
 
 **Dependencies:** none beyond the contract; training boundaries and clinician restrictions already in the `profile` namespace are read when present, and no other namespace is touched (P3). An activity, calendar, or notes connector is read only when the owner names one this turn (D1).
