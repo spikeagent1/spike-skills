@@ -18,7 +18,17 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tools.evalrunner import HARNESS_VERSION, cache, cases, doctor, executor, grader, workspace  # noqa: E402
+from tools.evalrunner import (  # noqa: E402
+    HARNESS_VERSION,
+    analysis,
+    cache,
+    cases,
+    doctor,
+    executor,
+    grader,
+    report,
+    workspace,
+)
 from tools.evalrunner.claude_cli import SubprocessClaudeRunner, strategy_flags, strategy_names  # noqa: E402
 
 DEFAULT_MODEL = "sonnet"
@@ -26,7 +36,7 @@ DEFAULT_TIMEOUT_S = 180.0
 DEFAULT_PROBE_BUDGET_USD = 0.05
 DEFAULT_RUN_BUDGET_USD = 0.50
 DEFAULT_WORKERS = 4
-NOT_IMPLEMENTED = ("routing", "compare", "report", "baseline")
+NOT_IMPLEMENTED = ("routing",)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -92,6 +102,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument("--dry-run", action="store_true", help="Write request.json only.")
     run_parser.add_argument("--label", help="Suffix for the run id.")
+    run_parser.add_argument(
+        "--compare-baseline", action="store_true",
+        help="Compare this run's results.json against the committed evals/baseline.json.",
+    )
+    run_parser.add_argument(
+        "--fail-on-regression", action="store_true",
+        help="Exit 1 when --compare-baseline finds a regression (implies --compare-baseline).",
+    )
     run_parser.set_defaults(handler=cmd_run)
 
     grade_parser = subparsers.add_parser(
@@ -106,6 +124,40 @@ def build_parser() -> argparse.ArgumentParser:
         "--regrade", action="store_true", help="Re-grade runs that already have a grading.json."
     )
     grade_parser.set_defaults(handler=cmd_grade)
+
+    compare_parser = subparsers.add_parser(
+        "compare", help="Diff two runs (or a run against the committed baseline)."
+    )
+    compare_parser.add_argument(
+        "--a", required=True, help="RUN_ID, or the literal 'baseline' for evals/baseline.json."
+    )
+    compare_parser.add_argument("--b", required=True, help="RUN_ID.")
+    compare_parser.add_argument("--skill", help="Comma-separated skill names to restrict to.")
+    compare_parser.add_argument(
+        "--fail-on-regression", action="store_true", help="Exit 1 when any assertion regressed."
+    )
+    compare_parser.set_defaults(handler=cmd_compare)
+
+    report_parser = subparsers.add_parser("report", help="Render a run's Markdown report.")
+    report_parser.add_argument("--run", required=True, help="Run id under evals/workspaces/runs/.")
+    report_parser.add_argument("--out", help="Write the report here instead of stdout.")
+    report_parser.set_defaults(handler=cmd_report)
+
+    baseline_parser = subparsers.add_parser("baseline", help="Read, update, or check evals/baseline.json.")
+    baseline_sub = baseline_parser.add_subparsers(dest="baseline_command", required=True)
+
+    baseline_update = baseline_sub.add_parser("update", help="Merge a run's results into the baseline.")
+    baseline_update.add_argument("--from", dest="from_run", required=True, help="Run id to merge in.")
+    baseline_update.add_argument(
+        "--routing-from", help="Run id to merge routing results from (not implemented in this build)."
+    )
+    baseline_update.add_argument(
+        "--require-clean", action="store_true", help="Refuse when the source run was recorded dirty."
+    )
+    baseline_update.set_defaults(handler=cmd_baseline_update)
+
+    baseline_check = baseline_sub.add_parser("check", help="Report staleness against the repo on disk.")
+    baseline_check.set_defaults(handler=cmd_baseline_check)
 
     for name in NOT_IMPLEMENTED:
         stub = subparsers.add_parser(
@@ -222,9 +274,10 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     try:
         configs = _parse_configs(args.configs)
+        skill_filter = _resolve_skills(args)
         selected = cases.select_cases(
             cases.load_behavioral_cases(),
-            skills=_resolve_skills(args),
+            skills=skill_filter,
             case_ids=args.case or None,
             limit=args.limit,
             sample=args.sample,
@@ -369,8 +422,23 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"  {config:26} {passed}/{total} assertions passed ({rate})")
     print(f"cost (usd) : {run_json['cost_usd_total']} attributed "
           f"/ {run_json['spend_usd_total']} spent this run (lower bound)")
-    print(f"wrote      : {run_root}")
-    return 0
+
+    results = analysis.aggregate_run(run_root)
+    (run_root / "results.json").write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
+    (run_root / "report.md").write_text(report.render_run_report(results, run_json), encoding="utf-8")
+    print(f"wrote      : {run_root} (results.json, report.md)")
+
+    exit_code = 0
+    if args.compare_baseline or args.fail_on_regression:
+        baseline = report.load_baseline()
+        if baseline is None:
+            print("compare-baseline: no committed evals/baseline.json; skipping comparison")
+        else:
+            comparison = analysis.compare(baseline, results, skills=skill_filter)
+            _print_compare(comparison, label_a="baseline", label_b=run_id)
+            if args.fail_on_regression and comparison["regressions"] > 0:
+                exit_code = 1
+    return exit_code
 
 
 def _execute_and_grade(
@@ -521,6 +589,123 @@ def cmd_grade(args: argparse.Namespace) -> int:
             )
 
     print(f"graded     : {graded} run(s); {skipped} already had grading.json")
+    return 0
+
+
+def _split_csv(raw: Optional[str]) -> Optional[List[str]]:
+    if not raw:
+        return None
+    names = [name.strip() for name in raw.split(",") if name.strip()]
+    return names or None
+
+
+def _load_compare_side(token: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """`{"skills": ...}`-shaped dict for a compare `--a`/`--b` token, or an error message."""
+    if token == "baseline":
+        baseline = report.load_baseline()
+        if baseline is None:
+            return None, "no committed evals/baseline.json"
+        return baseline, None
+    run_root = workspace.WORKSPACE / "runs" / token
+    if not run_root.is_dir():
+        return None, f"no run directory at {run_root}"
+    return analysis.aggregate_run(run_root), None
+
+
+def _print_compare(comparison: Dict[str, Any], *, label_a: str, label_b: str) -> None:
+    print(f"compare    : {label_a} -> {label_b}")
+    for skill in comparison["skills"]:
+        delta = skill["delta"]
+        delta_str = f"{delta:+.4f}" if delta is not None else "n/a"
+        flag = " (noise)" if skill["noise"] else ""
+        print(f"  {skill['skill']:26} delta={delta_str}{flag}")
+    for flip in comparison["flips"]:
+        print(f"  {flip['direction']:10} {flip['skill']}: {flip['assertion']}")
+    print(f"regressions: {comparison['regressions']}  gains: {comparison['gains']}")
+
+
+def cmd_compare(args: argparse.Namespace) -> int:
+    """Diff two runs, or a run against the committed baseline."""
+    a_dict, a_err = _load_compare_side(args.a)
+    if a_err:
+        print(f"run_evals.py compare: --a {args.a!r}: {a_err}", file=sys.stderr)
+        return 2
+    b_dict, b_err = _load_compare_side(args.b)
+    if b_err:
+        print(f"run_evals.py compare: --b {args.b!r}: {b_err}", file=sys.stderr)
+        return 2
+
+    comparison = analysis.compare(a_dict, b_dict, skills=_split_csv(args.skill))
+    _print_compare(comparison, label_a=args.a, label_b=args.b)
+    if args.fail_on_regression and comparison["regressions"] > 0:
+        return 1
+    return 0
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    """Render one run's Markdown report to stdout, or to --out."""
+    run_root = workspace.WORKSPACE / "runs" / args.run
+    if not run_root.is_dir():
+        print(f"run_evals.py report: no run directory at {run_root}", file=sys.stderr)
+        return 2
+
+    run_json_path = run_root / "run.json"
+    run_meta = json.loads(run_json_path.read_text(encoding="utf-8")) if run_json_path.is_file() else {}
+    results = analysis.aggregate_run(run_root)
+    text = report.render_run_report(results, run_meta)
+
+    if args.out:
+        Path(args.out).write_text(text, encoding="utf-8")
+        print(f"wrote report: {args.out}")
+    else:
+        print(text)
+    return 0
+
+
+def cmd_baseline_update(args: argparse.Namespace) -> int:
+    """Merge one run's results.json into evals/baseline.json."""
+    run_root = workspace.WORKSPACE / "runs" / args.from_run
+    if not run_root.is_dir():
+        print(f"run_evals.py baseline update: no run directory at {run_root}", file=sys.stderr)
+        return 2
+
+    run_json_path = run_root / "run.json"
+    run_meta = json.loads(run_json_path.read_text(encoding="utf-8")) if run_json_path.is_file() else {}
+    if args.require_clean and run_meta.get("dirty"):
+        print(
+            "run_evals.py baseline update: --require-clean was set and the source run "
+            "was recorded dirty",
+            file=sys.stderr,
+        )
+        return 2
+    if args.routing_from:
+        print(
+            "run_evals.py baseline update: --routing-from is not implemented in this build; "
+            "the routing section is carried over unchanged",
+            file=sys.stderr,
+        )
+
+    results = analysis.aggregate_run(run_root)
+    existing = report.load_baseline()
+    merged = report.merge_baseline(existing, results, run_meta, root=workspace.ROOT)
+    path = report.write_baseline(merged, root=workspace.ROOT)
+    print(f"wrote baseline: {path} ({len(merged['skills'])} skill(s))")
+    return 0
+
+
+def cmd_baseline_check(args: argparse.Namespace) -> int:
+    """Report staleness or zero-signal skills in the committed baseline."""
+    baseline = report.load_baseline()
+    if baseline is None:
+        print("run_evals.py baseline check: no committed evals/baseline.json", file=sys.stderr)
+        return 2
+    problems = report.check_baseline(baseline, workspace.ROOT)
+    if problems:
+        print("baseline check failed:")
+        for problem in problems:
+            print(f"- {problem}")
+        return 1
+    print(f"baseline check passed: {len(baseline.get('skills') or {})} skill(s)")
     return 0
 
 

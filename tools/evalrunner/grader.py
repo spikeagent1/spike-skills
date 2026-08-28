@@ -261,10 +261,22 @@ def parse_grading(
 
 
 def _empty_grading(assertions: Sequence[str], status: str, note: str) -> Dict[str, Any]:
-    """Ungraded placeholder so a run directory always has a `grading.json`."""
+    """Ungraded placeholder so a run directory always has a `grading.json`.
+
+    `summary.pass_rate` is `null` and `summary.status` is `"ungraded"`, not a
+    fabricated `0.0`: the vendored `aggregate_benchmark.py` reads
+    `summary.get("pass_rate", 0.0)`, and a present-but-null value stops it from
+    silently reporting an ungraded run as a 0% pass rate.
+    """
     return {
         "expectations": [],
-        "summary": {"passed": 0, "failed": 0, "total": len(assertions), "pass_rate": 0.0},
+        "summary": {
+            "passed": 0,
+            "failed": 0,
+            "total": len(assertions),
+            "pass_rate": None,
+            "status": "ungraded",
+        },
         "status": status,
         "note": note,
     }

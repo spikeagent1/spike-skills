@@ -16,7 +16,16 @@ from typing import Any, Dict, Iterable, Optional, Sequence
 
 from . import HARNESS_VERSION, workspace
 
-CACHE_DIR = workspace.WORKSPACE / "cache"
+
+def cache_dir() -> Path:
+    """Default cache directory, resolved lazily against `workspace.WORKSPACE`.
+
+    A function rather than a module constant: tests relocate `workspace.WORKSPACE`
+    after this module has already been imported, and a constant bound at import
+    time would keep pointing at the old location.
+    """
+    return workspace.WORKSPACE / "cache"
+
 
 # Field separator that cannot appear in a JSON-encoded component, so no two
 # distinct inputs can serialize to the same key material.
@@ -101,7 +110,7 @@ class Cache:
         enabled: bool = True,
         refresh_configs: Iterable[str] = (),
     ) -> None:
-        self.root = Path(root) if root else CACHE_DIR
+        self.root = Path(root) if root else cache_dir()
         self.enabled = enabled
         self.refresh_configs = set(refresh_configs)
         self.hits = 0

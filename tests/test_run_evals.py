@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -20,14 +21,17 @@ import unittest
 from pathlib import Path
 
 import tools.run_evals as run_evals
+import tools.validate_repo as validate_repo
 from tools.evalrunner import (
     HARNESS_VERSION,
+    analysis,
     cache,
     cases,
     claude_cli,
     doctor,
     executor,
     grader,
+    report,
     workspace,
 )
 
@@ -1638,6 +1642,854 @@ class RunCommandPlumbingTest(unittest.TestCase):
             self._main_quietly(["run", "--all", "--load-mode", "discover", "--model", "sonnet"]),
             2,
         )
+
+
+class GraderUngradedShapeTest(unittest.TestCase):
+    """`_empty_grading`'s summary must not read as a 0% pass rate (Task 4 addendum)."""
+
+    def test_unusable_output_yields_a_null_pass_rate_and_ungraded_summary_status(self) -> None:
+        run_dir = Path(tempfile.mkdtemp()) / "run-1"
+        (run_dir / "outputs").mkdir(parents=True)
+        (run_dir / "outputs" / "response.md").write_text("Some response.", encoding="utf-8")
+        runner = FakeClaudeRunner([_grader_result(None, text="no json here")])
+        grading = grader.grade_run(runner, run_dir, _behavioral_case(), _run_args())
+        self.assertIsNone(grading["summary"]["pass_rate"])
+        self.assertEqual(grading["summary"]["status"], "ungraded")
+        self.assertEqual(grading["summary"]["total"], len(_behavioral_case().assertions))
+
+
+class ClassifyAssertionTest(unittest.TestCase):
+    def test_pass_pass_is_non_discriminating(self) -> None:
+        self.assertEqual(analysis.classify_assertion(1.0, 1.0, 1), analysis.CLASS_NON_DISCRIMINATING)
+
+    def test_pass_fail_is_discriminating(self) -> None:
+        self.assertEqual(analysis.classify_assertion(1.0, 0.0, 1), analysis.CLASS_DISCRIMINATING)
+
+    def test_fail_pass_is_harmful(self) -> None:
+        self.assertEqual(analysis.classify_assertion(0.0, 1.0, 1), analysis.CLASS_HARMFUL)
+
+    def test_fail_fail_is_broken(self) -> None:
+        self.assertEqual(analysis.classify_assertion(0.0, 0.0, 1), analysis.CLASS_BROKEN)
+
+    def test_mixed_with_rate_is_flaky_when_repeats_exceed_one(self) -> None:
+        self.assertEqual(analysis.classify_assertion(0.5, 1.0, 2), analysis.CLASS_FLAKY)
+
+    def test_mixed_without_rate_is_flaky_when_repeats_exceed_one(self) -> None:
+        self.assertEqual(analysis.classify_assertion(1.0, 2 / 3, 3), analysis.CLASS_FLAKY)
+
+    def test_a_mixed_rate_is_not_flaky_when_repeats_is_one(self) -> None:
+        # Can't happen from real data (repeats=1 never produces a fractional rate),
+        # but the gate is on `repeats`, not on whether the rate happens to be mixed.
+        self.assertEqual(analysis.classify_assertion(0.5, 0.5, 1), analysis.CLASS_NON_DISCRIMINATING)
+
+    def test_missing_data_on_either_side_is_ungraded(self) -> None:
+        self.assertEqual(analysis.classify_assertion(None, 1.0, 1), analysis.CLASS_UNGRADED)
+        self.assertEqual(analysis.classify_assertion(1.0, None, 1), analysis.CLASS_UNGRADED)
+
+
+def _write_timing(run_dir: Path, *, tokens: float = 100, time_s: float = 1.0, cost: float = 0.02, status: str = "ok") -> None:
+    run_dir.mkdir(parents=True, exist_ok=True)
+    _write_json(
+        run_dir / "timing.json",
+        {
+            "total_tokens": tokens,
+            "duration_ms": int(time_s * 1000),
+            "total_duration_seconds": time_s,
+            "total_cost_usd": cost,
+            "model": "claude-sonnet-5",
+            "model_alias": "sonnet",
+            "status": status,
+        },
+    )
+
+
+def _write_grading(
+    run_dir: Path,
+    assertions: list[str],
+    passed: list[bool],
+    *,
+    grader_cost: float = 0.01,
+    suggestions: list[dict] | None = None,
+) -> None:
+    run_dir.mkdir(parents=True, exist_ok=True)
+    expectations = [
+        {"text": a, "passed": p, "evidence": f"evidence for {a} ({p})"} for a, p in zip(assertions, passed)
+    ]
+    _write_json(
+        run_dir / "grading.json",
+        {
+            "expectations": expectations,
+            "summary": {
+                "passed": sum(passed),
+                "failed": len(assertions) - sum(passed),
+                "total": len(assertions),
+                "pass_rate": round(sum(passed) / len(assertions), 4),
+            },
+            "eval_feedback": {"suggestions": suggestions or [], "overall": "ok"},
+            "status": grader.STATUS_OK,
+            "grader_model": "sonnet",
+            "grader_status": "ok",
+            "grader_cost_usd": grader_cost,
+            "harness_version": HARNESS_VERSION,
+        },
+    )
+
+
+def _write_ungraded(run_dir: Path, assertions: list[str], *, grader_cost: float = 0.005) -> None:
+    run_dir.mkdir(parents=True, exist_ok=True)
+    _write_json(
+        run_dir / "grading.json",
+        {
+            "expectations": [],
+            "summary": {"passed": 0, "failed": 0, "total": len(assertions), "pass_rate": None, "status": "ungraded"},
+            "status": grader.STATUS_GRADER_ERROR,
+            "note": "grader output did not match the assertions",
+            "grader_model": "sonnet",
+            "grader_status": "error",
+            "grader_cost_usd": grader_cost,
+            "harness_version": HARNESS_VERSION,
+        },
+    )
+
+
+def _write_eval_metadata(eval_dir: Path, *, eval_id: int, key: str, assertions: list[str]) -> None:
+    eval_dir.mkdir(parents=True, exist_ok=True)
+    _write_json(
+        eval_dir / "eval_metadata.json",
+        {
+            "eval_id": eval_id,
+            "eval_name": key,
+            "prompt": "Do the thing.",
+            "assertions": assertions,
+            "key": key,
+            "file": "skills/briefing/examples/evals.json",
+        },
+    )
+
+
+class AggregateRunTest(unittest.TestCase):
+    """`aggregate_run` over a hand-built run directory; every stat is hand-computed."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.run_root = Path(self.tmp.name) / "runs" / "r1"
+        _write_json(self.run_root / "run.json", {"run_id": "r1", "repeats": 2})
+
+        # eval-1: one non-discriminating and one discriminating assertion.
+        eval1 = self.run_root / "briefing" / "eval-1"
+        _write_eval_metadata(eval1, eval_id=1, key="briefing:examples:1", assertions=["A1", "A2"])
+        _write_timing(eval1 / "with_skill" / "run-1", cost=0.02)
+        _write_grading(eval1 / "with_skill" / "run-1", ["A1", "A2"], [True, True])
+        _write_timing(eval1 / "without_skill" / "run-1", cost=0.02)
+        _write_grading(eval1 / "without_skill" / "run-1", ["A1", "A2"], [True, False])
+
+        # eval-2: one harmful and one broken assertion; the broken one carries a suggestion.
+        eval2 = self.run_root / "briefing" / "eval-2"
+        _write_eval_metadata(eval2, eval_id=2, key="briefing:examples:2", assertions=["B1", "B2"])
+        _write_timing(eval2 / "with_skill" / "run-1", cost=0.02)
+        _write_grading(
+            eval2 / "with_skill" / "run-1", ["B1", "B2"], [False, False],
+            suggestions=[{"assertion": "B2", "reason": "assertion is structurally unsatisfiable"}],
+        )
+        _write_timing(eval2 / "without_skill" / "run-1", cost=0.02)
+        _write_grading(eval2 / "without_skill" / "run-1", ["B1", "B2"], [True, False])
+
+        # eval-3: repeats disagree on with_skill -> flaky.
+        eval3 = self.run_root / "briefing" / "eval-3"
+        _write_eval_metadata(eval3, eval_id=3, key="briefing:examples:3", assertions=["C1"])
+        _write_timing(eval3 / "with_skill" / "run-1", cost=0.02)
+        _write_grading(eval3 / "with_skill" / "run-1", ["C1"], [True])
+        _write_timing(eval3 / "with_skill" / "run-2", cost=0.02)
+        _write_grading(eval3 / "with_skill" / "run-2", ["C1"], [False])
+        _write_timing(eval3 / "without_skill" / "run-1", cost=0.02)
+        _write_grading(eval3 / "without_skill" / "run-1", ["C1"], [True])
+        _write_timing(eval3 / "without_skill" / "run-2", cost=0.02)
+        _write_grading(eval3 / "without_skill" / "run-2", ["C1"], [True])
+
+        # eval-4: with_skill is ungraded (never scored as 0%); without_skill's executor timed out
+        # but still produced a gradeable response.
+        eval4 = self.run_root / "briefing" / "eval-4"
+        _write_eval_metadata(eval4, eval_id=4, key="briefing:examples:4", assertions=["D1"])
+        _write_timing(eval4 / "with_skill" / "run-1", cost=0.02)
+        _write_ungraded(eval4 / "with_skill" / "run-1", ["D1"])
+        _write_timing(eval4 / "without_skill" / "run-1", cost=0.02, status="timeout")
+        _write_grading(eval4 / "without_skill" / "run-1", ["D1"], [True])
+
+        self.results = analysis.aggregate_run(self.run_root)
+        self.skill = self.results["skills"]["briefing"]
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_top_level_fields(self) -> None:
+        self.assertEqual(self.results["run_id"], "r1")
+        self.assertEqual(self.results["harness_version"], HARNESS_VERSION)
+        self.assertEqual(self.results["repeats"], 2)
+
+    def test_rows_carry_the_documented_schema(self) -> None:
+        row = next(r for r in self.results["rows"] if r["key"] == "briefing:examples:1" and r["assertion_idx"] == 1)
+        self.assertEqual(row["skill"], "briefing")
+        self.assertEqual(row["eval_id"], 1)
+        self.assertEqual(row["assertion"], "A2")
+        self.assertEqual(row["config"]["with_skill"], {"passed_runs": 1, "total_runs": 1, "p": 1.0})
+        self.assertEqual(row["config"]["without_skill"], {"passed_runs": 0, "total_runs": 1, "p": 0.0})
+        self.assertEqual(row["cls"], analysis.CLASS_DISCRIMINATING)
+
+    def test_ungraded_assertion_is_never_scored_as_a_fail(self) -> None:
+        row = next(r for r in self.results["rows"] if r["key"] == "briefing:examples:4")
+        self.assertEqual(row["config"]["with_skill"], {"passed_runs": 0, "total_runs": 0, "p": None})
+        self.assertIsNone(row["cls"], "an all-ungraded config must not be classified as a fail")
+
+    def test_case_and_assertion_counts(self) -> None:
+        self.assertEqual(self.skill["cases"], 4)
+        self.assertEqual(self.skill["assertions"], 6)
+
+    def test_class_counts(self) -> None:
+        self.assertEqual(
+            self.skill["classes"],
+            {"discriminating": 1, "non_discriminating": 1, "broken": 1, "harmful": 1, "flaky": 1},
+        )
+
+    def test_labeled_bucket_contents(self) -> None:
+        self.assertEqual(self.skill["non_discriminating"], ["examples:1/2 A1"])
+        self.assertEqual(self.skill["broken"], ["examples:2/2 B2"])
+        self.assertEqual(self.skill["harmful"], ["examples:2/2 B1"])
+
+    def test_ungraded_count_and_executor_issues(self) -> None:
+        self.assertEqual(self.skill["ungraded"], 1)
+        self.assertEqual(self.skill["executor_issues"], {"timeout": 1})
+
+    def test_structurally_unsatisfiable_pulls_the_grader_suggestion_for_the_broken_assertion(self) -> None:
+        entries = self.results["structurally_unsatisfiable"]
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["skill"], "briefing")
+        self.assertEqual(entries[0]["assertion"], "B2")
+        self.assertEqual(entries[0]["reason"], "assertion is structurally unsatisfiable")
+
+    def test_per_skill_stats_match_hand_computed_calculate_stats(self) -> None:
+        # with_skill case pass rates: eval-1=1.0, eval-2=0.0, eval-3=mean(1.0, 0.0)=0.5;
+        # eval-4 contributes nothing (all-ungraded).
+        expected_with = analysis.calculate_stats([1.0, 0.0, 0.5])
+        # without_skill: eval-1=0.5, eval-2=0.5, eval-3=mean(1.0, 1.0)=1.0, eval-4=1.0.
+        expected_without = analysis.calculate_stats([0.5, 0.5, 1.0, 1.0])
+        self.assertEqual(self.skill["configs"]["with_skill"]["pass_rate"], expected_with)
+        self.assertEqual(self.skill["configs"]["without_skill"]["pass_rate"], expected_without)
+        self.assertEqual(self.skill["delta"], round(expected_with["mean"] - expected_without["mean"], 4))
+        self.assertEqual(self.skill["delta"], -0.25)
+
+    def test_config_cost_totals_are_positive_and_include_grader_cost(self) -> None:
+        # 4 with_skill executor calls (eval-3 has two repeats) + 4 grader calls.
+        self.assertGreater(self.skill["configs"]["with_skill"]["cost_usd_total"], 0.0)
+        self.assertGreater(self.skill["configs"]["without_skill"]["cost_usd_total"], 0.0)
+
+
+class CompareTest(unittest.TestCase):
+    @staticmethod
+    def _skill(*, delta: float, assertions: int, broken: list[str], harmful: list[str]) -> dict:
+        return {"delta": delta, "assertions": assertions, "broken": broken, "harmful": harmful}
+
+    def test_a_regression_is_an_assertion_that_moved_into_the_fail_set(self) -> None:
+        a = {"skills": {"briefing": self._skill(delta=0.5, assertions=10, broken=[], harmful=[])}}
+        b = {"skills": {"briefing": self._skill(delta=0.4, assertions=10, broken=["examples:1/1 X"], harmful=[])}}
+        result = analysis.compare(a, b)
+        self.assertEqual(result["regressions"], 1)
+        self.assertEqual(result["gains"], 0)
+        self.assertEqual(
+            result["flips"], [{"skill": "briefing", "assertion": "examples:1/1 X", "direction": "regression"}]
+        )
+
+    def test_a_gain_is_an_assertion_that_left_the_fail_set(self) -> None:
+        a = {"skills": {"briefing": self._skill(delta=0.4, assertions=10, broken=["examples:1/1 X"], harmful=[])}}
+        b = {"skills": {"briefing": self._skill(delta=0.5, assertions=10, broken=[], harmful=[])}}
+        result = analysis.compare(a, b)
+        self.assertEqual(result["gains"], 1)
+        self.assertEqual(result["regressions"], 0)
+
+    def test_a_sub_one_assertion_delta_is_flagged_as_noise_not_a_regression(self) -> None:
+        a = {"skills": {"briefing": self._skill(delta=0.500, assertions=20, broken=[], harmful=[])}}
+        b = {"skills": {"briefing": self._skill(delta=0.520, assertions=20, broken=[], harmful=[])}}
+        result = analysis.compare(a, b)
+        self.assertEqual(result["skills"][0]["noise"], True)
+        self.assertEqual(result["regressions"], 0)
+
+    def test_a_full_assertion_delta_is_not_noise(self) -> None:
+        a = {"skills": {"briefing": self._skill(delta=0.50, assertions=10, broken=[], harmful=[])}}
+        b = {"skills": {"briefing": self._skill(delta=0.30, assertions=10, broken=[], harmful=[])}}
+        result = analysis.compare(a, b)
+        self.assertEqual(result["skills"][0]["noise"], False)
+
+    def test_skill_filter_restricts_the_comparison(self) -> None:
+        a = {
+            "skills": {
+                "briefing": self._skill(delta=0.5, assertions=10, broken=[], harmful=[]),
+                "other": self._skill(delta=0.5, assertions=10, broken=[], harmful=[]),
+            }
+        }
+        b = {
+            "skills": {
+                "briefing": self._skill(delta=0.1, assertions=10, broken=["x"], harmful=[]),
+                "other": self._skill(delta=0.1, assertions=10, broken=["y"], harmful=[]),
+            }
+        }
+        result = analysis.compare(a, b, skills=["briefing"])
+        self.assertEqual([s["skill"] for s in result["skills"]], ["briefing"])
+        self.assertEqual(result["regressions"], 1)
+
+
+class CompareCLITest(unittest.TestCase):
+    """`compare --fail-on-regression` is a real exit-code contract, not just a dict."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.ws = Path(self.tmp.name)
+        self._saved = run_evals.workspace.WORKSPACE
+        run_evals.workspace.WORKSPACE = self.ws
+
+        for run_id, passed in (("runA", [True, False]), ("runB", [False, False])):
+            run_root = self.ws / "runs" / run_id
+            _write_json(run_root / "run.json", {"run_id": run_id, "repeats": 1})
+            eval1 = run_root / "briefing" / "eval-1"
+            _write_eval_metadata(eval1, eval_id=1, key="briefing:examples:1", assertions=["X1"])
+            _write_timing(eval1 / "with_skill" / "run-1")
+            _write_grading(eval1 / "with_skill" / "run-1", ["X1"], [passed[0]])
+            _write_timing(eval1 / "without_skill" / "run-1")
+            _write_grading(eval1 / "without_skill" / "run-1", ["X1"], [passed[1]])
+
+    def tearDown(self) -> None:
+        run_evals.workspace.WORKSPACE = self._saved
+        self.tmp.cleanup()
+
+    def _main_quietly(self, argv: list[str]) -> int:
+        with contextlib.redirect_stdout(io.StringIO()):
+            return run_evals.main(argv)
+
+    def test_compare_without_the_flag_exits_zero(self) -> None:
+        self.assertEqual(self._main_quietly(["compare", "--a", "runA", "--b", "runB"]), 0)
+
+    def test_compare_with_a_regression_and_the_flag_exits_one(self) -> None:
+        self.assertEqual(
+            self._main_quietly(["compare", "--a", "runA", "--b", "runB", "--fail-on-regression"]), 1
+        )
+
+    def test_unknown_run_id_is_a_clean_error_not_a_crash(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()):
+            code = run_evals.main(["compare", "--a", "runA", "--b", "no-such-run"])
+        self.assertEqual(code, 2)
+
+    def test_baseline_token_without_a_committed_baseline_is_a_clean_error(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()):
+            code = run_evals.main(["compare", "--a", "baseline", "--b", "runA"])
+        self.assertEqual(code, 2)
+
+
+class RenderReportTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.run_root = Path(self.tmp.name) / "runs" / "r1"
+        _write_json(self.run_root / "run.json", {"run_id": "r1", "repeats": 1})
+        eval1 = self.run_root / "briefing" / "eval-1"
+        _write_eval_metadata(eval1, eval_id=1, key="briefing:examples:1", assertions=["A1", "A2"])
+        _write_timing(eval1 / "with_skill" / "run-1")
+        _write_grading(eval1 / "with_skill" / "run-1", ["A1", "A2"], [True, True])
+        _write_timing(eval1 / "without_skill" / "run-1")
+        _write_grading(eval1 / "without_skill" / "run-1", ["A1", "A2"], [True, False])
+
+        eval2 = self.run_root / "owner-dream-cycle" / "eval-1"
+        _write_eval_metadata(eval2, eval_id=1, key="owner-dream-cycle:examples:1", assertions=["E1"])
+        _write_timing(eval2 / "with_skill" / "run-1")
+        _write_grading(eval2 / "with_skill" / "run-1", ["E1"], [True])
+        _write_timing(eval2 / "without_skill" / "run-1")
+        _write_grading(eval2 / "without_skill" / "run-1", ["E1"], [True])
+
+        self.results = analysis.aggregate_run(self.run_root)
+        self.run_meta = {
+            "run_id": "r1",
+            "executor_model": {"alias": "sonnet", "resolved": "claude-sonnet-5"},
+            "grader_model": "opus",
+            "claude_code_version": "2.1.250",
+            "harness_version": HARNESS_VERSION,
+            "commit": "abc1234",
+            "dirty": False,
+            "started_at": "2026-08-27T12:00:00+00:00",
+            "isolation": {"strategy": "project-sources"},
+            "cost_usd_total": 0.5,
+            "spend_usd_total": 0.5,
+        }
+        self.text = report.render_run_report(self.results, self.run_meta)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_header_carries_evaluator_model_harness_version_commit_and_date(self) -> None:
+        self.assertIn("sonnet", self.text)
+        self.assertIn("claude-sonnet-5", self.text)
+        self.assertIn("opus", self.text)
+        self.assertIn(HARNESS_VERSION, self.text)
+        self.assertIn("abc1234", self.text)
+        self.assertIn("2026-08-27T12:00:00+00:00", self.text)
+
+    def test_scorecard_has_one_row_per_skill(self) -> None:
+        self.assertIn("| briefing |", self.text)
+        self.assertIn("| owner-dream-cycle |", self.text)
+
+    def test_non_discriminating_finding_is_listed_for_briefing(self) -> None:
+        self.assertIn("examples:1/2 A1", self.text)
+
+    def test_evidence_snippet_is_attached_to_a_listed_finding(self) -> None:
+        self.assertIn("evidence for A1 (True)", self.text)
+
+
+class BaselineTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        _write_skill_tree(
+            self.root, "briefing",
+            examples={"evals": [{"id": 1, "prompt": "p", "assertions": ["a", "b"]}]},
+        )
+        self.full_skill_stats = {
+            "cases": 4,
+            "assertions": 16,
+            "configs": {
+                "with_skill": {"pass_rate": {"mean": 0.81}, "tokens": {"mean": 2400}, "cost_usd_total": 0.06},
+                "without_skill": {"pass_rate": {"mean": 0.56}, "tokens": {"mean": 1100}, "cost_usd_total": 0.03},
+            },
+            "delta": 0.25,
+            "classes": {"discriminating": 5, "non_discriminating": 9, "broken": 2, "harmful": 0, "flaky": 0},
+            "non_discriminating": ["examples:1/4 No mutation"],
+            "broken": [],
+            "harmful": [],
+            "ungraded": 0,
+        }
+        self.run_results = {"run_id": "r1", "skills": {"briefing": self.full_skill_stats}}
+        self.run_meta = {
+            "run_id": "r1",
+            "commit": "abc1234",
+            "dirty": False,
+            "claude_code_version": "2.1.250",
+            "executor_model": {"alias": "sonnet", "resolved": "claude-sonnet-5"},
+            "grader_model": "opus",
+            "load_mode": "forced",
+            "system_prompt_mode": "minimal",
+            "repeats": 1,
+        }
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_condensed_entry_matches_the_design_baseline_schema(self) -> None:
+        merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
+        entry = merged["skills"]["briefing"]
+        self.assertEqual(entry["run_id"], "r1")
+        self.assertEqual(entry["cases"], 4)
+        self.assertEqual(entry["assertions"], 16)
+        self.assertEqual(entry["with_skill"], {"pass_rate": 0.81, "tokens_mean": 2400, "cost_usd": 0.06})
+        self.assertEqual(entry["without_skill"], {"pass_rate": 0.56, "tokens_mean": 1100, "cost_usd": 0.03})
+        self.assertEqual(entry["delta"], 0.25)
+        self.assertEqual(entry["non_discriminating"], ["examples:1/4 No mutation"])
+
+    def test_sha_fields_equal_hashlib_over_the_fixture_files(self) -> None:
+        merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
+        entry = merged["skills"]["briefing"]
+        expected_skill_sha = hashlib.sha256(
+            (self.root / "skills" / "briefing" / "SKILL.md").read_bytes()
+        ).hexdigest()
+        expected_evals_sha = hashlib.sha256(
+            (self.root / "skills" / "briefing" / "examples" / "evals.json").read_bytes()
+        ).hexdigest()
+        self.assertEqual(entry["skill_sha256"], expected_skill_sha)
+        self.assertEqual(entry["evals_sha256"], {"examples/evals.json": expected_evals_sha})
+
+    def test_merge_only_touches_skills_present_in_the_run(self) -> None:
+        existing = {
+            "skills": {
+                "briefing": {"stale": True},
+                "owner-dream-cycle": {"cases": 9, "delta": 0.9},
+            }
+        }
+        merged = report.merge_baseline(existing, self.run_results, self.run_meta, root=self.root)
+        self.assertEqual(merged["skills"]["owner-dream-cycle"], {"cases": 9, "delta": 0.9})
+        self.assertNotEqual(merged["skills"]["briefing"], {"stale": True})
+
+    def test_skills_subset_narrows_a_multi_skill_run_further(self) -> None:
+        run_results = dict(self.run_results)
+        run_results["skills"] = dict(self.run_results["skills"], other={"delta": 0.1})
+        merged = report.merge_baseline(None, run_results, self.run_meta, ["briefing"], root=self.root)
+        self.assertIn("briefing", merged["skills"])
+        self.assertNotIn("other", merged["skills"])
+
+    def test_evaluator_block_is_populated_from_run_meta(self) -> None:
+        merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
+        self.assertEqual(merged["evaluator"]["executor_model"], "claude-sonnet-5")
+        self.assertEqual(merged["evaluator"]["grader_model"], "opus")
+        self.assertEqual(merged["commit"], "abc1234")
+
+    def test_routing_is_carried_over_when_not_supplied(self) -> None:
+        existing = {"skills": {}, "routing": {"mode": "native"}}
+        merged = report.merge_baseline(existing, self.run_results, self.run_meta, root=self.root)
+        self.assertEqual(merged["routing"], {"mode": "native"})
+
+    def test_write_then_load_round_trips(self) -> None:
+        merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
+        path = report.write_baseline(merged, root=self.root)
+        self.assertTrue(path.is_file())
+        self.assertEqual(report.load_baseline(root=self.root), merged)
+
+    def test_missing_baseline_loads_as_none(self) -> None:
+        self.assertIsNone(report.load_baseline(root=self.root))
+
+
+class CheckBaselineTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        _write_skill_tree(
+            self.root, "briefing",
+            examples={"evals": [{"id": 1, "prompt": "p", "assertions": ["a", "b"]}]},
+        )
+        _write_skill_tree(
+            self.root, "fact-check",
+            examples={"evals": [{"id": 1, "prompt": "p", "assertions": ["a", "b"]}]},
+        )
+        self.clean_entry = {
+            "skill_sha256": report.skill_sha256("briefing", self.root),
+            "evals_sha256": report.evals_sha256("briefing", self.root),
+            "classes": {"discriminating": 3, "non_discriminating": 1, "broken": 0, "harmful": 0, "flaky": 0},
+        }
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_a_fresh_baseline_for_every_skill_on_disk_is_clean(self) -> None:
+        baseline = {
+            "skills": {
+                "briefing": self.clean_entry,
+                "fact-check": {
+                    "skill_sha256": report.skill_sha256("fact-check", self.root),
+                    "evals_sha256": report.evals_sha256("fact-check", self.root),
+                    "classes": {"discriminating": 2, "non_discriminating": 0, "broken": 0, "harmful": 0, "flaky": 0},
+                },
+            }
+        }
+        self.assertEqual(report.check_baseline(baseline, self.root), [])
+
+    def test_stale_skill_sha_is_reported(self) -> None:
+        entry = dict(self.clean_entry, skill_sha256="0" * 64)
+        problems = report.check_baseline({"skills": {"briefing": entry}}, self.root)
+        self.assertTrue(any("briefing" in p and "skill_sha256" in p for p in problems))
+
+    def test_stale_evals_sha_is_reported(self) -> None:
+        entry = dict(self.clean_entry, evals_sha256={"examples/evals.json": "0" * 64})
+        problems = report.check_baseline({"skills": {"briefing": entry}}, self.root)
+        self.assertTrue(any("briefing" in p and "evals_sha256" in p for p in problems))
+
+    def test_zero_discriminating_assertions_is_reported(self) -> None:
+        entry = dict(self.clean_entry, classes={"discriminating": 0, "non_discriminating": 4, "broken": 0, "harmful": 0, "flaky": 0})
+        problems = report.check_baseline({"skills": {"briefing": entry}}, self.root)
+        self.assertTrue(any("briefing" in p and "discriminating" in p for p in problems))
+
+    def test_a_skill_on_disk_with_no_baseline_entry_is_reported(self) -> None:
+        problems = report.check_baseline({"skills": {"briefing": self.clean_entry}}, self.root)
+        self.assertTrue(any("fact-check" in p and "no baseline entry" in p for p in problems))
+
+    def test_a_baseline_entry_for_a_missing_skill_directory_is_reported(self) -> None:
+        baseline = {"skills": {"briefing": self.clean_entry, "ghost-skill": dict(self.clean_entry)}}
+        problems = report.check_baseline(baseline, self.root)
+        self.assertTrue(any("ghost-skill" in p and "no skills/ghost-skill directory" in p for p in problems))
+
+
+class BaselineCLITest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self._saved_ws = run_evals.workspace.WORKSPACE
+        self._saved_root = run_evals.workspace.ROOT
+        run_evals.workspace.WORKSPACE = self.root / "evals" / "workspaces"
+        run_evals.workspace.ROOT = self.root
+        _write_skill_tree(
+            self.root, "briefing",
+            examples={"evals": [{"id": 1, "prompt": "p", "assertions": ["a", "b"]}]},
+        )
+        run_root = run_evals.workspace.WORKSPACE / "runs" / "r1"
+        _write_json(run_root / "run.json", {"run_id": "r1", "repeats": 1, "commit": "abc1234", "dirty": False})
+        eval1 = run_root / "briefing" / "eval-1"
+        _write_eval_metadata(eval1, eval_id=1, key="briefing:examples:1", assertions=["a", "b"])
+        _write_timing(eval1 / "with_skill" / "run-1")
+        _write_grading(eval1 / "with_skill" / "run-1", ["a", "b"], [True, True])
+        _write_timing(eval1 / "without_skill" / "run-1")
+        _write_grading(eval1 / "without_skill" / "run-1", ["a", "b"], [True, False])
+
+    def tearDown(self) -> None:
+        run_evals.workspace.WORKSPACE = self._saved_ws
+        run_evals.workspace.ROOT = self._saved_root
+        self.tmp.cleanup()
+
+    def _main_quietly(self, argv: list[str]) -> int:
+        with contextlib.redirect_stdout(io.StringIO()):
+            return run_evals.main(argv)
+
+    def test_check_with_no_committed_baseline_is_a_clean_error(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()):
+            code = run_evals.main(["baseline", "check"])
+        self.assertEqual(code, 2)
+
+    def test_update_then_check_round_trips(self) -> None:
+        self.assertEqual(self._main_quietly(["baseline", "update", "--from", "r1"]), 0)
+        path = run_evals.workspace.ROOT / "evals" / "baseline.json"
+        self.assertTrue(path.is_file())
+        self.assertEqual(self._main_quietly(["baseline", "check"]), 0)
+
+    def test_require_clean_refuses_a_dirty_run(self) -> None:
+        run_json_path = run_evals.workspace.WORKSPACE / "runs" / "r1" / "run.json"
+        payload = json.loads(run_json_path.read_text(encoding="utf-8"))
+        payload["dirty"] = True
+        run_json_path.write_text(json.dumps(payload), encoding="utf-8")
+        with contextlib.redirect_stderr(io.StringIO()):
+            code = run_evals.main(["baseline", "update", "--from", "r1", "--require-clean"])
+        self.assertEqual(code, 2)
+
+
+class EndToEndRunTest(unittest.TestCase):
+    """`run --all` through `baseline update` over a temp-repo fixture with FakeClaudeRunner.
+
+    Exercises the whole pipeline `validate_repo` will eventually gate on: real
+    skill-creator run-directory layout, `results.json`/`report.md` written by
+    `run`, a `baseline update`, and `validate_repo` still passing with
+    `evals/baseline.json` present. Also covers `run`'s dry-run and cache-hit
+    paths, since both relocate the workspace the same way this test does.
+    """
+
+    SCHEMA = json.loads(
+        (Path(__file__).resolve().parents[1] / "schemas/skill-evals.schema.json").read_text(encoding="utf-8")
+    )
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self._build_repo()
+
+        self._saved = {
+            "workspace.WORKSPACE": workspace.WORKSPACE,
+            "workspace.ROOT": workspace.ROOT,
+            "cases.ROOT": cases.ROOT,
+            "cases.SKILLS": cases.SKILLS,
+            "executor.ROOT": executor.ROOT,
+            "validate_repo.ROOT": validate_repo.ROOT,
+            "validate_repo.SKILLS": validate_repo.SKILLS,
+            "validate_repo.EVAL_SCHEMA": validate_repo.EVAL_SCHEMA,
+            "run_evals.SubprocessClaudeRunner": run_evals.SubprocessClaudeRunner,
+        }
+        run_evals.workspace.WORKSPACE = self.root / "evals" / "workspaces"
+        run_evals.workspace.ROOT = self.root
+        cases.ROOT = self.root
+        cases.SKILLS = self.root / "skills"
+        executor.ROOT = self.root
+        validate_repo.ROOT = self.root
+        validate_repo.SKILLS = self.root / "skills"
+        validate_repo.EVAL_SCHEMA = self.root / "schemas" / "skill-evals.schema.json"
+
+        script = FakeClaudeScript(self.root, 'echo "9.9.9 (Claude Code)"\n')
+        self.claude_bin = str(script.path)
+        _write_json(
+            run_evals.workspace.WORKSPACE / "doctor.json",
+            {
+                "strategy": "project-sources",
+                "claude_code_version": "9.9.9",
+                "structured_output_field": "structured_output",
+                "checked_at": "2026-08-28T00:00:00+00:00",
+            },
+        )
+
+    def tearDown(self) -> None:
+        for name, value in self._saved.items():
+            module_name, attr = name.split(".")
+            setattr({"workspace": workspace, "cases": cases, "executor": executor, "validate_repo": validate_repo, "run_evals": run_evals}[module_name], attr, value)
+        self.tmp.cleanup()
+
+    def _write(self, rel: str, text: str) -> None:
+        path = self.root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    def _skill_md(self, name: str) -> str:
+        return (
+            "---\n"
+            f"name: {name}\n"
+            f"description: Portable validation fixture for {name} behavior.\n"
+            "---\n\n"
+            "# Fixture\n\n"
+            "## Dependencies\nNone.\n\n"
+            "## Provenance\nRepo-owned synthetic fixture.\n\n"
+            "## When to use\nFixture requests.\n\n"
+            "## When not to use\nNon-fixture requests.\n\n"
+            "## Required inputs\nFixture input.\n\n"
+            "## Optional inputs\nFixture options.\n\n"
+            "## Workflow\nValidate the fixture.\n\n"
+            "## Sources and freshness\nNo current sources required.\n\n"
+            "## Privacy and mutations\nNo mutation.\n\n"
+            "## Safety boundaries\nStop on invalid input.\n\n"
+            "## Output contract\nValidation result.\n\n"
+            "## Failure conditions\nInvalid fixture.\n"
+        )
+
+    def _build_repo(self) -> None:
+        self._write(".gitignore", "evals/workspaces/\n.env\n*.skill\n")
+        self._write("schemas/skill-evals.schema.json", json.dumps(self.SCHEMA))
+        self._write(
+            "skills/alpha/SKILL.md", self._skill_md("alpha")
+        )
+        _write_json(
+            self.root / "skills" / "alpha" / "examples" / "evals.json",
+            {
+                "skill_name": "alpha",
+                "evals": [
+                    {
+                        "id": index,
+                        "prompt": f"Exercise fixture scenario {index} for alpha.",
+                        "assertions": [
+                            "Reports the fixture boundary and outcome",
+                            "Avoids private state and hidden dependencies",
+                        ],
+                    }
+                    for index in range(1, 5)
+                ],
+            },
+        )
+        self._write(
+            "catalog/approved.yaml",
+            "skills:\n"
+            "  - name: alpha\n"
+            "    classification: owned\n"
+            "    runtime_path: skills/alpha\n"
+            "    repository_path: skills/alpha\n"
+            "    status: approved\n"
+            "    cohort: test\n"
+            "    workshop_proposal: alpha-20260824-1234567890\n",
+        )
+        self._write(
+            "catalog/domains.yaml",
+            "domains:\n"
+            "  - name: test\n"
+            "    released:\n"
+            "      - alpha\n"
+            "    next: []\n",
+        )
+        self._write(
+            "catalog/sources.yaml",
+            "sources:\n"
+            "  alpha:\n"
+            "    classification: owned\n"
+            "    runtime_path: skills/alpha\n"
+            "    repository_path: skills/alpha\n"
+            "    status: approved\n"
+            "    cohort: test\n"
+            "    provenance: repo-owned\n",
+        )
+        subprocess.run(
+            ["git", "init", "--initial-branch", "main"], cwd=self.root, check=True,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "eval@example.com"], cwd=self.root, check=True,
+            stdout=subprocess.DEVNULL,
+        )
+        subprocess.run(["git", "config", "user.name", "Eval"], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(
+            ["git", "commit", "-m", "fixture"], cwd=self.root, check=True,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+
+    def _run_validator(self) -> int:
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            code = validate_repo.main()
+        return code
+
+    def _scripted_results(self) -> list:
+        # 4 cases x 2 configs x (1 executor + 1 grader) call, in job order:
+        # with_skill always passes both assertions, without_skill fails the first.
+        assertions = [
+            "Reports the fixture boundary and outcome",
+            "Avoids private state and hidden dependencies",
+        ]
+        scripted = []
+        for case_id in range(1, 5):
+            for config, passed in (("with_skill", [True, True]), ("without_skill", [False, True])):
+                scripted.append(_ok_result(f"Response for case {case_id} ({config})", cost=0.01))
+                scripted.append(
+                    _grader_result(_grading_payload(assertions, passed), cost=0.002)
+                )
+        return scripted
+
+    def _patch_runner(self, fake: "FakeClaudeRunner") -> None:
+        run_evals.SubprocessClaudeRunner = lambda claude_bin: fake
+
+    def test_dry_run_writes_request_json_without_calling_claude(self) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            code = run_evals.main(
+                ["--claude-bin", self.claude_bin, "run", "--all", "--model", "sonnet", "--dry-run", "--label", "dry"]
+            )
+        self.assertEqual(code, 0)
+        run_dirs = list((run_evals.workspace.WORKSPACE / "runs").glob("*-dry"))
+        self.assertEqual(len(run_dirs), 1)
+        request_paths = list(run_dirs[0].glob("alpha/eval-*/with_skill/run-1/request.json"))
+        self.assertEqual(len(request_paths), 4)
+
+    def test_full_run_then_baseline_update_then_validate_repo(self) -> None:
+        fake = FakeClaudeRunner(self._scripted_results())
+        self._patch_runner(fake)
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            code = run_evals.main(
+                [
+                    "--claude-bin", self.claude_bin,
+                    "run", "--all", "--model", "sonnet", "--grader-model", "sonnet",
+                    "--workers", "1", "--label", "e2e",
+                ]
+            )
+        self.assertEqual(code, 0)
+
+        run_dirs = list((run_evals.workspace.WORKSPACE / "runs").glob("*-e2e"))
+        self.assertEqual(len(run_dirs), 1)
+        run_dir = run_dirs[0]
+
+        grading_paths = sorted(run_dir.glob("alpha/eval-*/with_skill/run-1/grading.json"))
+        self.assertEqual(len(grading_paths), 4)
+        self.assertTrue((run_dir / "results.json").is_file())
+        self.assertTrue((run_dir / "report.md").is_file())
+
+        results = json.loads((run_dir / "results.json").read_text(encoding="utf-8"))
+        self.assertEqual(results["skills"]["alpha"]["cases"], 4)
+        self.assertEqual(results["skills"]["alpha"]["classes"]["discriminating"], 4)
+
+        # Cache-hit path: a second identical run must not call the (now-empty) fake again.
+        empty_fake = FakeClaudeRunner([])
+        self._patch_runner(empty_fake)
+        with contextlib.redirect_stdout(io.StringIO()):
+            code2 = run_evals.main(
+                [
+                    "--claude-bin", self.claude_bin,
+                    "run", "--all", "--model", "sonnet", "--grader-model", "sonnet",
+                    "--workers", "1", "--label", "e2e2",
+                ]
+            )
+        self.assertEqual(code2, 0)
+        self.assertEqual(empty_fake.requests, [])
+
+        run_id = run_dir.name
+        with contextlib.redirect_stdout(io.StringIO()):
+            baseline_code = run_evals.main(["baseline", "update", "--from", run_id])
+        self.assertEqual(baseline_code, 0)
+        baseline_path = run_evals.workspace.ROOT / "evals" / "baseline.json"
+        self.assertTrue(baseline_path.is_file())
+        baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+        self.assertIn("alpha", baseline["skills"])
+
+        problems = report.check_baseline(baseline, run_evals.workspace.ROOT)
+        self.assertEqual(problems, [])
+
+        self.assertEqual(self._run_validator(), 0)
 
 
 if __name__ == "__main__":

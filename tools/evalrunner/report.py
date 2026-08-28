@@ -1,0 +1,316 @@
+"""Markdown rendering for a run's `results.json`, and the committed baseline.
+
+`check_baseline` is imported by `tools/validate_repo.py` (a later task), so this
+module stays dependency-free: stdlib only, no import of `tools.validate_repo` or
+`tools.evalrunner.analysis` (avoiding an import cycle back through the validator).
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Sequence
+
+from . import workspace
+from .executor import CONFIG_WITH_SKILL, CONFIG_WITHOUT_SKILL
+
+SCHEMA_VERSION = 1
+BASELINE_REL = Path("evals") / "baseline.json"
+
+# Same three candidates `tools.validate_repo.eval_files` recognizes, duplicated
+# rather than imported so this module stays dependency-free (see module docstring).
+CANDIDATE_EVAL_FILES = (
+    Path("examples") / "evals.json",
+    Path("evals") / "evals.json",
+    Path("routing-eval.jsonl"),
+)
+
+
+# ---------------------------------------------------------------------------
+# Report rendering
+# ---------------------------------------------------------------------------
+
+
+def _pct(skill: Dict[str, Any], config: str) -> str:
+    mean = ((skill.get("configs") or {}).get(config) or {}).get("pass_rate", {}).get("mean")
+    return f"{mean * 100:.0f}%" if mean is not None else "n/a"
+
+
+def _flags(skill: Dict[str, Any]) -> str:
+    classes = skill.get("classes") or {}
+    flags = []
+    if (skill.get("ungraded") or 0) > 0:
+        flags.append("ungraded")
+    if classes.get("flaky", 0) > 0:
+        flags.append("flaky")
+    if classes.get("discriminating", 0) == 0:
+        flags.append("no-signal")
+    if skill.get("executor_issues"):
+        flags.append("exec-issues")
+    return ", ".join(flags) if flags else "-"
+
+
+def render_run_report(results: Dict[str, Any], run_meta: Dict[str, Any]) -> str:
+    """Markdown report for one run: header, scorecard, per-skill findings, open issues."""
+    skills = results.get("skills") or {}
+    executor_model = run_meta.get("executor_model") or {}
+    isolation = run_meta.get("isolation") or {}
+    dirty_suffix = " (dirty)" if run_meta.get("dirty") else ""
+
+    lines: List[str] = []
+    run_id = results.get("run_id") or run_meta.get("run_id") or "unknown"
+    lines.append(f"# Eval report: {run_id}")
+    lines.append("")
+    lines.append("## Run")
+    lines.append("")
+    lines.append(
+        f"- Executor model: {executor_model.get('alias') or 'unknown'} "
+        f"(resolved: {executor_model.get('resolved') or 'unknown'})"
+    )
+    lines.append(f"- Grader model: {run_meta.get('grader_model') or 'unknown'}")
+    lines.append(f"- Claude Code version: {run_meta.get('claude_code_version') or 'unknown'}")
+    lines.append(
+        f"- Harness version: {results.get('harness_version') or run_meta.get('harness_version') or 'unknown'}"
+    )
+    lines.append(f"- Commit: {run_meta.get('commit') or 'unknown'}{dirty_suffix}")
+    lines.append(f"- Date: {run_meta.get('started_at') or results.get('generated_at') or 'unknown'}")
+    lines.append(f"- Isolation strategy: {isolation.get('strategy') or 'unknown'}")
+    lines.append(
+        f"- Cost: ${float(run_meta.get('cost_usd_total') or 0.0):.4f} attributed / "
+        f"${float(run_meta.get('spend_usd_total') or 0.0):.4f} spent this run"
+    )
+    lines.append("")
+
+    lines.append("## Scorecard")
+    lines.append("")
+    lines.append("| Skill | Cases | With % | Without % | Delta | Discriminating/Total | Flags |")
+    lines.append("| --- | ---: | ---: | ---: | ---: | ---: | --- |")
+    for name in sorted(skills):
+        skill = skills[name]
+        delta = skill.get("delta")
+        delta_str = f"{delta * 100:+.0f}pp" if delta is not None else "n/a"
+        classes = skill.get("classes") or {}
+        total = skill.get("assertions") or 0
+        lines.append(
+            f"| {name} | {skill.get('cases', 0)} | {_pct(skill, CONFIG_WITH_SKILL)} | "
+            f"{_pct(skill, CONFIG_WITHOUT_SKILL)} | {delta_str} | "
+            f"{classes.get('discriminating', 0)}/{total} | {_flags(skill)} |"
+        )
+    if not skills:
+        lines.append("| (no skills in this run) | | | | | | |")
+    lines.append("")
+
+    lines.append("## Per-skill findings")
+    lines.append("")
+    evidence_index = {(row["skill"], row.get("label")): row.get("evidence") for row in results.get("rows") or []}
+    any_findings = False
+    for name in sorted(skills):
+        skill = skills[name]
+        sections = (
+            ("Non-discriminating", skill.get("non_discriminating") or []),
+            ("Broken", skill.get("broken") or []),
+            ("Harmful", skill.get("harmful") or []),
+        )
+        if not any(items for _, items in sections):
+            continue
+        any_findings = True
+        lines.append(f"### {name}")
+        lines.append("")
+        for title, items in sections:
+            if not items:
+                continue
+            lines.append(f"**{title}:**")
+            lines.append("")
+            for label in items:
+                evidence = evidence_index.get((name, label))
+                lines.append(f"- {label} — {evidence}" if evidence else f"- {label}")
+            lines.append("")
+    if not any_findings:
+        lines.append("- none")
+        lines.append("")
+
+    unsatisfiable = results.get("structurally_unsatisfiable") or []
+    if unsatisfiable:
+        lines.append("## Structurally unsatisfiable assertions")
+        lines.append("")
+        for item in unsatisfiable:
+            lines.append(
+                f"- {item['skill']} {item['key']} eval-{item['eval_id']}: "
+                f"{item['assertion']} — {item['reason']}"
+            )
+        lines.append("")
+
+    lines.append("## Open issues")
+    lines.append("")
+    issue_lines: List[str] = []
+    for name in sorted(skills):
+        skill = skills[name]
+        ungraded = skill.get("ungraded") or 0
+        if ungraded:
+            issue_lines.append(f"- {name}: {ungraded} ungraded grading result(s)")
+        for kind, count in sorted((skill.get("executor_issues") or {}).items()):
+            issue_lines.append(f"- {name}: {count} {kind} executor result(s)")
+    lines.extend(issue_lines if issue_lines else ["- none"])
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Baseline read/merge/write/check
+# ---------------------------------------------------------------------------
+
+
+def baseline_path(root: Optional[Path] = None) -> Path:
+    """Path to the committed `evals/baseline.json` under `root` (default: the repo)."""
+    return Path(root) / BASELINE_REL if root else workspace.ROOT / BASELINE_REL
+
+
+def load_baseline(root: Optional[Path] = None) -> Optional[Dict[str, Any]]:
+    """Parsed `evals/baseline.json`, or None when it has not been committed yet."""
+    path = baseline_path(root)
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def write_baseline(baseline: Dict[str, Any], root: Optional[Path] = None) -> Path:
+    """Write `baseline` to `evals/baseline.json`, creating the directory if needed."""
+    path = baseline_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(baseline, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+def skill_sha256(skill: str, root: Path) -> Optional[str]:
+    """sha256 of `skills/<skill>/SKILL.md`, or None when the file is unreadable."""
+    path = Path(root) / "skills" / skill / "SKILL.md"
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def evals_sha256(skill: str, root: Path) -> Dict[str, str]:
+    """Eval file rel path (relative to `skills/<skill>/`) -> sha256, for files that exist."""
+    skill_dir = Path(root) / "skills" / skill
+    digests: Dict[str, str] = {}
+    for rel in CANDIDATE_EVAL_FILES:
+        path = skill_dir / rel
+        if path.is_file():
+            digests[rel.as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return digests
+
+
+def _condensed_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "pass_rate": (config.get("pass_rate") or {}).get("mean"),
+        "tokens_mean": (config.get("tokens") or {}).get("mean"),
+        "cost_usd": config.get("cost_usd_total"),
+    }
+
+
+def _condense_skill(name: str, full: Dict[str, Any], run_id: Optional[str], root: Path) -> Dict[str, Any]:
+    """A run's rich per-skill stats, compacted to what `evals/baseline.json` commits."""
+    configs = full.get("configs") or {}
+    entry: Dict[str, Any] = {
+        "run_id": run_id,
+        "skill_sha256": skill_sha256(name, root),
+        "evals_sha256": evals_sha256(name, root),
+        "cases": full.get("cases"),
+        "assertions": full.get("assertions"),
+        "delta": full.get("delta"),
+        "classes": full.get("classes"),
+        "non_discriminating": full.get("non_discriminating"),
+        "broken": full.get("broken"),
+        "harmful": full.get("harmful"),
+        "ungraded": full.get("ungraded"),
+    }
+    for cname in (CONFIG_WITH_SKILL, CONFIG_WITHOUT_SKILL):
+        if cname in configs:
+            entry[cname] = _condensed_config(configs[cname])
+    return entry
+
+
+def merge_baseline(
+    existing: Optional[Dict[str, Any]],
+    run_results: Dict[str, Any],
+    run_meta: Dict[str, Any],
+    skills_subset: Optional[Sequence[str]] = None,
+    *,
+    routing: Optional[Dict[str, Any]] = None,
+    root: Optional[Path] = None,
+) -> Dict[str, Any]:
+    """New baseline: `existing`'s skills untouched except the ones this run covers.
+
+    `skills_subset` narrows which of `run_results`'s skills are merged in
+    (default: all of them); every other skill already in `existing` is carried
+    over unchanged. `routing` is optional and tolerated absent (the routing
+    runner lands in a later task); when omitted, `existing`'s routing section
+    (if any) is carried over as-is.
+    """
+    root_path = Path(root) if root else workspace.ROOT
+    baseline_skills: Dict[str, Any] = dict((existing or {}).get("skills") or {})
+    run_skills = run_results.get("skills") or {}
+    wanted = set(skills_subset) if skills_subset is not None else set(run_skills)
+    run_id = run_results.get("run_id") or run_meta.get("run_id")
+
+    for name, full in run_skills.items():
+        if name not in wanted:
+            continue
+        baseline_skills[name] = _condense_skill(name, full, run_id, root_path)
+
+    executor_model = run_meta.get("executor_model") or {}
+    return {
+        "schema_version": (existing or {}).get("schema_version") or SCHEMA_VERSION,
+        "harness_version": run_results.get("harness_version") or run_meta.get("harness_version"),
+        "generated_at": workspace.utc_iso(),
+        "commit": run_meta.get("commit"),
+        "dirty": run_meta.get("dirty"),
+        "evaluator": {
+            "claude_code_version": run_meta.get("claude_code_version"),
+            "executor_model": executor_model.get("resolved") or executor_model.get("alias"),
+            "grader_model": run_meta.get("grader_model"),
+            "load_mode": run_meta.get("load_mode"),
+            "system_prompt_mode": run_meta.get("system_prompt_mode"),
+            "repeats": run_meta.get("repeats"),
+        },
+        "skills": baseline_skills,
+        "routing": routing if routing is not None else (existing or {}).get("routing"),
+    }
+
+
+def check_baseline(baseline: Dict[str, Any], root: Path) -> List[str]:
+    """Problems in a committed baseline against the repo on disk; empty means clean.
+
+    Flags a stale `skill_sha256`/`evals_sha256` (the skill or its evals changed
+    since the baseline was recorded), a skill with zero discriminating
+    assertions, and skills missing an entry in either direction.
+    """
+    root_path = Path(root)
+    problems: List[str] = []
+    skills = baseline.get("skills") or {}
+    skills_dir = root_path / "skills"
+    on_disk = (
+        {p.name for p in skills_dir.iterdir() if p.is_dir() and (p / "SKILL.md").is_file()}
+        if skills_dir.is_dir()
+        else set()
+    )
+
+    for name, entry in sorted(skills.items()):
+        if name not in on_disk:
+            problems.append(f"{name}: baseline entry has no skills/{name} directory on disk")
+            continue
+        if entry.get("skill_sha256") != skill_sha256(name, root_path):
+            problems.append(f"{name}: skill_sha256 is stale (SKILL.md changed since the baseline)")
+        if entry.get("evals_sha256") != evals_sha256(name, root_path):
+            problems.append(f"{name}: evals_sha256 is stale (eval files changed since the baseline)")
+        classes = entry.get("classes") or {}
+        if classes.get("discriminating", 0) == 0:
+            problems.append(f"{name}: zero discriminating assertions in the baseline")
+
+    for name in sorted(on_disk - set(skills)):
+        problems.append(f"{name}: no baseline entry")
+
+    return problems

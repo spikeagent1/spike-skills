@@ -1,6 +1,7 @@
-.PHONY: validate test eval-doctor
+.PHONY: validate test eval-doctor eval-report eval-skill
 
 EVAL_MODEL ?= sonnet
+EVAL_GRADER ?= opus
 
 validate: test
 	python3 tools/validate_repo.py
@@ -11,3 +12,9 @@ test:
 
 eval-doctor:
 	python3 tools/run_evals.py doctor --model $(EVAL_MODEL)
+
+eval-report:
+	python3 tools/run_evals.py report --run $(RUN)
+
+eval-skill:
+	python3 tools/run_evals.py run --skill $(SKILL) --model $(EVAL_MODEL) --grader-model $(EVAL_GRADER) --compare-baseline
