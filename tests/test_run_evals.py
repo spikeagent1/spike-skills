@@ -3098,7 +3098,8 @@ class EndToEndRunTest(unittest.TestCase):
             "    repository_path: skills/alpha\n"
             "    status: approved\n"
             "    cohort: test\n"
-            "    workshop_proposal: alpha-20260824-1234567890\n",
+            "    workshop_proposal: alpha-20260824-1234567890\n"
+            "    version: 1.0.0\n",
         )
         self._write(
             "catalog/domains.yaml",
@@ -3117,6 +3118,12 @@ class EndToEndRunTest(unittest.TestCase):
             "      - alpha\n",
         )
         self._write(
+            "catalog/routing.yaml",
+            "clusters:\n"
+            "  - name: fixture\n"
+            "    skills: [alpha]\n",
+        )
+        self._write(
             "catalog/sources.yaml",
             "sources:\n"
             "  alpha:\n"
@@ -3125,7 +3132,8 @@ class EndToEndRunTest(unittest.TestCase):
             "    repository_path: skills/alpha\n"
             "    status: approved\n"
             "    cohort: test\n"
-            "    provenance: repo-owned\n",
+            "    provenance: repo-owned\n"
+            "    version: 1.0.0\n",
         )
         subprocess.run(
             ["git", "init", "--initial-branch", "main"], cwd=self.root, check=True,

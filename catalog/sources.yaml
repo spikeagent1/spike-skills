@@ -17,6 +17,7 @@ sources:
     status: approved
     cohort: audience-and-community
     provenance: repo-owned
+    version: 1.0.0
 
   social-listening-engagement-loop:
     classification: owned
@@ -25,6 +26,7 @@ sources:
     status: approved
     cohort: audience-and-community
     provenance: repo-owned
+    version: 1.0.0
 
   audience-content-engine:
     classification: owned
@@ -33,6 +35,7 @@ sources:
     status: approved
     cohort: audience-and-community
     provenance: repo-owned
+    version: 1.0.0
 
   social-agent-practice:
     classification: owned
@@ -41,6 +44,7 @@ sources:
     status: approved
     cohort: audience-and-community
     provenance: repo-owned
+    version: 1.0.0
 
   community-management:
     classification: adapted
@@ -53,8 +57,13 @@ sources:
     version: 1.0.1
     artifact_sha256: b9fdf15a26afa4b2e71c99a7c013947d897409fb592ac41cab9762c416a6c405
     skill_file_sha256: 0b1be214f6b67bc184935fd54e46256835148fcb92c0c0c9e6f1239fddc603d1
-    license: MIT
-    license_source: imported SKILL.md frontmatter at repo commit 9df9234; exact public upstream page was not retrievable during review
+    license: MIT-0
+    license_source: >-
+      Checked https://clawhub.ai/social-media-skills/skills/community-management
+      on 2026-08-28 (HTTP 200, 10s timeout curl -sL): the page's sidebar License
+      field reads MIT-0. The imported SKILL.md frontmatter's own `license: MIT`
+      line disagrees and is kept as-is (out of scope for this catalog fix); this
+      catalog entry now records the live upstream page's value.
     local_modifications: >-
       Adapted imported community-management package to this repository's
       public portable contract: removed unavailable companion-service assumptions,
@@ -72,6 +81,7 @@ sources:
     status: approved
     cohort: safety-and-mutation
     provenance: repo-owned
+    version: 1.0.0
 
   cron-scheduler:
     classification: owned
@@ -80,6 +90,7 @@ sources:
     status: approved
     cohort: safety-and-mutation
     provenance: repo-owned
+    version: 1.0.0
 
   conversation-archive:
     classification: owned
@@ -88,6 +99,7 @@ sources:
     status: approved
     cohort: safety-and-mutation
     provenance: repo-owned
+    version: 1.0.0
 
   daily-task-manager:
     classification: owned
@@ -96,6 +108,7 @@ sources:
     status: approved
     cohort: owner-operations
     provenance: repo-owned
+    version: 1.0.0
 
   briefing:
     classification: owned
@@ -104,6 +117,7 @@ sources:
     status: approved
     cohort: owner-operations
     provenance: repo-owned
+    version: 1.0.0
 
   owner-dream-cycle:
     classification: owned
@@ -112,6 +126,7 @@ sources:
     status: approved
     cohort: owner-operations
     provenance: repo-owned
+    version: 1.0.0
 
   literature-review:
     classification: adapted
@@ -125,7 +140,10 @@ sources:
     artifact_sha256: 4fc44a5f45ae6820c08adc0a7aa4276aaa640e4eee3bd667059bceead772021e
     skill_file_sha256: c2f51919e7a65e36fb47a18dc09c451f59e046121c51e6bbcc002abfa9167b04
     license: MIT-0
-    license_source: ClawHub public skill page
+    license_source: >-
+      Checked https://clawhub.ai/weird-aftertaste/skills/literature-review on
+      2026-08-28 (HTTP 200, 10s timeout curl -sL): the page's sidebar License
+      field reads MIT-0, matching this entry.
     local_modifications: >-
       Adapted imported literature-review package to this repository's public
       portable contract: removed claims of comprehensive top-N searching and
@@ -140,6 +158,7 @@ sources:
     status: approved
     cohort: research-and-writing
     provenance: repo-owned
+    version: 1.0.0
 
   draft-in-voice:
     classification: owned
@@ -148,6 +167,7 @@ sources:
     status: approved
     cohort: research-and-writing
     provenance: repo-owned
+    version: 1.0.0
 
   team-skill-sharing-norm:
     classification: owned
@@ -156,6 +176,7 @@ sources:
     status: approved
     cohort: portfolio-governance
     provenance: repo-owned
+    version: 1.0.0
 
   public-post-workshop:
     classification: owned
@@ -164,6 +185,7 @@ sources:
     status: approved
     cohort: portfolio-governance
     provenance: repo-owned
+    version: 1.0.0
 
   owner-context-onboarding:
     classification: owned
@@ -172,6 +194,7 @@ sources:
     status: approved
     cohort: onboarding
     provenance: repo-owned
+    version: 1.0.0
 
   mcp-connector-onboarding:
     classification: owned
@@ -180,6 +203,7 @@ sources:
     status: approved
     cohort: onboarding
     provenance: repo-owned
+    version: 1.0.0
 
   runtime-handoff-onboarding:
     classification: owned
@@ -188,6 +212,7 @@ sources:
     status: approved
     cohort: onboarding
     provenance: repo-owned
+    version: 1.0.0
 
   social-agent-onboarding:
     classification: owned
@@ -196,6 +221,7 @@ sources:
     status: approved
     cohort: onboarding
     provenance: repo-owned
+    version: 1.0.0
 
   fitness-coach:
     classification: owned
@@ -204,6 +230,7 @@ sources:
     status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
+    version: 1.0.0
 
   meal-planner:
     classification: owned
@@ -212,6 +239,7 @@ sources:
     status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
+    version: 1.0.0
 
   sleep-review:
     classification: owned
@@ -220,6 +248,7 @@ sources:
     status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
+    version: 1.0.0
 
   health-appointment-prep:
     classification: owned
@@ -228,6 +257,7 @@ sources:
     status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
+    version: 1.0.0
 
   medication-and-symptom-log:
     classification: owned
@@ -236,6 +266,7 @@ sources:
     status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
+    version: 1.0.0
 
   home-cook:
     classification: owned
@@ -244,6 +275,7 @@ sources:
     status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
+    version: 1.0.0
 
   grocery-planner:
     classification: owned
@@ -252,6 +284,7 @@ sources:
     status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
+    version: 1.0.0
 
   household-maintenance:
     classification: owned
@@ -260,6 +293,7 @@ sources:
     status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
+    version: 1.0.0
 
   purchase-research:
     classification: owned
@@ -268,6 +302,7 @@ sources:
     status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
+    version: 1.0.0
 
   wardrobe-and-packing:
     classification: owned
@@ -276,3 +311,4 @@ sources:
     status: approved
     cohort: health-and-home-lifestyle
     provenance: repo-owned
+    version: 1.0.0

@@ -6,6 +6,8 @@ skills:
     status: approved
     cohort: audience-and-community
     workshop_proposal: skill-library-ops-20260823-7210856fa0
+    contract_version: 1
+    version: 1.0.0
 
   - name: social-listening-engagement-loop
     classification: owned
@@ -14,6 +16,8 @@ skills:
     status: approved
     cohort: audience-and-community
     workshop_proposal: social-listening-engagement-loop-20260823-3be5d2ee9b
+    contract_version: 1
+    version: 1.0.0
 
   - name: audience-content-engine
     classification: owned
@@ -22,6 +26,8 @@ skills:
     status: approved
     cohort: audience-and-community
     workshop_proposal: audience-content-engine-20260823-302476b31e
+    contract_version: 1
+    version: 1.0.0
 
   - name: social-agent-practice
     classification: owned
@@ -30,6 +36,8 @@ skills:
     status: approved
     cohort: audience-and-community
     workshop_proposal: social-agent-practice-20260823-016cc8ebdb
+    contract_version: 1
+    version: 1.0.0
 
   - name: community-management
     classification: adapted
@@ -38,6 +46,8 @@ skills:
     status: approved
     cohort: audience-and-community
     workshop_proposal: community-management-20260823-28c336d429
+    contract_version: 1
+    version: 1.0.1
 
   - name: publish
     classification: owned
@@ -46,6 +56,8 @@ skills:
     status: approved
     cohort: safety-and-mutation
     workshop_proposal: publish-20260823-5bf547c82d
+    contract_version: 1
+    version: 1.0.0
 
   - name: cron-scheduler
     classification: owned
@@ -54,6 +66,8 @@ skills:
     status: approved
     cohort: safety-and-mutation
     workshop_proposal: cron-scheduler-20260823-bd1d5ccbfa
+    contract_version: 1
+    version: 1.0.0
 
   - name: conversation-archive
     classification: owned
@@ -62,6 +76,8 @@ skills:
     status: approved
     cohort: safety-and-mutation
     workshop_proposal: conversation-archive-20260823-4d9f7786eb
+    contract_version: 1
+    version: 1.0.0
 
   - name: daily-task-manager
     classification: owned
@@ -70,6 +86,8 @@ skills:
     status: approved
     cohort: owner-operations
     workshop_proposal: daily-task-manager-20260823-fb9880c5d2
+    contract_version: 1
+    version: 1.0.0
 
   - name: briefing
     classification: owned
@@ -78,6 +96,8 @@ skills:
     status: approved
     cohort: owner-operations
     workshop_proposal: briefing-20260823-8f2c2cee05
+    contract_version: 1
+    version: 1.0.0
 
   - name: owner-dream-cycle
     classification: owned
@@ -86,6 +106,8 @@ skills:
     status: approved
     cohort: owner-operations
     workshop_proposal: owner-dream-cycle-20260823-c5f9967bb4
+    contract_version: 1
+    version: 1.0.0
 
   - name: literature-review
     classification: adapted
@@ -94,6 +116,8 @@ skills:
     status: approved
     cohort: research-and-writing
     workshop_proposal: literature-review-20260823-7f0a9c98c8
+    contract_version: 1
+    version: 1.2.0
 
   - name: fact-check
     classification: owned
@@ -102,6 +126,8 @@ skills:
     status: approved
     cohort: research-and-writing
     workshop_proposal: fact-check-20260823-38e00cd72e
+    contract_version: 1
+    version: 1.0.0
 
   - name: draft-in-voice
     classification: owned
@@ -110,6 +136,8 @@ skills:
     status: approved
     cohort: research-and-writing
     workshop_proposal: draft-in-voice-20260823-ef2171f9ad
+    contract_version: 1
+    version: 1.0.0
 
   - name: team-skill-sharing-norm
     classification: owned
@@ -118,6 +146,8 @@ skills:
     status: approved
     cohort: portfolio-governance
     workshop_proposal: team-skill-sharing-norm-20260821-5c97091641
+    contract_version: 1
+    version: 1.0.0
 
   - name: public-post-workshop
     classification: owned
@@ -126,6 +156,8 @@ skills:
     status: approved
     cohort: portfolio-governance
     workshop_proposal: public-post-workshop-20260815-81ae9d1b08
+    contract_version: 1
+    version: 1.0.0
 
   - name: owner-context-onboarding
     classification: owned
@@ -134,6 +166,8 @@ skills:
     status: approved
     cohort: onboarding
     workshop_proposal: owner-context-onboarding-20260824-2e38551b72
+    contract_version: 1
+    version: 1.0.0
 
   - name: mcp-connector-onboarding
     classification: owned
@@ -142,6 +176,8 @@ skills:
     status: approved
     cohort: onboarding
     workshop_proposal: mcp-connector-onboarding-20260824-a4da028194
+    contract_version: 1
+    version: 1.0.0
 
   - name: runtime-handoff-onboarding
     classification: owned
@@ -150,6 +186,8 @@ skills:
     status: approved
     cohort: onboarding
     workshop_proposal: runtime-handoff-onboarding-20260824-cfba35ad2d
+    contract_version: 1
+    version: 1.0.0
 
   - name: social-agent-onboarding
     classification: owned
@@ -158,6 +196,8 @@ skills:
     status: approved
     cohort: onboarding
     workshop_proposal: social-agent-onboarding-20260824-94004d265c
+    contract_version: 1
+    version: 1.0.0
 
   - name: fitness-coach
     classification: owned
@@ -166,6 +206,8 @@ skills:
     status: approved
     cohort: health-and-home-lifestyle
     workshop_proposal: fitness-coach-20260824-e7d86f4a9f
+    contract_version: 1
+    version: 1.0.0
 
   - name: meal-planner
     classification: owned
@@ -174,6 +216,8 @@ skills:
     status: approved
     cohort: health-and-home-lifestyle
     workshop_proposal: meal-planner-20260824-9009e5524a
+    contract_version: 1
+    version: 1.0.0
 
   - name: sleep-review
     classification: owned
@@ -182,6 +226,8 @@ skills:
     status: approved
     cohort: health-and-home-lifestyle
     workshop_proposal: sleep-review-20260824-084adc1256
+    contract_version: 1
+    version: 1.0.0
 
   - name: health-appointment-prep
     classification: owned
@@ -190,6 +236,8 @@ skills:
     status: approved
     cohort: health-and-home-lifestyle
     workshop_proposal: health-appointment-prep-20260824-6b0431d4d7
+    contract_version: 1
+    version: 1.0.0
 
   - name: medication-and-symptom-log
     classification: owned
@@ -198,6 +246,8 @@ skills:
     status: approved
     cohort: health-and-home-lifestyle
     workshop_proposal: medication-and-symptom-log-20260824-e22faa9a63
+    contract_version: 1
+    version: 1.0.0
 
   - name: home-cook
     classification: owned
@@ -206,6 +256,8 @@ skills:
     status: approved
     cohort: health-and-home-lifestyle
     workshop_proposal: home-cook-20260824-e2475a2764
+    contract_version: 1
+    version: 1.0.0
 
   - name: grocery-planner
     classification: owned
@@ -214,6 +266,8 @@ skills:
     status: approved
     cohort: health-and-home-lifestyle
     workshop_proposal: grocery-planner-20260824-c1f48b72af
+    contract_version: 1
+    version: 1.0.0
 
   - name: household-maintenance
     classification: owned
@@ -222,6 +276,8 @@ skills:
     status: approved
     cohort: health-and-home-lifestyle
     workshop_proposal: household-maintenance-20260824-2ecca40cc2
+    contract_version: 1
+    version: 1.0.0
 
   - name: purchase-research
     classification: owned
@@ -230,6 +286,8 @@ skills:
     status: approved
     cohort: health-and-home-lifestyle
     workshop_proposal: purchase-research-20260824-d30002d939
+    contract_version: 1
+    version: 1.0.0
 
   - name: wardrobe-and-packing
     classification: owned
@@ -238,3 +296,5 @@ skills:
     status: approved
     cohort: health-and-home-lifestyle
     workshop_proposal: wardrobe-and-packing-20260824-b472df3509
+    contract_version: 1
+    version: 1.0.0

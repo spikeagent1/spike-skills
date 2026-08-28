@@ -1,8 +1,6 @@
 ---
 name: "community-management"
 description: "Build genuine member-to-member community on actual authorized surfaces with consent, stewardship, and outcome evidence."
-metadata:
-  version: 1.0.0
 license: MIT
 ---
 

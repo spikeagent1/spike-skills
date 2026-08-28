@@ -4,6 +4,7 @@ import contextlib
 import importlib
 import io
 import json
+import re
 import subprocess
 import tempfile
 import unittest
@@ -102,13 +103,15 @@ class ValidateRepoTest(unittest.TestCase):
             "    status: approved\n"
             "    cohort: test\n"
             "    workshop_proposal: approved-skill-20260824-1234567890\n"
+            "    version: 1.0.0\n"
             "  - name: pending-skill\n"
             "    classification: owned\n"
             "    runtime_path: skills/pending-skill\n"
             "    repository_path: skills/pending-skill\n"
             "    status: pending-review\n"
             "    cohort: test\n"
-            "    workshop_proposal: pending-skill-20260824-abcdef1234\n",
+            "    workshop_proposal: pending-skill-20260824-abcdef1234\n"
+            "    version: 1.0.0\n",
         )
         self._write(
             "catalog/domains.yaml",
@@ -144,13 +147,15 @@ class ValidateRepoTest(unittest.TestCase):
             "    status: approved\n"
             "    cohort: test\n"
             "    provenance: repo-owned\n"
+            "    version: 1.0.0\n"
             "  pending-skill:\n"
             "    classification: owned\n"
             "    runtime_path: skills/pending-skill\n"
             "    repository_path: skills/pending-skill\n"
             "    status: pending-review\n"
             "    cohort: test\n"
-            "    provenance: repo-owned\n",
+            "    provenance: repo-owned\n"
+            "    version: 1.0.0\n",
         )
         subprocess.run(
             ["git", "init", "--initial-branch", "main"],
@@ -375,6 +380,23 @@ class ValidateRepoTest(unittest.TestCase):
 
         self.assertEqual(code, 1)
         self.assertIn("needs at least 4 synthetic eval cases, found 1", output)
+
+    def test_catalog_version_field_parity_is_required(self) -> None:
+        approved = (self.root / "catalog/approved.yaml").read_text(encoding="utf-8")
+        self._write(
+            "catalog/approved.yaml",
+            approved.replace("    version: 1.0.0\n", "    version: 2.0.0\n", 1),
+        )
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "catalog/sources.yaml: approved-skill version '1.0.0' does not match "
+            "catalog/approved.yaml '2.0.0'",
+            output,
+        )
 
     def test_source_catalog_requires_inventory_parity(self) -> None:
         sources = (self.root / "catalog/sources.yaml").read_text(encoding="utf-8")
@@ -678,17 +700,50 @@ class ValidateRepoTest(unittest.TestCase):
             f"{body}"
         )
 
+    def _bump_entry_version(self, path: str, anchor: str, next_re: str, version: str) -> None:
+        """Rewrite one catalog entry's `version:` line to `version`, in place."""
+        text = (self.root / path).read_text(encoding="utf-8")
+        self.assertIn(anchor, text)
+        start = text.index(anchor)
+        match = re.search(next_re, text[start + len(anchor) :], re.MULTILINE)
+        end = len(text) if match is None else start + len(anchor) + match.start()
+        block = text[start:end]
+        lines = [line for line in block.splitlines(keepends=True) if line.strip()]
+        trailing = block[len("".join(lines)) :]
+        lines = [line for line in lines if not line.startswith("    version:")]
+        lines.append(f"    version: {version}\n")
+        new_block = "".join(lines) + trailing
+        self._write(path, text[:start] + new_block + text[end:])
+
     def _set_contract_version(self, name: str, version: str) -> None:
+        """Set contract_version (and bump version to match) for one skill.
+
+        Rewrites the existing `version:` lines in both catalogs rather than
+        inserting second ones, since every fixture entry already carries
+        `version: 1.0.0`.
+        """
         approved = (self.root / "catalog/approved.yaml").read_text(encoding="utf-8")
         anchor = f"  - name: {name}\n"
         self.assertIn(anchor, approved)
-        self._write(
-            "catalog/approved.yaml",
-            approved.replace(
-                anchor,
-                f"{anchor}    contract_version: {version}\n    version: {version}.0.0\n",
-                1,
-            ),
+        start = approved.index(anchor)
+        next_index = approved.find("  - name:", start + len(anchor))
+        end = len(approved) if next_index == -1 else next_index
+        block = approved[start:end]
+        lines = [line for line in block.splitlines(keepends=True) if line.strip()]
+        trailing = block[len("".join(lines)):]
+        lines = [line for line in lines if not line.startswith("    version:")]
+        if any(line.startswith("    contract_version:") for line in lines):
+            lines = [
+                f"    contract_version: {version}\n" if line.startswith("    contract_version:") else line
+                for line in lines
+            ]
+        else:
+            lines.insert(1, f"    contract_version: {version}\n")
+        lines.append(f"    version: {version}.0.0\n")
+        new_block = "".join(lines) + trailing
+        self._write("catalog/approved.yaml", approved[:start] + new_block + approved[end:])
+        self._bump_entry_version(
+            "catalog/sources.yaml", f"  {name}:\n", r"^  [a-z0-9-]+:\n", f"{version}.0.0"
         )
 
     def _promote_to_v2(self, name: str, sibling: str, **kwargs: object) -> None:
@@ -709,7 +764,8 @@ class ValidateRepoTest(unittest.TestCase):
             f"    repository_path: skills/{name}\n"
             f"    status: {status}\n"
             f"    cohort: test\n"
-            f"    workshop_proposal: {name}-20260824-1234567890\n",
+            f"    workshop_proposal: {name}-20260824-1234567890\n"
+            f"    version: 1.0.0\n",
         )
         sources = (self.root / "catalog/sources.yaml").read_text(encoding="utf-8")
         self._write(
@@ -721,7 +777,8 @@ class ValidateRepoTest(unittest.TestCase):
             f"    repository_path: skills/{name}\n"
             f"    status: {status}\n"
             f"    cohort: test\n"
-            f"    provenance: repo-owned\n",
+            f"    provenance: repo-owned\n"
+            f"    version: 1.0.0\n",
         )
         domains = (self.root / "catalog/domains.yaml").read_text(encoding="utf-8")
         marker = "      - approved-skill\n" if status == "approved" else "      - pending-skill\n"
@@ -1202,7 +1259,6 @@ class ValidateRepoTest(unittest.TestCase):
             "    classification: adapted\n"
             "    upstream: https://example.com/skills/approved-skill\n"
             "    publisher: fixture-publisher\n"
-            "    version: 1.0.0\n"
             "    license: MIT\n"
             "    local_modifications: Adapted to the portable contract.\n"
             "    artifact_sha256: " + "a" * 64 + "\n"
@@ -1250,18 +1306,23 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("installedVersion", output)
         self.assertNotIn("skillFile.sha256", output)
 
-        (self.root / "catalog/provenance/approved-skill/origin.json").unlink()
+    def test_provenance_artifact_fallback_location_is_not_read(self) -> None:
+        """The in-skill `.clawhub/origin.json` fallback was removed in Task 9."""
+        self._make_adapted()
         self._write_json(
             "skills/approved-skill/.clawhub/origin.json",
-            self._origin_json("c" * 64, "b" * 64, "1.0.0"),
+            self._origin_json("a" * 64, "b" * 64, "1.0.0"),
         )
         self._git_add()
 
         code, output = self._run_validator()
 
         self.assertEqual(code, 1)
-        self.assertIn("provenance artifact not yet relocated", output)
-        self.assertIn("skills/approved-skill/.clawhub/origin.json: artifact.sha256", output)
+        self.assertIn(
+            "catalog/provenance/approved-skill/origin.json: missing provenance artifact",
+            output,
+        )
+        self.assertNotIn("provenance artifact not yet relocated", output)
 
     def test_provenance_artifact_parity_passes_when_digests_agree(self) -> None:
         self._make_adapted()
@@ -1375,14 +1436,24 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("skill_sha256 is stale", output)
 
-    def test_missing_routing_catalog_warns_and_cluster_siblings_are_checked(self) -> None:
+    def test_missing_or_malformed_routing_catalog_fails_and_cluster_siblings_are_checked(
+        self,
+    ) -> None:
         (self.root / "catalog/routing.yaml").unlink()
         self._git_add()
 
         code, output = self._run_validator()
 
-        self.assertEqual(code, 0, output)
-        self.assertIn("catalog/routing.yaml", output)
+        self.assertEqual(code, 1)
+        self.assertIn("catalog/routing.yaml: missing cluster routing catalog", output)
+
+        self._write("catalog/routing.yaml", "clusters: []\n")
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("catalog/routing.yaml: no cluster entries found", output)
 
         self._write(
             "catalog/routing.yaml",

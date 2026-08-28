@@ -126,6 +126,7 @@ CATALOG_PARITY_FIELDS = (
     "repository_path",
     "status",
     "cohort",
+    "version",
 )
 ADAPTED_SOURCE_FIELDS = (
     "upstream",
@@ -597,15 +598,10 @@ def validate_cohort_parity(
 
 
 def parse_routing_clusters(errors: list[str]) -> dict[str, list[str]]:
-    """Cluster name -> sibling skill names from catalog/routing.yaml.
-
-    The file arrives in Task 9; until then its absence is a warning, not an error.
-    """
+    """Cluster name -> sibling skill names from catalog/routing.yaml."""
     path = ROOT / "catalog" / "routing.yaml"
     if not path.exists():
-        warnings.append(
-            "catalog/routing.yaml: missing; cross-skill cluster routing is unchecked"
-        )
+        add_error(errors, "catalog/routing.yaml: missing cluster routing catalog")
         return {}
 
     clusters: dict[str, list[str]] = {}
@@ -677,22 +673,14 @@ def validate_provenance_artifacts(
     for name, source in sorted(sources.items()):
         if source.get("classification") != "adapted":
             continue
-        canonical = ROOT / "catalog" / "provenance" / name / "origin.json"
-        path = canonical
-        if not canonical.exists():
-            fallback = ROOT / "skills" / name / ".clawhub" / "origin.json"
-            if not fallback.exists():
-                add_error(
-                    errors,
-                    f"catalog/provenance/{name}/origin.json: missing provenance "
-                    f"artifact for adapted source",
-                )
-                continue
-            warnings.append(
-                f"catalog/provenance/{name}/origin.json: provenance artifact not yet "
-                f"relocated; reading skills/{name}/.clawhub/origin.json"
+        path = ROOT / "catalog" / "provenance" / name / "origin.json"
+        if not path.exists():
+            add_error(
+                errors,
+                f"catalog/provenance/{name}/origin.json: missing provenance "
+                f"artifact for adapted source",
             )
-            path = fallback
+            continue
 
         rel = path.relative_to(ROOT)
         data = load_json(path, errors)
