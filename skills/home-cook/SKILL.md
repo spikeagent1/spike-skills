@@ -30,9 +30,8 @@ Produces one cooking session: the dish, ordered steps with times and cues, the s
 - Several days of meals, prep-ahead, or where leftovers land across a week → use `meal-planner`
 - What to buy, quantities against the pantry, aisle order, or a budget → use `grocery-planner`
 - Which food causes a reaction, or whether a diet treats a condition → no professional determination is made here (S1); name the clinician, then cook to the stated constraints
-- Signing a menu off as safe to serve commercially → an inspection and a licence sit behind that sign-off and no skill here issues one; the cooking help still stands
+- Signing a menu off as safe to serve commercially → a legal determination with an inspection and a licence behind it (S1); no skill here issues one, and the cooking help still stands
 - Acute symptoms after eating → escalation path only, routine work stops (S2)
-
 
 ## Inputs
 
@@ -41,23 +40,24 @@ Produces one cooking session: the dish, ordered steps with times and cues, the s
 | The dish, or the ingredients on hand | yes | ask once, in the same turn as a session on the named dish's standard version, labelled |
 | Allergies, intolerances, dietary pattern | yes | ask once, in the same turn as a version on the strictest safe assumption; never infer them (P1, P2) |
 | Recipe text, when a dish is adapted | no | adapt a named standard version, marked as the assumption, and say which line to correct (X3) |
-| Condition and storage history of anything questionable | when safety turns on it | ask how warm and how long; give a version that does not use it (X1) |
+| Condition and storage history, whenever anything is questionable | yes | ask how warm and how long; give a version that does not use it (X1) |
 | Servings, time, equipment, confidence | no | assume one portion, a stovetop and an oven, labelled |
 
 **Dependencies:** none beyond the contract; dietary boundaries already in the `profile` namespace are read when present, and no other namespace is touched (P3).
 
 ## Workflow
 
-1. Resolve allergy and food-safety constraints before choosing a dish; a hard constraint is never traded to salvage an ingredient.
-2. Separate what the owner confirmed having from optional additions; never assume a staple is in the kitchen (X3).
-3. Choose a method that fits the equipment, time, and stated confidence, and say what it gives up.
-4. Give ordered steps with times, temperatures, sensory cues, and what runs in parallel.
-5. Attach each substitution to the ingredient it replaces, with the label or cross-contact check it needs.
-6. Close with how long what is left keeps, how to reheat it, and what is still uncertain.
+1. Produce the session this turn on labelled assumptions — the dish, its steps, its substitutions; a question about the recipe, the equipment, or a constraint rides alongside it, never in place of it (O2).
+2. Resolve allergy and food-safety constraints before choosing a dish; a hard constraint is never traded to salvage an ingredient.
+3. Separate what the owner confirmed having from optional additions; never assume a staple is in the kitchen (X3).
+4. Choose a method that fits the equipment, time, and stated confidence, and say what it gives up.
+5. Give ordered steps with times, temperatures, sensory cues, and what runs in parallel.
+6. Attach each substitution to the ingredient it replaces, with the label or cross-contact check it needs.
+7. Close with how long what is left keeps, how to reheat it, and what is still uncertain.
 
 ## Output contract
 
-In order: whatever must be answered before cooking is safe (O1); the dish and its assumptions, kept visibly apart from confirmed facts (O2); confirmed ingredients and optional additions; ordered steps with times and doneness cues; each substitution against the ingredient it replaces, with its label check; keeping, reheating, and leftover notes.
+The session itself lands in this turn — the dish written out, not a description of how it would be written, and not a request for the inputs that would produce it. In order: whatever must be answered before cooking is safe (O1); the dish and its assumptions, kept visibly apart from confirmed facts (O2); confirmed ingredients and optional additions; ordered steps with times and doneness cues; each substitution against the ingredient it replaces, with its label check; keeping, reheating, and leftover notes.
 
 Report the session as **as written**, **adapted** (a labelled substitution or assumption stands in), or **blocked** (a safety answer is missing) — never a later state than reached (O3).
 
@@ -67,7 +67,7 @@ A recall status or a food-safety fact the session turns on comes from the regula
 
 ## Privacy and mutations
 
-Read-only. Kitchen contents, health facts, and household details come from this turn or from owner-stated preferences in the `profile` namespace — never from memory (P2), never from another skill's files (P1, D3). Saving a recipe into a file or a note is not an effect declared here (M8): show the exact text that would land and the exact destination, this turn, then take explicit authorization for that exact action (M2, M6). An overwrite is previewed against what it replaces, which it destroys; only the state read back is reported (M4, O3).
+Read-only. Kitchen contents, health facts, and household details come from this turn or from owner-stated preferences in the `profile` namespace — never from memory (P2), never from another skill's files (P1, D3). Saving a recipe into a file or a note is not an effect declared here (M8): show the exact text that would land and the exact destination — named by the owner, or proposed here when the owner has not named one — this turn, then take explicit authorization for that exact action (M2, M6). An overwrite is previewed against what it replaces, which it destroys; only the state read back is reported (M4, O3).
 
 ## Safety boundaries
 

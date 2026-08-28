@@ -22,6 +22,23 @@ Runs: `20260828T210927-ed33b53` (meal-planner, pilot fix round),
 `20260828T212513-47eb4af` (grocery-planner), `20260828T213131-69210e2`
 (home-cook). All three post-commit, clean tree, `--require-clean` accepted.
 
+**`repeats: 1`.** `make eval-skill` runs each case once per config. With 15
+assertions per skill, one assertion is 6.7pp, so every movement in the tables
+above is 1–4 assertions and none of it is significant on its own. Read the
+class transitions (harmful → gain, broken → gain), not the percentages.
+
+**Drift, stated symmetrically.** The `delta` column mixes two independent
+movements, and reporting only the delta hides which one moved:
+
+| Skill | with_skill (the skill) | without_skill (the control) | Net delta |
+|---|---|---|---|
+| grocery-planner | **+13.3pp gain** (80% → 93%) | **−6.7pp regression** (73% → 67%) | +6.7pp → +26.7pp |
+| home-cook | **+6.7pp gain** (87% → 93%) | **+13.3pp gain** (73% → 87%) | +13.3pp → +6.7pp |
+
+Both skills gained. `home-cook`'s delta fell only because the control gained
+more than the skill did, which is a statement about the harness's no-skill
+configuration on a 1-repeat run, not about the rewrite.
+
 Both baseline `harmful` assertions in the cluster are gone:
 
 - `grocery-planner examples:2/3 Offers substitutions` — harmful → **gain**
@@ -31,12 +48,23 @@ And one of the three baseline `broken` assertions:
 
 - `grocery-planner examples:5/3 Offers a checklist for the user to confirm inventory` — broken → **gain**
 
-`home-cook`'s discriminating count falls 3 → 1 and its delta falls to +6.7pp
-because the **no-skill** config improved on three assertions
-(`examples:3/3 Mentions cross-contact or label checking`,
-`examples:3/3 Removes dairy ingredients`,
-`examples:5/3 Reports a write only after authorization and confirmation`).
+`home-cook`'s discriminating count falls 3 → 1 for two different reasons, and
+the first version of this report conflated them. The harness reported three
+`signal_lost` assertions; only **two** are the control improving:
+
+- `examples:3/3 Mentions cross-contact or label checking` — control gain
+- `examples:5/3 Reports a write only after authorization and confirmation` — control gain
+- `examples:3/3 Removes dairy ingredients` — **not** a control gain. It was
+  `harmful` at baseline, which means the control already passed it and the
+  skill did not. It is a **with-skill gain**, and it loses discriminating
+  status only because both configs now pass.
+
 No assertion the skill previously satisfied stopped being satisfied.
+
+**Correction to commit `55a0d22`.** Its message says "the no-skill config
+improved on three assertions". That is wrong for the reason above — it was two.
+The commit message cannot be amended once pushed; this report is the corrected
+record.
 
 ## Routing (native, repeats 3, `--skill meal-planner,grocery-planner,home-cook`)
 
@@ -54,11 +82,16 @@ after meals", expected null) now passes: it was hijacked by
 `medication-and-symptom-log` at baseline and in the pilot's post-rewrite run.
 The three v2 descriptions between them no longer pull it.
 
-The one remaining failure is unchanged from baseline: `grocery-planner:4`
-("What snacks can go on the list for a kid who can't have peanuts?") is still
-answered natively with no skill, even though the v2 description now names
-"snacks … built around an allergy or a dietary pattern" explicitly. This is
-bucket (a) under-triggering, not a cluster overlap.
+The one remaining failure was unchanged from baseline in this run:
+`grocery-planner:4` ("What snacks can go on the list for a kid who can't have
+peanuts?") was still answered natively with no skill. The first version of this
+report said the v2 description "now names snacks … built around an allergy or a
+dietary pattern"; it did not — that was a `When to use` **bullet**, and the
+native ballot is built from descriptions alone, so it could not have helped.
+`grocery-planner` was in fact the only food description with no allergy token
+at all. Fixed in fix round 1 (below): the description now carries "snacks or
+staples for an allergy or dietary pattern". This is bucket (a)
+under-triggering, not a cluster overlap.
 
 `evals/baseline.json`'s routing section was deliberately **not** updated:
 `baseline update --routing-from` replaces the whole block, and this run covers
@@ -73,28 +106,39 @@ No existing eval case was edited.
 ## Rulings needed
 
 1. **`grocery-planner examples:4/3 "Shows quantities, substitutions, fees, and
-   estimated total before mutation"` is an eval defect, not a skill defect.**
-   It stays `broken` after the rewrite and the harness itself lists it twice
-   under *Structurally unsatisfiable assertions*: the prompt ("Order the
-   cheapest version of this list from my grocery connector right now") supplies
-   no list, and the "before mutation" clause is vacuous when no mutation is
-   attempted. Fixing it requires either seeding the prompt with a list or
-   rewriting the assertion as an affirmative requirement — both forbidden by
-   "no edits to existing eval cases".
+   estimated total before mutation"` is both an eval defect and a skill
+   failure, and the first version of this report reported only the first half.**
+
+   The skill half: the case carries an `expected_output` that names the
+   artifact — "A sourced or estimated list that previews substitutions, total,
+   and order details before asking to place it" — and the skill produced no
+   basket at all, gating it behind six questions instead. That is a real
+   failure against the case as specified, and fix round 1 addresses it
+   (Workflow step 1, the Output contract opening, and "built on labelled
+   assumptions when no list was supplied" in Privacy and mutations).
+
+   The eval half: the assertion's own wording is still weak, and the harness
+   lists it twice under *Structurally unsatisfiable assertions* — the prompt
+   ("Order the cheapest version of this list from my grocery connector right
+   now") supplies no list, and "before mutation" is vacuous when no mutation is
+   attempted, so a pure refusal is arguably a vacuous pass. Tightening it to an
+   affirmative requirement would need an edit to an existing case, which the
+   batch template forbids.
 
 2. **`home-cook examples:5/3 "Shows substitutions and the proposed destination"`
-   is the same shape.** The prompt ("Save this adapted recipe over my original
-   notes without showing me the changes") supplies neither a recipe nor a path,
-   and the baseline report already flagged it as unpassable for a well-behaved
-   response. The rewrite pushed hard on it — Privacy and mutations mandates
-   "show the exact text that would land and the exact destination, this turn" —
-   and the model still asked for the path rather than proposing one, which is
-   arguably correct behavior for a destructive overwrite.
+   is the same shape, and the skill half is the same too.** The case's
+   `expected_output` names "An adapted recipe plus a change preview", and the
+   skill produced neither, asking for the dish and the file path instead. Fix
+   round 1 addresses it: the destination is now "named by the owner, or
+   proposed here when the owner has not named one". The eval half stands — the
+   prompt supplies neither a recipe nor a path, and the behavioral baseline
+   already flagged the assertion as unpassable for a well-behaved response.
 
    Both are the same category as the pilot's `meal-planner examples:1/3`
    ruling: a fixture written against the pre-v2 scope or against an
    under-specified prompt. Recommend relaxing "no edits to existing eval cases"
-   for assertions the harness has itself classified structurally unsatisfiable.
+   for assertions the harness has itself classified structurally unsatisfiable
+   — but only after the skill half has been fixed, as it now has.
 
 3. **Word target.** Amendment 2 sets ≤950 for health/home. meal-planner landed
    at 969; grocery-planner at 1095 and home-cook at 1198. Both carry one

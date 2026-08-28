@@ -1,6 +1,6 @@
 ---
 name: grocery-planner
-description: "Use when someone needs the shopping list itself: turning a meal plan into what to buy, checking a list against the pantry, aisle order, capping a shop at a budget, or swaps for an out-of-stock item. Not for choosing the week's meals (meal-planner) or cooking one dish (home-cook)."
+description: "Use when someone needs the shopping list itself: turning a meal plan into what to buy, checking it against the pantry, aisle order, a budget cap, snacks or staples for an allergy or dietary pattern, swaps for an out-of-stock item. Not for choosing meals (meal-planner) or cooking a dish (home-cook)."
 metadata:
   spike-os:
     version: 2.0.0
@@ -44,16 +44,17 @@ Produces the actionable shopping list: what to buy, in what quantity, in aisle o
 
 ## Workflow
 
-1. Split hard constraints — allergy, medical restriction — from soft ones; a hard constraint is never traded.
-2. Turn each meal into items and quantities for the household and the days covered.
-3. Subtract only owner-confirmed pantry items; the rest stays on the list marked unconfirmed, never assumed present (X3).
-4. Consolidate duplicates and group the lines in aisle order for one trip.
-5. Mark each line required, optional, or a swap, and name one swap for every item that is allergy-constrained, out of stock, or over budget.
-6. Total against the budget, naming what gets cut; check labels, cross-contact, storage room at home, and what a pack size leaves to spoil.
+1. Produce the list this turn on labelled assumptions; a question about meals, pantry, or budget rides alongside the list, never in place of it (O2).
+2. Split hard constraints — allergy, medical restriction — from soft ones; a hard constraint is never traded.
+3. Turn each meal into items and quantities for the household and the days covered.
+4. Subtract only owner-confirmed pantry items; the rest stays on the list marked unconfirmed, never assumed present (X3).
+5. Consolidate duplicates and group the lines in aisle order for one trip.
+6. Mark each line required, optional, or a swap, and name one swap for every item that is allergy-constrained, out of stock, or over budget.
+7. Total against the budget, naming what gets cut; check labels, cross-contact, storage room at home, and what a pack size leaves to spoil.
 
 ## Output contract
 
-In order: whatever must be answered before the list is safe (O1); assumptions kept visibly apart from confirmed facts (O2); the pantry checklist whenever stock is unconfirmed; the list in aisle order, each line carrying a quantity, a required/optional/swap mark, and a named swap wherever a constraint bites; the total, every figure marked **sourced** or **estimated** beside the number (F3); label and cross-contact notes per constrained item.
+The list itself lands in this turn — not a description of the list, and not a request for the inputs that would produce one. In order: whatever must be answered before the list is safe (O1); assumptions kept visibly apart from confirmed facts (O2); the pantry checklist whenever stock is unconfirmed; the list in aisle order, each line carrying a quantity, a required/optional/swap mark, and a named swap wherever a constraint bites; the total, every figure marked **sourced** or **estimated** beside the number (F3); label and cross-contact notes per constrained item.
 
 Report each line as **on hand** (owner-confirmed), **to buy**, **unconfirmed** (buy unless already on hand), or **cut** — never a later state than reached (O3).
 
@@ -63,7 +64,7 @@ Prices, fees, and stock come from the shop's own source or the delivery service'
 
 ## Privacy and mutations
 
-Read-only. Pantry contents, budget, and dietary boundaries come from this turn or from owner-stated preferences in the `profile` namespace — never from memory (P2), never from another skill's files or private storage (P1, D3). Placing an order or changing a list in a connected app is not an effect declared here (M8): show the exact basket this turn — every item, quantity, swap, fee, and the total — then take explicit authorization for that exact action (M2, M6), reporting only the state read back (M4, O3).
+Read-only. Pantry contents, budget, and dietary boundaries come from this turn, from an explicitly authorized connector, or from owner-stated preferences in the `profile` namespace — never from memory (P2), never from another skill's files or private storage (P1, D3). Placing an order or changing a list in a connected app is not an effect declared here (M8): show the exact basket this turn, built on labelled assumptions when no list was supplied — every item, quantity, swap, fee, and the total — then take explicit authorization for that exact action (M2, M6), reporting only the state read back (M4, O3).
 
 ## Safety boundaries
 
