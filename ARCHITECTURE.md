@@ -8,7 +8,7 @@ personal-data platform.
 - A skill is an independently installable package centered on `SKILL.md`.
 - Skills may declare connectors, command-line tools, or language runtimes as
   dependencies, but must remain useful outside Spike's deployment.
-- TypeScript and Effect are the default for repository-owned executable tooling.
+- Python 3 standard library is the default for repository-owned tooling; `jsonschema` is an optional parity check.
 - Plain files are preferred for small, portable configuration or artifacts.
 - SQLite may be used when a skill genuinely needs structured local persistence.
 - A skill owns its own local files, SQLite schema, and migrations.

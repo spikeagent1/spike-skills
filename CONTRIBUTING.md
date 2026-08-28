@@ -28,3 +28,6 @@ A candidate skill must:
 
 Run `make validate` before opening or updating a pull request. If `make` is
 unavailable, run the three commands documented in the root `README.md`.
+
+Run `make eval-skill SKILL=<name>` before opening a PR that edits a skill; a
+per-skill pass-rate drop vs `evals/baseline.json` blocks the PR.

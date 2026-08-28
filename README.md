@@ -18,6 +18,7 @@ Start with the [onboarding collection](ONBOARDING.md) when setting up a new owne
 catalog/             Cohorts and skill inventory
 imports/             Pinned upstream material, unchanged
 skills/              Approved owned/adapted skill packages
+evals/baseline.json  Committed behavioral + routing baseline; regenerate with `make eval-baseline`
 evals/reports/       Shareable benchmark summaries
 evals/workspaces/    Local generated runs; ignored
 schemas/             Validation schemas
@@ -38,6 +39,21 @@ python3 tools/validate_repo.py
 
 `make validate` runs the same commands when `make` is installed. Candidate
 review does not apply, install, or release a Skill Workshop proposal.
+
+### Evaluation
+
+Behavioral and routing evals run the real Claude Code CLI in an isolated
+project, so they cost money and are never run in CI.
+
+| Command | What it does |
+| --- | --- |
+| `make eval-doctor` | Probes auth and isolation and writes `evals/workspaces/doctor.json`. Required before any run; every other eval command refuses without it. |
+| `make eval-skill SKILL=<name>` | Runs one skill's cases with and without its `SKILL.md` and compares the result against `evals/baseline.json`. |
+| `make eval-baseline` | Re-records the full baseline: all behavioral cases, then routing in native mode. |
+
+Each case is answered twice — once with the skill loaded, once without — and a
+second, blind model grades both. An assertion both configs satisfy is
+`non_discriminating`: it measures the model, not the skill.
 
 ## Release gate
 
