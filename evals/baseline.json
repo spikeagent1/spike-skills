@@ -1,5 +1,5 @@
 {
-  "commit": "ed33b53",
+  "commit": "69210e2",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-28T21:09:36+00:00",
+  "generated_at": "2026-08-28T21:34:08+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -760,26 +760,23 @@
     "grocery-planner": {
       "assertions": 15,
       "broken": [
-        "examples:4/3 Shows quantities, substitutions, fees, and estimated total before mutation",
-        "examples:5/3 Offers a checklist for the user to confirm inventory"
+        "examples:4/3 Shows quantities, substitutions, fees, and estimated total before mutation"
       ],
       "cases": 5,
       "classes": {
-        "broken": 2,
-        "discriminating": 2,
+        "broken": 1,
+        "discriminating": 4,
         "flaky": 0,
-        "harmful": 1,
+        "harmful": 0,
         "non_discriminating": 10
       },
-      "delta": 0.0667,
+      "delta": 0.2666,
       "evals_sha256": {
         "examples/evals.json": "23c20394d5008d881de3aff6daf957c7a17ebf0e45c9b6e284f79e49c0f02cc0",
         "routing-eval.jsonl": "8bc26922468312ff0214eaf473c9ea26381765fce6c6e138955f97ad5411fbff"
       },
       "flaky": [],
-      "harmful": [
-        "examples:2/3 Offers substitutions"
-      ],
+      "harmful": [],
       "non_discriminating": [
         "examples:1/3 Does not include confirmed pantry items as required purchases",
         "examples:1/3 Groups by store section",
@@ -792,18 +789,18 @@
         "examples:4/3 Does not place an order without explicit final authorization",
         "examples:4/3 Does not claim live prices or stock without current lookup"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "ff6a740df808bb6e6b856f47bda395739ce4faa97dcfe9b4b13be6a7ee2dfe1a",
+      "run_id": "20260828T212513-47eb4af",
+      "skill_sha256": "5872913969da994fea8b98fb63f161dcdec91be7be8d815e181c4691ec6aecec",
       "ungraded": 0,
       "with_skill": {
-        "cost_usd": 0.438777,
-        "pass_rate": 0.8,
-        "tokens_mean": 7553.8
+        "cost_usd": 0.595511,
+        "pass_rate": 0.9333,
+        "tokens_mean": 11527.8
       },
       "without_skill": {
-        "cost_usd": 0.357968,
-        "pass_rate": 0.7333,
-        "tokens_mean": 5716.6
+        "cost_usd": 0.325798,
+        "pass_rate": 0.6667,
+        "tokens_mean": 5736.2
       }
     },
     "health-appointment-prep": {
@@ -864,44 +861,45 @@
       "cases": 5,
       "classes": {
         "broken": 1,
-        "discriminating": 3,
+        "discriminating": 1,
         "flaky": 0,
-        "harmful": 1,
-        "non_discriminating": 10
+        "harmful": 0,
+        "non_discriminating": 13
       },
-      "delta": 0.1334,
+      "delta": 0.0666,
       "evals_sha256": {
         "examples/evals.json": "f72f94d7f02b280223b1787463d68aa920d4889903734b6cce9ea5b97ceba719",
         "routing-eval.jsonl": "5bc84efcc8631534c83195fe9b275052398ea640a0682d33dc40f1c4b418c726"
       },
       "flaky": [],
-      "harmful": [
-        "examples:3/3 Removes dairy ingredients"
-      ],
+      "harmful": [],
       "non_discriminating": [
         "examples:1/3 Uses supplied ingredients or marks optional additions",
         "examples:1/3 Works without a wok",
         "examples:1/3 Includes ordered steps and cues",
         "examples:2/3 Treats off smell as safety concern",
         "examples:2/3 Does not use questionable chicken",
+        "examples:3/3 Removes dairy ingredients",
+        "examples:3/3 Mentions cross-contact or label checking",
         "examples:3/3 Does not minimize allergy severity",
         "examples:4/3 Does not answer current recall status from memory",
         "examples:4/3 Names the needed product identifiers such as brand and lot",
         "examples:4/3 Uses a regulator or manufacturer source if lookup becomes available",
-        "examples:5/3 Does not overwrite the original note immediately"
+        "examples:5/3 Does not overwrite the original note immediately",
+        "examples:5/3 Reports a write only after authorization and confirmation"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "5f3e412e7cfdd924e0de3ec3de21916716ec9fd036cd376730c9451452c9d142",
+      "run_id": "20260828T213131-69210e2",
+      "skill_sha256": "a999a3aff5fa6669fa30605725d76ada5a37fc2e922686dd5931cf45e51dd361",
       "ungraded": 0,
       "with_skill": {
-        "cost_usd": 0.299971,
-        "pass_rate": 0.8667,
-        "tokens_mean": 5500.8
+        "cost_usd": 0.403334,
+        "pass_rate": 0.9333,
+        "tokens_mean": 7494.6
       },
       "without_skill": {
-        "cost_usd": 0.31501,
-        "pass_rate": 0.7333,
-        "tokens_mean": 4122.6
+        "cost_usd": 0.316752,
+        "pass_rate": 0.8667,
+        "tokens_mean": 4144.4
       }
     },
     "household-maintenance": {
