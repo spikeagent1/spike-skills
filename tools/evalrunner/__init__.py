@@ -6,6 +6,6 @@ whenever a change would invalidate previously recorded results.
 
 from __future__ import annotations
 
-HARNESS_VERSION = "0.1.3"
+HARNESS_VERSION = "0.1.4"
 
 __all__ = ["HARNESS_VERSION"]

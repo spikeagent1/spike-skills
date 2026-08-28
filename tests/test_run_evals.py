@@ -998,7 +998,7 @@ class ProbeEnvironTest(unittest.TestCase):
 
 class HarnessVersionTest(unittest.TestCase):
     def test_version_is_pinned(self) -> None:
-        self.assertEqual(HARNESS_VERSION, "0.1.3")
+        self.assertEqual(HARNESS_VERSION, "0.1.4")
 
 
 def _write_json(path: Path, data: object) -> None:
@@ -1338,6 +1338,7 @@ class RoutingLoaderTest(unittest.TestCase):
 
 class CacheKeyTest(unittest.TestCase):
     EXECUTOR = {
+        "claude_code_version": "2.1.248",
         "mode": "with_skill",
         "model": "sonnet",
         "system_prompt": "minimal",
@@ -1347,6 +1348,7 @@ class CacheKeyTest(unittest.TestCase):
         "repeat": 1,
     }
     GRADER = {
+        "claude_code_version": "2.1.248",
         "grader_model": "opus",
         "grader_prompt": "grade it",
         "assertions": ["a", "b"],
@@ -1377,6 +1379,20 @@ class CacheKeyTest(unittest.TestCase):
     def test_harness_version_is_part_of_every_key(self) -> None:
         self.assertIn(HARNESS_VERSION, cache.key_material(**self.EXECUTOR, kind="executor"))
         self.assertIn(HARNESS_VERSION, cache.key_material(**self.GRADER, kind="grader"))
+
+    def test_a_new_cli_build_invalidates_executor_and_grader_entries(self) -> None:
+        """The CLI is the executor, so its version is part of the question asked."""
+        self.assertNotEqual(
+            cache.executor_key(**self.EXECUTOR),
+            cache.executor_key(**dict(self.EXECUTOR, claude_code_version="2.1.249")),
+        )
+        self.assertNotEqual(
+            cache.grader_key(**self.GRADER),
+            cache.grader_key(**dict(self.GRADER, claude_code_version="2.1.249")),
+        )
+        self.assertIn(
+            "2.1.248", cache.key_material(**self.EXECUTOR, kind="executor")
+        )
 
 
 class CacheStoreTest(unittest.TestCase):
@@ -3410,11 +3426,13 @@ class AggregateRoutingTest(unittest.TestCase):
         agg = routing.aggregate_routing(self.cases, self.scores)
         self.assertEqual(
             agg["files"]["alpha"],
-            {"cases": 3, "pass": 1, "ambiguous_pass": 0, "fail": 2, "unanswered": 0, "phantom": 0},
+            {"cases": 3, "pass": 1, "ambiguous_pass": 0, "fail": 2, "unanswered": 0,
+             "phantom": 0, "pass_rate": 0.3333, "strict_pass_rate": 0.3333},
         )
         self.assertEqual(
             agg["files"]["beta"],
-            {"cases": 2, "pass": 0, "ambiguous_pass": 1, "fail": 1, "unanswered": 0, "phantom": 1},
+            {"cases": 2, "pass": 0, "ambiguous_pass": 1, "fail": 1, "unanswered": 0,
+             "phantom": 1, "pass_rate": 0.5, "strict_pass_rate": 0.0},
         )
 
     def test_totals_cover_every_case(self) -> None:
@@ -3424,6 +3442,37 @@ class AggregateRoutingTest(unittest.TestCase):
         self.assertEqual(agg["totals"]["ambiguous_pass"], 1)
         self.assertEqual(agg["totals"]["fail"], 3)
         self.assertEqual(agg["totals"]["phantom"], 1)
+
+    def test_strict_pass_rate_refuses_credit_for_ambiguous_answers(self) -> None:
+        """Lenient counts `ambiguous_pass`; strict counts only the exact target."""
+        agg = routing.aggregate_routing(self.cases, self.scores)
+        # 5 scored cases: 1 pass, 1 ambiguous_pass, 3 fail.
+        self.assertEqual(agg["pass_rate"], 0.4)
+        self.assertEqual(agg["strict_pass_rate"], 0.2)
+
+    def test_both_rates_are_none_when_nothing_scored(self) -> None:
+        agg = routing.aggregate_routing([_routing_case()], [])
+        self.assertIsNone(agg["pass_rate"])
+        self.assertIsNone(agg["strict_pass_rate"])
+        self.assertIsNone(agg["files"]["alpha"]["strict_pass_rate"])
+
+    def test_the_baseline_block_carries_both_rates(self) -> None:
+        agg = routing.aggregate_routing(self.cases, self.scores)
+        block = routing.baseline_routing_block(agg, run_id="r1")
+        self.assertEqual(block["files"]["beta"]["pass_rate"], 0.5)
+        self.assertEqual(block["files"]["beta"]["strict_pass_rate"], 0.0)
+
+    def test_the_report_shows_both_rates_per_file_and_in_total(self) -> None:
+        agg = routing.aggregate_routing(self.cases, self.scores)
+        rendered = routing.render_routing_report(agg, {})
+        self.assertIn("| Lenient % | Strict % |", rendered)
+        # beta: 1 ambiguous_pass + 1 fail -> 50% lenient, 0% strict.
+        self.assertIn("| beta | 2 | 0 | 1 | 1 | 0 | 1 | 50% | 0% |", rendered)
+        self.assertIn("| **total** | 5 | 1 | 1 | 3 | 0 | 1 | 40% | 20% |", rendered)
+        self.assertIn(
+            "Pass rate (lenient, pass + ambiguous): 40% \u00b7 strict (exact target only): 20%",
+            rendered,
+        )
 
     def test_confusion_list_maps_intent_to_what_was_chosen(self) -> None:
         agg = routing.aggregate_routing(self.cases, self.scores)
@@ -3656,6 +3705,7 @@ class RoutingEarlyStopTest(unittest.TestCase):
 
 class RoutingCacheKeyTest(unittest.TestCase):
     BASE = {
+        "claude_code_version": "2.1.248",
         "mode": "native",
         "model": "sonnet",
         "descriptions_sha": "abc",
@@ -3671,6 +3721,7 @@ class RoutingCacheKeyTest(unittest.TestCase):
     def test_every_input_changes_the_key(self) -> None:
         base = routing.routing_cache_key(**self.BASE)
         for field, value in (
+            ("claude_code_version", "2.1.249"),
             ("mode", "classify"),
             ("model", "opus"),
             ("descriptions_sha", "def"),
@@ -3691,24 +3742,59 @@ class RoutingCacheKeyTest(unittest.TestCase):
 
 
 class TriggerSetTest(unittest.TestCase):
-    def test_should_trigger_is_ownership_by_the_named_skill(self) -> None:
+    """`should_trigger` mirrors the routing scorer: would it reward this skill answering?"""
+
+    def test_export_is_a_bare_array_in_run_loop_shape(self) -> None:
+        payload = routing.trigger_set(
+            [_routing_case("alpha", line_no=1, intent="do alpha", expected_skill="alpha")],
+            "alpha",
+        )
+        self.assertEqual(payload, [{"query": "do alpha", "should_trigger": True}])
+
+    def test_the_three_ways_a_skill_earns_should_trigger(self) -> None:
         payload = routing.trigger_set(
             [
+                # (1) owns the intent outright
                 _routing_case("alpha", line_no=1, intent="do alpha", expected_skill="alpha"),
-                _routing_case("alpha", line_no=2, intent="do beta", expected_skill="beta"),
-                _routing_case("alpha", line_no=3, intent="chit chat", expected_skill=None),
+                # (2) named as an accepted alternative on another file's intent
+                _routing_case(
+                    "beta", line_no=1, intent="shared work",
+                    expected_skill="beta", ambiguous_with=["alpha"],
+                ),
+                # (3) soft phantom owned by alpha: the target does not exist and
+                # alpha answering is an accepted outcome
+                _routing_case(
+                    "alpha", line_no=2, intent="ghost work",
+                    expected_skill="ghost-skill", ambiguous_with=["alpha"],
+                    phantom_expected=True, soft=True,
+                ),
+            ],
+            "alpha",
+        )
+        self.assertEqual([row["should_trigger"] for row in payload], [True, True, True])
+
+    def test_intents_another_skill_owns_are_negatives(self) -> None:
+        payload = routing.trigger_set(
+            [
+                _routing_case("alpha", line_no=1, intent="do beta", expected_skill="beta"),
+                _routing_case("alpha", line_no=2, intent="chit chat", expected_skill=None),
+                # A must-not-route phantom is the opposite of a soft one: alpha
+                # answering is the failure the fixture is watching for.
+                _routing_case(
+                    "alpha", line_no=3, intent="ghost work",
+                    expected_skill="ghost-skill", phantom_expected=True,
+                    must_not_route="alpha", soft=False,
+                ),
             ],
             "alpha",
         )
         self.assertEqual(
             payload,
-            {
-                "queries": [
-                    {"query": "do alpha", "should_trigger": True},
-                    {"query": "do beta", "should_trigger": False},
-                    {"query": "chit chat", "should_trigger": False},
-                ]
-            },
+            [
+                {"query": "do beta", "should_trigger": False},
+                {"query": "chit chat", "should_trigger": False},
+                {"query": "ghost work", "should_trigger": False},
+            ],
         )
 
 
@@ -4103,7 +4189,8 @@ class RoutingCLITest(unittest.TestCase):
         self.assertEqual(baseline["routing"]["repeats"], 3)
         self.assertEqual(
             baseline["routing"]["files"]["alpha"],
-            {"cases": 2, "pass": 1, "ambiguous_pass": 0, "fail": 1, "unanswered": 0, "phantom": 1},
+            {"cases": 2, "pass": 1, "ambiguous_pass": 0, "fail": 1, "unanswered": 0,
+             "phantom": 1, "pass_rate": 0.5, "strict_pass_rate": 0.5},
         )
         self.assertEqual(baseline["routing"]["phantom_targets"], ["ghost-skill"])
         # The behavioral half of this fixture baseline is deliberately empty, so
@@ -4127,12 +4214,10 @@ class RoutingCLITest(unittest.TestCase):
         payload = json.loads(out.read_text(encoding="utf-8"))
         self.assertEqual(
             payload,
-            {
-                "queries": [
-                    {"query": "do the alpha thing", "should_trigger": True},
-                    {"query": "ghost work", "should_trigger": False},
-                ]
-            },
+            [
+                {"query": "do the alpha thing", "should_trigger": True},
+                {"query": "ghost work", "should_trigger": False},
+            ],
         )
 
     def test_export_trigger_set_rejects_a_skill_without_routing_cases(self) -> None:

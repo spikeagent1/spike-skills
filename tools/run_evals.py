@@ -352,6 +352,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     args.grader_model = args.grader_model or args.model
     args.isolation_strategy = doctor_json["strategy"]
+    args.claude_code_version = doctor_json["claude_code_version"]
     args.structured_output_field = doctor_json.get("structured_output_field")
     args.repo_root = None
     isolation_flags = strategy_flags(args.isolation_strategy, workspace.WORKSPACE)
@@ -522,6 +523,7 @@ def _execute_and_grade(
 
     body = executor.skill_body(config, case.skill, executor.repo_root(args))
     exec_key = cache.executor_key(
+        claude_code_version=args.claude_code_version,
         mode=config,
         model=args.model,
         system_prompt=executor.minimal_system_prompt()
@@ -546,6 +548,7 @@ def _execute_and_grade(
             store.put(exec_key, executor.result_to_json(result))
 
     grade_key = cache.grader_key(
+        claude_code_version=args.claude_code_version,
         grader_model=args.grader_model,
         grader_prompt=grader.grader_prompt(),
         assertions=case.assertions,
@@ -650,6 +653,7 @@ def cmd_routing(args: argparse.Namespace) -> int:
         return 2
 
     args.isolation_strategy = doctor_json["strategy"]
+    args.claude_code_version = doctor_json["claude_code_version"]
     args.structured_output_field = doctor_json.get("structured_output_field")
     args.repo_root = None
     isolation_flags = strategy_flags(args.isolation_strategy, workspace.WORKSPACE)
@@ -832,6 +836,7 @@ def _route_one(
     req = _routing_request(case, args, isolation_flags, proj, descriptions)
 
     key = routing.routing_cache_key(
+        claude_code_version=args.claude_code_version,
         mode=args.mode,
         model=args.model,
         descriptions_sha=descriptions_sha,
@@ -893,11 +898,8 @@ def cmd_export_trigger_set(args: argparse.Namespace) -> int:
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    positives = sum(1 for query in payload["queries"] if query["should_trigger"])
-    print(
-        f"wrote trigger set: {out} ({len(payload['queries'])} queries, "
-        f"{positives} should-trigger)"
-    )
+    positives = sum(1 for query in payload if query["should_trigger"])
+    print(f"wrote trigger set: {out} ({len(payload)} queries, {positives} should-trigger)")
     return 0
 
 
@@ -932,6 +934,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
         return 2
 
     args.isolation_strategy = doctor_json["strategy"]
+    args.claude_code_version = doctor_json["claude_code_version"]
     args.structured_output_field = doctor_json.get("structured_output_field")
     args.repo_root = None
     isolation_flags = strategy_flags(args.isolation_strategy, workspace.WORKSPACE)
@@ -951,6 +954,7 @@ def cmd_grade(args: argparse.Namespace) -> int:
                 continue
             response = grader.read_response(run_dir)
             grade_key = cache.grader_key(
+                claude_code_version=args.claude_code_version,
                 grader_model=args.grader_model,
                 grader_prompt=grader.grader_prompt(),
                 assertions=case.assertions,

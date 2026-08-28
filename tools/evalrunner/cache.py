@@ -47,6 +47,7 @@ def _digest(material: str) -> str:
 
 def executor_key(
     *,
+    claude_code_version: str,
     mode: str,
     model: str,
     system_prompt: str,
@@ -55,10 +56,17 @@ def executor_key(
     prompt: str,
     repeat: int,
 ) -> str:
-    """Cache key for one executor invocation."""
+    """Cache key for one executor invocation.
+
+    `claude_code_version` is part of the key because the CLI is the executor: a
+    new build can change the system prompt it wraps around ours, the tool
+    surface, or the router, so an answer recorded under one version is not an
+    answer to the same question under the next.
+    """
     return _digest(
         key_material(
             kind="executor",
+            claude_code_version=claude_code_version,
             mode=mode,
             model=model,
             system_prompt=system_prompt,
@@ -72,6 +80,7 @@ def executor_key(
 
 def grader_key(
     *,
+    claude_code_version: str,
     grader_model: str,
     grader_prompt: str,
     assertions: Sequence[str],
@@ -81,11 +90,13 @@ def grader_key(
     """Cache key for one grading invocation.
 
     Assertion order is part of the key: the grader must return verdicts in the
-    order it was given, so a reordered list is a different question.
+    order it was given, so a reordered list is a different question. The CLI
+    version is in the key for the same reason it is in the executor key.
     """
     return _digest(
         key_material(
             kind="grader",
+            claude_code_version=claude_code_version,
             grader_model=grader_model,
             grader_prompt=grader_prompt,
             assertions=list(assertions),

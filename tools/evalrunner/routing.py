@@ -218,11 +218,22 @@ def descriptions_digest(descriptions: Sequence[Tuple[str, str]]) -> str:
 
 
 def routing_cache_key(
-    *, mode: str, model: str, descriptions_sha: str, intent: str, repeat: int
+    *,
+    claude_code_version: str,
+    mode: str,
+    model: str,
+    descriptions_sha: str,
+    intent: str,
+    repeat: int,
 ) -> str:
-    """Cache key for one routing invocation, keyed like an executor run."""
+    """Cache key for one routing invocation, keyed like an executor run.
+
+    Native routing is the CLI's own router answering, so the CLI version is part
+    of the question, not an incidental detail of how it was asked.
+    """
     material = cache.key_material(
         kind="routing",
+        claude_code_version=claude_code_version,
         mode=mode,
         model=model,
         descriptions_sha=descriptions_sha,
@@ -472,9 +483,27 @@ def score_case(
     }
 
 
-def _empty_counts() -> Dict[str, int]:
+def _empty_counts() -> Dict[str, Any]:
     """Zeroed per-file counters; every outcome has a column so none can hide."""
     return {"cases": 0, "pass": 0, "ambiguous_pass": 0, "fail": 0, "unanswered": 0, "phantom": 0}
+
+
+def _rate(numerator: int, denominator: int) -> Optional[float]:
+    """Share of `denominator` that `numerator` covers, or None when nothing scored."""
+    return round(numerator / denominator, 4) if denominator else None
+
+
+def _add_rates(counts: Dict[str, Any]) -> None:
+    """Attach both pass rates to one bucket of outcome counts.
+
+    `pass_rate` is lenient: an intent that landed on a skill the fixture accepts
+    as an alternative counts as a pass. `strict_pass_rate` counts only the exact
+    expected target, so a skill that survives on ambiguity cannot hide behind the
+    lenient number. Unanswered cases are in neither denominator.
+    """
+    scored = counts["pass"] + counts["ambiguous_pass"] + counts["fail"]
+    counts["pass_rate"] = _rate(counts["pass"] + counts["ambiguous_pass"], scored)
+    counts["strict_pass_rate"] = _rate(counts["pass"], scored)
 
 
 def aggregate_routing(
@@ -491,7 +520,7 @@ def aggregate_routing(
     `hijacks` counts only outright failures: an intent that landed on a skill the
     fixture accepts as an alternative was not hijacked, it was shared.
     """
-    files: Dict[str, Dict[str, int]] = {}
+    files: Dict[str, Dict[str, Any]] = {}
     totals = {"pass": 0, "ambiguous_pass": 0, "fail": 0, "unanswered": 0, "phantom": 0}
     confusion: List[Dict[str, Any]] = []
     hijacks: Counter = Counter()
@@ -526,6 +555,8 @@ def aggregate_routing(
 
     for case in routing_cases:
         files.setdefault(case.skill_file, _empty_counts())
+    for counts in files.values():
+        _add_rates(counts)
 
     # Unanswered cases are excluded from the denominator: a pass rate must be a
     # share of the cases the run actually measured.
@@ -542,7 +573,8 @@ def aggregate_routing(
         "cases": len(scores),
         "totals": totals,
         "unanswered": unanswered,
-        "pass_rate": round((totals["pass"] + totals["ambiguous_pass"]) / scored, 4) if scored else None,
+        "pass_rate": _rate(totals["pass"] + totals["ambiguous_pass"], scored),
+        "strict_pass_rate": _rate(totals["pass"], scored),
         "files": files,
         "confusion": confusion,
         "hijacks": dict(hijacks.most_common()),
@@ -588,24 +620,43 @@ def select_routing_cases(
     return [case for case in picked if case.skill_file in set(wanted)]
 
 
-def trigger_set(routing_cases: Iterable[RoutingCase], skill: str) -> Dict[str, Any]:
+def rewards_answering(case: RoutingCase, skill: str) -> bool:
+    """True when this runner's scorer would reward `skill` answering `case`.
+
+    Three ways to earn it: `skill` is the expected target, the fixture accepts
+    `skill` as an ambiguous alternative, or the case is a soft phantom owned by
+    `skill` (its expected target does not exist, and the owning skill is an
+    accepted answer). A `must_not_route` phantom is the opposite and stays False.
+    """
+    if case.expected_skill is not None and case.expected_skill == skill:
+        return True
+    if skill in case.ambiguous_with:
+        return True
+    return case.soft and case.skill_file == skill
+
+
+def trigger_set(routing_cases: Iterable[RoutingCase], skill: str) -> List[Dict[str, Any]]:
     """Routing intents in skill-creator's trigger-eval shape for one skill.
 
-    `should_trigger` is "this intent belongs to `skill`", so an intent another
-    skill owns becomes a near-miss negative — which is exactly the hard case a
-    description optimizer needs.
+    A bare `[{"query", "should_trigger"}]` array — the shape
+    `imports/anthropic-skill-creator/scripts/run_loop.py` reads. An intent
+    another skill owns becomes a near-miss negative, which is exactly the hard
+    case a description optimizer needs.
     """
-    return {
-        "queries": [
-            {"query": case.intent, "should_trigger": case.expected_skill == skill}
-            for case in routing_cases
-        ]
-    }
+    return [
+        {"query": case.intent, "should_trigger": rewards_answering(case, skill)}
+        for case in routing_cases
+    ]
 
 
 # ---------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------
+
+
+def _pct(rate: Optional[float]) -> str:
+    """Rate as a whole-percent cell, or `n/a` when nothing was scored."""
+    return "n/a" if rate is None else f"{rate * 100:.0f}%"
 
 
 def render_routing_report(aggregate: Dict[str, Any], run_meta: Dict[str, Any]) -> str:
@@ -642,24 +693,31 @@ def render_routing_report(aggregate: Dict[str, Any], run_meta: Dict[str, Any]) -
     rate = aggregate.get("pass_rate")
     lines.append("## Scorecard")
     lines.append("")
-    lines.append("| File | Cases | Pass | Ambiguous | Fail | Unanswered | Phantom |")
-    lines.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: |")
+    lines.append(
+        "| File | Cases | Pass | Ambiguous | Fail | Unanswered | Phantom | Lenient % | Strict % |"
+    )
+    lines.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
     for name in sorted(files):
         counts = files[name]
         lines.append(
             f"| {name} | {counts.get('cases', 0)} | {counts.get('pass', 0)} | "
             f"{counts.get('ambiguous_pass', 0)} | {counts.get('fail', 0)} | "
-            f"{counts.get('unanswered', 0)} | {counts.get('phantom', 0)} |"
+            f"{counts.get('unanswered', 0)} | {counts.get('phantom', 0)} | "
+            f"{_pct(counts.get('pass_rate'))} | {_pct(counts.get('strict_pass_rate'))} |"
         )
     if not files:
-        lines.append("| (no routing cases in this run) | | | | | | |")
+        lines.append("| (no routing cases in this run) | | | | | | | | |")
     lines.append(
         f"| **total** | {aggregate.get('cases', 0)} | {totals.get('pass', 0)} | "
         f"{totals.get('ambiguous_pass', 0)} | {totals.get('fail', 0)} | "
-        f"{totals.get('unanswered', 0)} | {totals.get('phantom', 0)} |"
+        f"{totals.get('unanswered', 0)} | {totals.get('phantom', 0)} | "
+        f"{_pct(rate)} | {_pct(aggregate.get('strict_pass_rate'))} |"
     )
     lines.append("")
-    lines.append(f"Pass rate (pass + ambiguous): {rate * 100:.0f}%" if rate is not None else "Pass rate: n/a")
+    lines.append(
+        f"Pass rate (lenient, pass + ambiguous): {_pct(rate)} · "
+        f"strict (exact target only): {_pct(aggregate.get('strict_pass_rate'))}"
+    )
     lines.append("")
 
     lines.append("## Confusion")
