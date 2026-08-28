@@ -52,6 +52,11 @@ def git_dirty() -> bool:
     return bool(_git("status", "--porcelain"))
 
 
+def git_config(key: str) -> str:
+    """Value of a git config key in this checkout, or "" when it is unset."""
+    return _git("config", "--get", key)
+
+
 def claude_version(claude_bin: str) -> str:
     """Version string reported by the Claude Code CLI, or "unknown"."""
     try:

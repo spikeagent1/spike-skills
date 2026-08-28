@@ -433,6 +433,7 @@ class ChooseStrategyTest(unittest.TestCase):
             "foreign_skills": [],
             "mcp_tools": [],
             "notes": [],
+            "context_leak_ok": True,
         }
         defaults.update(kwargs)
         return doctor.ProbeResult(**defaults)  # type: ignore[arg-type]
@@ -458,6 +459,21 @@ class ChooseStrategyTest(unittest.TestCase):
         ]
         self.assertEqual(doctor.choose_strategy(probes), "fresh-home")
 
+    def test_a_context_leak_disqualifies_a_strategy(self) -> None:
+        probes = [
+            self._probe("project-sources", context_leak_ok=False),
+            self._probe("fresh-home"),
+        ]
+        self.assertEqual(doctor.choose_strategy(probes), "fresh-home")
+
+    def test_an_unprobed_context_is_never_chosen(self) -> None:
+        probes = [self._probe("project-sources", context_leak_ok=None)]
+        self.assertIsNone(doctor.choose_strategy(probes))
+
+    def test_a_comparison_row_is_never_chosen(self) -> None:
+        probes = [self._probe("project-sources@repo-cwd", comparison=True)]
+        self.assertIsNone(doctor.choose_strategy(probes))
+
     def test_leaked_mcp_tool_disqualifies_a_strategy(self) -> None:
         probes = [
             self._probe("project-sources", mcp_tools=["mcp__gbrain__search"]),
@@ -480,6 +496,142 @@ class ChooseStrategyTest(unittest.TestCase):
             self._probe("fresh-home", sentinel_seen=False),
         ]
         self.assertIsNone(doctor.choose_strategy(probes))
+
+
+class ContextLeakProbeTest(unittest.TestCase):
+    """The context probe catches the memory `--setting-sources project` does not suppress."""
+
+    EMAIL = "someone@example.edu"
+
+    def test_the_bare_sentinel_reply_is_clean(self) -> None:
+        self.assertEqual(doctor.context_leak_markers("NO-MEMORY-IN-CONTEXT", self.EMAIL), [])
+
+    def test_the_sentinel_inside_a_memory_block_is_clean(self) -> None:
+        text = "<memory>NO-MEMORY-IN-CONTEXT</memory>"
+        self.assertEqual(doctor.context_leak_markers(text, self.EMAIL), [])
+
+    def test_every_foreign_marker_is_caught(self) -> None:
+        for marker in doctor.CONTEXT_LEAK_MARKERS:
+            with self.subTest(marker=marker):
+                found = doctor.context_leak_markers(f"I was given {marker} notes", "")
+                self.assertIn(marker, found)
+
+    def test_marker_matching_ignores_case(self) -> None:
+        self.assertIn("CLAUDE.md", doctor.context_leak_markers("quoted from claude.md", ""))
+
+    def test_the_operator_email_is_a_marker(self) -> None:
+        found = doctor.context_leak_markers(f"you are {self.EMAIL}", self.EMAIL)
+        self.assertEqual(found, ["operator-email"])
+
+    def test_an_absent_operator_email_matches_nothing(self) -> None:
+        self.assertEqual(doctor.context_leak_markers("a plain reply", ""), [])
+
+    def test_a_long_memory_block_is_a_marker(self) -> None:
+        text = "<memory>" + "x" * 21 + "</memory>"
+        self.assertEqual(doctor.context_leak_markers(text, self.EMAIL), ["memory-block"])
+
+    def test_a_short_memory_block_is_not_a_marker(self) -> None:
+        self.assertEqual(doctor.context_leak_markers("<memory>none</memory>", self.EMAIL), [])
+
+    def test_an_unclosed_memory_block_still_counts(self) -> None:
+        self.assertEqual(
+            doctor.context_leak_markers("<memory>" + "y" * 40, self.EMAIL), ["memory-block"]
+        )
+
+    def test_context_leak_ok_needs_a_reply_and_no_markers(self) -> None:
+        self.assertTrue(doctor.context_leak_ok("NO-MEMORY-IN-CONTEXT", "ok", self.EMAIL))
+        self.assertFalse(doctor.context_leak_ok("", "ok", self.EMAIL))
+        self.assertFalse(doctor.context_leak_ok("NO-MEMORY-IN-CONTEXT", "error", self.EMAIL))
+        self.assertFalse(doctor.context_leak_ok("read ~/.claude/CLAUDE.md", "ok", self.EMAIL))
+
+
+class RedactionTest(unittest.TestCase):
+    """Nothing the probes write to disk or print may carry the operator's address."""
+
+    def test_the_operator_email_never_survives_redaction(self) -> None:
+        redacted = doctor.redact_identity("hello me@example.edu.", "me@example.edu")
+        self.assertNotIn("me@example.edu", redacted)
+        self.assertIn(doctor.REDACTED_EMAIL, redacted)
+
+    def test_redaction_ignores_case(self) -> None:
+        redacted = doctor.redact_identity("ME@Example.EDU", "me@example.edu")
+        self.assertNotIn("ME@Example.EDU", redacted)
+
+    def test_any_other_address_is_redacted_too(self) -> None:
+        redacted = doctor.redact_identity("write to other.person@example.com", "")
+        self.assertNotIn("other.person@example.com", redacted)
+        self.assertIn(doctor.REDACTED_EMAIL, redacted)
+
+    def test_evidence_is_one_line_redacted_and_bounded(self) -> None:
+        text = "first line\nsecond line me@example.edu " + "z" * 900
+        snippet = doctor.evidence_snippet(text, "me@example.edu", limit=120)
+        self.assertNotIn("\n", snippet)
+        self.assertNotIn("me@example.edu", snippet)
+        self.assertLess(len(snippet), 160)
+        self.assertTrue(snippet.startswith("first line second line"))
+
+
+class IdentityProbeTest(unittest.TestCase):
+    EMAIL = "someone@example.edu"
+    NAME = "Pat Example"
+
+    def test_the_sentinel_reply_is_clean(self) -> None:
+        self.assertEqual(doctor.identity_markers("UNKNOWN-USER", self.EMAIL, self.NAME), [])
+
+    def test_the_email_is_evidence(self) -> None:
+        found = doctor.identity_markers(f"You are {self.EMAIL}", self.EMAIL, self.NAME)
+        self.assertEqual(found, ["email"])
+
+    def test_the_name_is_evidence(self) -> None:
+        found = doctor.identity_markers("Hello Pat Example!", self.EMAIL, self.NAME)
+        self.assertEqual(found, ["name"])
+
+    def test_empty_identity_values_match_nothing(self) -> None:
+        self.assertEqual(doctor.identity_markers("anything at all", "", ""), [])
+
+    def test_a_name_too_short_to_tell_from_prose_is_ignored(self) -> None:
+        self.assertEqual(doctor.identity_markers("an ordinary reply", "", "an"), [])
+
+    def test_the_ladder_runs_the_current_recipe_first_and_never_twice(self) -> None:
+        names = [rung.name for rung in doctor.identity_ladder("project-sources")]
+        self.assertEqual(
+            names, ["project-sources@sandbox", "empty-setting-sources", "bare", "fresh-home"]
+        )
+        self.assertEqual(
+            [rung.name for rung in doctor.identity_ladder("fresh-home")],
+            ["fresh-home@sandbox", "empty-setting-sources", "bare"],
+        )
+
+    def test_the_bare_rung_declares_its_api_key_requirement(self) -> None:
+        rungs = {rung.name: rung for rung in doctor.identity_ladder("project-sources")}
+        self.assertEqual(rungs["bare"].requires_env, ("ANTHROPIC_API_KEY",))
+
+    def test_a_mitigation_is_confirmed_only_by_the_context_probe(self) -> None:
+        # A model can answer UNKNOWN-USER and still carry the identity in context,
+        # so the rung's own reply is never enough to call the leak mitigated.
+        self.assertTrue(doctor.mitigation_confirmed("NO-MEMORY-IN-CONTEXT", "ok", self.EMAIL))
+        self.assertFalse(
+            doctor.mitigation_confirmed(f"<memory># userEmail {self.EMAIL}</memory>", "ok", self.EMAIL)
+        )
+
+    def test_an_unusable_confirmation_never_confirms(self) -> None:
+        self.assertFalse(doctor.mitigation_confirmed("NO-MEMORY-IN-CONTEXT", "error", self.EMAIL))
+        self.assertFalse(doctor.mitigation_confirmed("   ", "ok", self.EMAIL))
+
+    def test_the_first_clean_rung_is_the_mitigation(self) -> None:
+        probes = [
+            doctor.IdentityProbeResult(name="project-sources@sandbox", leak=True),
+            doctor.IdentityProbeResult(name="bare", available=False),
+            doctor.IdentityProbeResult(name="fresh-home", leak=False),
+        ]
+        self.assertEqual(doctor.choose_identity_mitigation(probes), "fresh-home")
+
+    def test_no_clean_rung_means_no_mitigation(self) -> None:
+        probes = [
+            doctor.IdentityProbeResult(name="project-sources@sandbox", leak=True),
+            doctor.IdentityProbeResult(name="fresh-home", leak=False, status="error"),
+        ]
+        self.assertIsNone(doctor.choose_identity_mitigation(probes))
 
 
 class ClassifySkillsTest(unittest.TestCase):
@@ -1550,6 +1702,8 @@ class RunCommandGuardTest(unittest.TestCase):
             "claude_code_version": "9.9.9",
             "structured_output_field": "structured_output",
             "checked_at": "2026-08-28T00:00:00+00:00",
+            "context_leak_ok": True,
+            "identity_leak": False,
         }
         payload.update(overrides)
         (self.ws / "doctor.json").write_text(json.dumps(payload), encoding="utf-8")
@@ -1584,6 +1738,23 @@ class RunCommandGuardTest(unittest.TestCase):
         self.assertIsNone(problem)
         assert payload is not None
         self.assertEqual(payload["strategy"], "project-sources")
+
+    def test_a_recorded_context_leak_is_refused(self) -> None:
+        self._write_doctor(claude_code_version="2.1.250", context_leak_ok=False)
+        payload, problem = run_evals.load_doctor(self._fake_claude("2.1.250"))
+        self.assertIsNone(payload)
+        assert problem is not None
+        self.assertIn("context", problem)
+
+    def test_a_doctor_json_predating_the_context_probe_is_refused(self) -> None:
+        (self.ws / "doctor.json").write_text(
+            json.dumps({"strategy": "project-sources", "claude_code_version": "2.1.250"}),
+            encoding="utf-8",
+        )
+        payload, problem = run_evals.load_doctor(self._fake_claude("2.1.250"))
+        self.assertIsNone(payload)
+        assert problem is not None
+        self.assertIn("re-run `doctor`", problem)
 
     def test_unreadable_doctor_json_is_refused(self) -> None:
         (self.ws / "doctor.json").write_text("{ broken", encoding="utf-8")
@@ -2224,6 +2395,16 @@ class RenderReportTest(unittest.TestCase):
         self.assertIn("abc1234", self.text)
         self.assertIn("2026-08-27T12:00:00+00:00", self.text)
 
+    def test_a_clean_run_reports_no_confound(self) -> None:
+        self.assertNotIn("Confound", self.text)
+
+    def test_an_identity_leak_is_surfaced_as_a_confound(self) -> None:
+        meta = dict(self.run_meta)
+        meta["isolation"] = {"strategy": "project-sources", "identity_leak": True}
+        text = report.render_run_report(self.results, meta)
+        self.assertIn("Confound", text)
+        self.assertIn("identity", text)
+
     def test_scorecard_has_one_row_per_skill(self) -> None:
         self.assertIn("| briefing |", self.text)
         self.assertIn("| owner-dream-cycle |", self.text)
@@ -2493,6 +2674,8 @@ class EndToEndRunTest(unittest.TestCase):
                 "claude_code_version": "9.9.9",
                 "structured_output_field": "structured_output",
                 "checked_at": "2026-08-28T00:00:00+00:00",
+                "context_leak_ok": True,
+                "identity_leak": True,
             },
         )
 
@@ -2631,6 +2814,19 @@ class EndToEndRunTest(unittest.TestCase):
         self.assertEqual(len(run_dirs), 1)
         request_paths = list(run_dirs[0].glob("alpha/eval-*/with_skill/run-1/request.json"))
         self.assertEqual(len(request_paths), 4)
+
+    def test_run_json_carries_the_doctor_identity_confound(self) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            code = run_evals.main(
+                ["--claude-bin", self.claude_bin, "run", "--all", "--model", "sonnet",
+                 "--dry-run", "--label", "confound"]
+            )
+        self.assertEqual(code, 0)
+        run_dirs = list((run_evals.workspace.WORKSPACE / "runs").glob("*-confound"))
+        self.assertEqual(len(run_dirs), 1)
+        run_json = json.loads((run_dirs[0] / "run.json").read_text(encoding="utf-8"))
+        self.assertIs(run_json["isolation"]["identity_leak"], True)
+        self.assertIs(run_json["isolation"]["context_leak_ok"], True)
 
     def test_full_run_then_baseline_update_then_validate_repo(self) -> None:
         fake = FakeClaudeRunner(self._scripted_results())
@@ -3399,6 +3595,8 @@ class RoutingCLITest(unittest.TestCase):
                 "claude_code_version": "9.9.9",
                 "structured_output_field": "structured_output",
                 "checked_at": "2026-08-28T00:00:00+00:00",
+                "context_leak_ok": True,
+                "identity_leak": True,
             },
         )
 

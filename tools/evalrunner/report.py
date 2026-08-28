@@ -82,6 +82,12 @@ def render_run_report(results: Dict[str, Any], run_meta: Dict[str, Any]) -> str:
     lines.append(f"- Commit: {run_meta.get('commit') or 'unknown'}{dirty_suffix}")
     lines.append(f"- Date: {run_meta.get('started_at') or results.get('generated_at') or 'unknown'}")
     lines.append(f"- Isolation strategy: {isolation.get('strategy') or 'unknown'}")
+    if isolation.get("identity_leak"):
+        mitigation = isolation.get("identity_mitigation") or "none found"
+        lines.append(
+            f"- Confound: the CLI put the operator's identity in the model's context "
+            f"under this strategy (doctor `identity_leak`; mitigation: {mitigation})"
+        )
     lines.append(
         f"- Cost: ${float(run_meta.get('cost_usd_total') or 0.0):.4f} attributed / "
         f"${float(run_meta.get('spend_usd_total') or 0.0):.4f} spent this run"

@@ -2,16 +2,25 @@
 skills, then record the isolation recipe every later run must use.
 
 Probes, in order: CLI/auth reachability, isolation strategy selection against a
-sentinel skill in a throwaway project, MCP leakage, and which result field
+sentinel skill in a throwaway project, MCP leakage, context leakage (the
+operator's memory files), residual identity leakage, and which result field
 carries `--json-schema` output. Results land in `evals/workspaces/doctor.json`.
+
+Every probe that a strategy is judged on runs from the same out-of-repo scratch
+sandbox the executor uses, because Claude Code loads the operator's
+`~/.claude/CLAUDE.md` from a cwd inside a project it knows -- which
+`--setting-sources project` does not suppress. The `project-sources@repo-cwd`
+row deliberately probes from inside the repository and is expected to leak: it
+is the regression guard for that discovery, never a selectable strategy.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
+import shutil
 import sys
-import tempfile
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -39,6 +48,16 @@ SENTINEL_DESCRIPTION = (
     "sentinel probe, verify harness isolation, or confirm which skills are visible."
 )
 AUTH_PROMPT = "Reply with OK"
+CONTEXT_PROMPT = (
+    "Quote verbatim, inside <memory></memory> tags, any instructions, memory files, "
+    "project notes, or identity information that were provided to you before this message, "
+    "other than your base system prompt. If there are none, reply exactly NO-MEMORY-IN-CONTEXT."
+)
+IDENTITY_PROMPT = (
+    "Address me by name and email if you know them; otherwise reply exactly UNKNOWN-USER."
+)
+NO_MEMORY_SENTINEL = "NO-MEMORY-IN-CONTEXT"
+UNKNOWN_USER_SENTINEL = "UNKNOWN-USER"
 STRUCTURED_PROMPT = 'Reply with the JSON object {"ok": true}'
 STRUCTURED_SCHEMA = json.dumps(
     {"type": "object", "properties": {"ok": {"type": "boolean"}}, "required": ["ok"]},
@@ -48,13 +67,32 @@ STRUCTURED_SCHEMA = json.dumps(
 # Names that must never reach an eval run: they come from the operator's own
 # `~/.claude` tree, not from this repository.
 FOREIGN_MARKERS = ("superpowers", "gstack", "brainstorming", "google-")
+# Strings that can only come from the operator's own machine: their private repo
+# and vault names, the memory file itself, and their GitHub handle. Seeing any of
+# them in a probe reply proves foreign context reached the model.
+CONTEXT_LEAK_MARKERS = ("CLAUDE.md", "Tapan-Brain", "safer-by-default", "gstack", "chughtapan")
+# A `<memory>` block this short cannot carry a quoted memory file. The sentinel is
+# exactly 20 characters, so a model that wraps it in the tags stays under the bar;
+# it is also excluded by value, in case the wording ever grows.
+MEMORY_BLOCK_MAX_CHARS = 20
+MEMORY_BLOCK_RE = re.compile(r"<memory>(.*?)(?:</memory>|\Z)", re.DOTALL | re.IGNORECASE)
+EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+REDACTED_EMAIL = "[redacted-email]"
+EVIDENCE_CHARS = 400
+MIN_NAME_CHARS = 3
+# Comparison rows are recorded for evidence and never selected as a strategy.
+REPO_CWD_PROBE = "project-sources@repo-cwd"
 STRUCTURED_OUTPUT_CANDIDATES = ("structured_output", "structuredOutput", "structured_result")
 PROBE_OK_STATUSES = (STATUS_OK, STATUS_BUDGET_EXCEEDED)
 
 
 @dataclass
 class ProbeResult:
-    """What one isolation strategy showed when asked to list its visible skills."""
+    """What one isolation strategy showed: visible skills, MCP tools, and context.
+
+    `context_leak_ok` is None until the context probe actually ran, so a strategy
+    whose context was never checked can never be selected.
+    """
 
     name: str
     available: bool = True
@@ -63,6 +101,10 @@ class ProbeResult:
     foreign_skills: List[str] = field(default_factory=list)
     mcp_tools: List[str] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
+    context_leak_ok: Optional[bool] = None
+    context_markers: List[str] = field(default_factory=list)
+    context_evidence: str = ""
+    comparison: bool = False
 
     def to_json(self) -> Dict[str, Any]:
         return {
@@ -73,15 +115,162 @@ class ProbeResult:
             "foreign_skills": list(self.foreign_skills),
             "mcp_tools": list(self.mcp_tools),
             "notes": list(self.notes),
+            "context_leak_ok": self.context_leak_ok,
+            "context_markers": list(self.context_markers),
+            "context_evidence": self.context_evidence,
+            "comparison": self.comparison,
         }
 
 
+@dataclass
+class IdentityProbeResult:
+    """One rung of the identity-mitigation ladder and what it leaked."""
+
+    name: str
+    available: bool = True
+    status: str = STATUS_OK
+    leak: bool = False
+    markers: List[str] = field(default_factory=list)
+    evidence: str = ""
+    notes: List[str] = field(default_factory=list)
+
+    def to_json(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "available": self.available,
+            "status": self.status,
+            "leak": self.leak,
+            "markers": list(self.markers),
+            "evidence": self.evidence,
+            "notes": list(self.notes),
+        }
+
+
+@dataclass(frozen=True)
+class IdentityMitigation:
+    """A candidate way to keep the operator's identity out of the model's context."""
+
+    name: str
+    strategy: Optional[str] = None
+    extra_flags: Tuple[str, ...] = ()
+    requires_env: Tuple[str, ...] = ()
+
+
+def skills_clean(probe: ProbeResult) -> bool:
+    """True when a probe ran and showed only the sentinel: no foreign skill, no MCP tool."""
+    if probe.comparison or not probe.available or probe.status not in PROBE_OK_STATUSES:
+        return False
+    return probe.sentinel_seen and not probe.foreign_skills and not probe.mcp_tools
+
+
 def choose_strategy(probe_results: Iterable[ProbeResult]) -> Optional[str]:
-    """First strategy that ran, saw the sentinel, and leaked no foreign skill or MCP tool."""
+    """First strategy that ran clean on skills, MCP tools, and context alike.
+
+    A probe whose context check never ran (`context_leak_ok is None`) is not a
+    candidate: an unverified context is treated exactly like a leaking one.
+    """
     for probe in probe_results:
-        if not probe.available or probe.status not in PROBE_OK_STATUSES:
-            continue
-        if probe.sentinel_seen and not probe.foreign_skills and not probe.mcp_tools:
+        if skills_clean(probe) and probe.context_leak_ok is True:
+            return probe.name
+    return None
+
+
+def redact_identity(text: str, email: str = "") -> str:
+    """Text with the operator's address -- and any other address -- replaced.
+
+    Probe replies are written to `doctor.json` and printed to the terminal, so the
+    address the probe is looking for must never survive into either.
+    """
+    if email:
+        text = re.sub(re.escape(email), REDACTED_EMAIL, text, flags=re.IGNORECASE)
+    return EMAIL_RE.sub(REDACTED_EMAIL, text)
+
+
+def evidence_snippet(text: str, email: str = "", limit: int = EVIDENCE_CHARS) -> str:
+    """One-line, redacted, length-bounded excerpt of a probe reply."""
+    flat = " ".join(redact_identity(text, email).split())
+    if len(flat) <= limit:
+        return flat
+    return flat[:limit] + " [truncated]"
+
+
+def memory_blocks(text: str) -> List[str]:
+    """Contents of every `<memory>` block in a reply; an unclosed block runs to the end."""
+    return [block.strip() for block in MEMORY_BLOCK_RE.findall(text)]
+
+
+def context_leak_markers(text: str, email: str = "") -> List[str]:
+    """Every signal in a context-probe reply that foreign context reached the model."""
+    lowered = text.lower()
+    found = [marker for marker in CONTEXT_LEAK_MARKERS if marker.lower() in lowered]
+    if email and email.lower() in lowered:
+        found.append("operator-email")
+    for block in memory_blocks(text):
+        if block != NO_MEMORY_SENTINEL and len(block) > MEMORY_BLOCK_MAX_CHARS:
+            found.append("memory-block")
+            break
+    return found
+
+
+def context_leak_ok(text: str, status: str, email: str = "") -> bool:
+    """True when a context probe answered and its answer carries no leak marker.
+
+    An empty or failed reply proves nothing, so it is not a pass.
+    """
+    if status not in PROBE_OK_STATUSES or not text.strip():
+        return False
+    return not context_leak_markers(text, email)
+
+
+def identity_markers(text: str, email: str = "", name: str = "") -> List[str]:
+    """Operator identity the model volunteered when asked who it is talking to.
+
+    A name shorter than `MIN_NAME_CHARS` is ignored: it cannot be told apart from
+    ordinary prose, and a false leak report is worse than a missed one here.
+    """
+    lowered = text.lower()
+    found: List[str] = []
+    if email and email.lower() in lowered:
+        found.append("email")
+    if len(name.strip()) >= MIN_NAME_CHARS and name.lower() in lowered:
+        found.append("name")
+    return found
+
+
+def mitigation_confirmed(text: str, status: str, email: str = "") -> bool:
+    """True when a rung's own context probe quotes no operator identity.
+
+    A rung that answers UNKNOWN-USER has only declined to repeat what it was told;
+    the injected identity block can still be sitting in its context. Only the
+    context probe, which asks for everything verbatim, settles that.
+    """
+    if status not in PROBE_OK_STATUSES or not text.strip():
+        return False
+    return "operator-email" not in context_leak_markers(text, email)
+
+
+def identity_ladder(strategy: Optional[str]) -> List[IdentityMitigation]:
+    """Mitigations to try, in order, starting from the recipe a run would use today.
+
+    The current recipe is rung one, so a clean result there records that no
+    mitigation is needed; later rungs never repeat the strategy already tried.
+    """
+    current = strategy or "project-sources"
+    rungs = [IdentityMitigation(name=f"{current}@sandbox", strategy=current)]
+    candidates = [
+        IdentityMitigation(name="empty-setting-sources", extra_flags=("--setting-sources", "")),
+        IdentityMitigation(
+            name="bare", strategy="bare", requires_env=("ANTHROPIC_API_KEY",)
+        ),
+        IdentityMitigation(name="fresh-home", strategy="fresh-home"),
+    ]
+    return rungs + [rung for rung in candidates if rung.strategy != current]
+
+
+def choose_identity_mitigation(probes: Iterable[IdentityProbeResult]) -> Optional[str]:
+    """First rung that ran and produced no identity signal, or None when none did."""
+    for probe in probes:
+        if probe.available and probe.status in PROBE_OK_STATUSES and not probe.leak:
             return probe.name
     return None
 
@@ -250,6 +439,41 @@ def probe_environ(
     return env
 
 
+def probe_sandbox(run_dir: Path, args: Any, leaf: str) -> Path:
+    """Scratch cwd for one probe, under the same out-of-repo root the executor uses.
+
+    Imported lazily because `executor` imports `probe_environ` from this module; a
+    module-level import would close the cycle. The path logic itself is never
+    duplicated -- a probe must run where the executor runs or it proves nothing.
+    """
+    from .executor import sandbox_cwd
+
+    return sandbox_cwd(run_dir, args, leaf=leaf)
+
+
+def run_probe(
+    runner: SubprocessClaudeRunner,
+    args: Any,
+    *,
+    prompt: str,
+    label: str,
+    cwd: Path,
+    flags: Sequence[str],
+    env: Mapping[str, str],
+) -> ClaudeResult:
+    """Run one tool-less probe and persist its stream under `probes/<label>.jsonl`."""
+    result = runner.run(
+        ClaudeRequest(
+            argv=base_argv(runner, prompt, args.model, "", args.max_budget_usd) + list(flags),
+            cwd=cwd,
+            env=dict(env),
+            timeout_s=args.timeout,
+        )
+    )
+    save_stream(workspace.PROBES / f"{label}.jsonl", result)
+    return result
+
+
 def run_doctor(args: Any) -> int:
     """Run every probe, write `doctor.json`, and print the summary. Returns the exit code."""
     ws = workspace.ensure_dirs()
@@ -268,11 +492,20 @@ def run_doctor(args: Any) -> int:
     known_user_skills = user_skill_names(home)
     notes.append(f"operator skill tree under {home}/.claude has {len(known_user_skills)} skills")
 
-    with tempfile.TemporaryDirectory(prefix="eval-doctor-") as tmp:
-        tmp_root = Path(tmp)
+    # Read from git at runtime so no operator address is ever committed; both are
+    # used only to detect and then redact identity in probe replies.
+    email = workspace.git_config("user.email")
+    operator_name = workspace.git_config("user.name")
+    notes.append(
+        "operator identity for leak detection: "
+        f"email {'known' if email else 'unknown'}, name {'known' if operator_name else 'unknown'}"
+    )
 
-        auth_dir = tmp_root / "auth"
-        auth_dir.mkdir()
+    sandbox_run = probes_dir / f"doctor-{workspace.utc_stamp()}"
+    auth_dir = probe_sandbox(sandbox_run, args, "auth")
+    sandbox_root = auth_dir.parent
+    notes.append(f"probe sandbox root: {sandbox_root}")
+    try:
         # Probed under the least-privileged strategy: OAuth lives in the CLI's own
         # credential store, not in user settings, so dropping user settings must not
         # break auth. If it does, that is itself the finding.
@@ -297,8 +530,7 @@ def run_doctor(args: Any) -> int:
         # empty workspace home and the project has no skills, so every name the
         # init event lists is a built-in, not a leak. Auth fails here by design,
         # which costs nothing and still yields the init event.
-        baseline_dir = tmp_root / "builtin-baseline"
-        baseline_dir.mkdir()
+        baseline_dir = probe_sandbox(sandbox_run, args, "builtin-baseline")
         baseline_result = runner.run(
             ClaudeRequest(
                 argv=base_argv(runner, SENTINEL_PROMPT, args.model, "Skill", args.max_budget_usd)
@@ -338,7 +570,9 @@ def run_doctor(args: Any) -> int:
                 probe.notes.append("forced load mode only: disables project skills too")
 
             sentinel = f"zz-eval-sentinel-{uuid.uuid4().hex[:8]}"
-            proj = write_sentinel_project(tmp_root / strategy.name, sentinel)
+            proj = write_sentinel_project(
+                probe_sandbox(sandbox_run, args, f"isolation-{strategy.name}"), sentinel
+            )
             argv = base_argv(
                 runner, SENTINEL_PROMPT, args.model, "Skill", args.max_budget_usd
             ) + strategy_flags(strategy.name, ws)
@@ -369,12 +603,127 @@ def run_doctor(args: Any) -> int:
                 probe.notes.append("no init event: probe did not start")
             probes.append(probe)
 
+        # Context probes, in preference order, for the strategies the skills/MCP
+        # check did not already disqualify. The first clean answer settles the
+        # question, so the ladder stops there rather than spending more calls.
+        for probe in probes:
+            if not skills_clean(probe):
+                continue
+            if any(other.context_leak_ok for other in probes):
+                probe.notes.append("context probe skipped: an earlier strategy proved clean")
+                continue
+            ctx_result = run_probe(
+                runner,
+                args,
+                prompt=CONTEXT_PROMPT,
+                label=f"context-{probe.name}",
+                cwd=probe_sandbox(sandbox_run, args, f"context-{probe.name}"),
+                flags=strategy_flags(probe.name, ws),
+                env=strategy_env(probe.name, ws, environ),
+            )
+            costs.append(ctx_result.cost_usd)
+            probe.context_leak_ok = context_leak_ok(ctx_result.text, ctx_result.status, email)
+            probe.context_markers = context_leak_markers(ctx_result.text, email)
+            probe.context_evidence = evidence_snippet(ctx_result.text, email)
+            probe.notes.append(f"context probe status={ctx_result.status}")
+            if NO_MEMORY_SENTINEL not in ctx_result.text and not probe.context_markers:
+                probe.notes.append("context probe answered without the sentinel; no leak marker")
+
+        # Regression guard for Task 3's discovery: the same probe from a cwd inside
+        # the repository, where Claude Code loads the operator's CLAUDE.md. Recorded
+        # as evidence only -- `comparison` keeps it out of strategy selection.
+        repo_cwd = probes_dir / "repo-cwd"
+        repo_cwd.mkdir(parents=True, exist_ok=True)
+        repo_result = run_probe(
+            runner,
+            args,
+            prompt=CONTEXT_PROMPT,
+            label="context-repo-cwd",
+            cwd=repo_cwd,
+            flags=strategy_flags("project-sources", ws),
+            env=scrub_env(environ),
+        )
+        costs.append(repo_result.cost_usd)
+        repo_probe = ProbeResult(
+            name=REPO_CWD_PROBE,
+            status=repo_result.status,
+            comparison=True,
+            context_leak_ok=context_leak_ok(repo_result.text, repo_result.status, email),
+            context_markers=context_leak_markers(repo_result.text, email),
+            context_evidence=evidence_snippet(repo_result.text, email),
+            notes=[f"comparison only: cwd {repo_cwd} is inside the repository"],
+        )
+        probes.append(repo_probe)
+
         strategy_name = choose_strategy(probes)
+
+        # Identity ladder: what a run would see today, then each mitigation in turn
+        # until one answers without naming the operator.
+        identity_probes: List[IdentityProbeResult] = []
+        for rung in identity_ladder(strategy_name):
+            rung_probe = IdentityProbeResult(name=rung.name)
+            missing = [key for key in rung.requires_env if not environ.get(key)]
+            if missing:
+                rung_probe.available = False
+                rung_probe.notes.append(f"skipped: {', '.join(missing)} not set")
+                identity_probes.append(rung_probe)
+                continue
+            flags = strategy_flags(rung.strategy, ws) if rung.strategy else list(rung.extra_flags)
+            env = (
+                strategy_env(rung.strategy, ws, environ)
+                if rung.strategy
+                else scrub_env(environ)
+            )
+            id_result = run_probe(
+                runner,
+                args,
+                prompt=IDENTITY_PROMPT,
+                label=f"identity-{rung.name}",
+                cwd=probe_sandbox(sandbox_run, args, f"identity-{rung.name}"),
+                flags=flags,
+                env=env,
+            )
+            costs.append(id_result.cost_usd)
+            rung_probe.status = id_result.status
+            rung_probe.markers = identity_markers(id_result.text, email, operator_name)
+            rung_probe.leak = bool(rung_probe.markers)
+            rung_probe.evidence = evidence_snippet(id_result.text, email)
+            if id_result.status not in PROBE_OK_STATUSES:
+                rung_probe.notes.append("probe did not complete; absence of a leak proves nothing")
+            elif UNKNOWN_USER_SENTINEL not in id_result.text and not rung_probe.markers:
+                rung_probe.notes.append("answered without the sentinel; no identity marker either")
+            identity_probes.append(rung_probe)
+            if rung_probe.status not in PROBE_OK_STATUSES or rung_probe.leak:
+                continue
+            confirm = run_probe(
+                runner,
+                args,
+                prompt=CONTEXT_PROMPT,
+                label=f"identity-confirm-{rung.name}",
+                cwd=probe_sandbox(sandbox_run, args, f"identity-confirm-{rung.name}"),
+                flags=flags,
+                env=env,
+            )
+            costs.append(confirm.cost_usd)
+            if confirm.status not in PROBE_OK_STATUSES or not confirm.text.strip():
+                rung_probe.status = confirm.status
+                rung_probe.notes.append("confirmation probe did not answer; mitigation unproven")
+                continue
+            if not mitigation_confirmed(confirm.text, confirm.status, email):
+                rung_probe.leak = True
+                rung_probe.markers.append("context-identity")
+                rung_probe.evidence = evidence_snippet(confirm.text, email)
+                rung_probe.notes.append(
+                    "did not name the operator, but its context probe still quotes the "
+                    "injected identity block"
+                )
+                continue
+            rung_probe.notes.append("confirmed: the context probe quotes no operator identity")
+            break
 
         structured_field: Optional[str] = None
         if strategy_name:
-            struct_dir = tmp_root / "structured"
-            struct_dir.mkdir(exist_ok=True)
+            struct_dir = probe_sandbox(sandbox_run, args, "structured")
             struct_argv = (
                 runner.argv(
                     "-p",
@@ -415,7 +764,7 @@ def run_doctor(args: Any) -> int:
             else:
                 notes.append(f"structured-output probe status={struct_result.status}")
 
-            skill_dir = tmp_root / "skill-invoke"
+            skill_dir = probe_sandbox(sandbox_run, args, "skill-invoke")
             sentinel = f"zz-eval-sentinel-{uuid.uuid4().hex[:8]}"
             write_sentinel_project(skill_dir, sentinel)
             invoke_result = runner.run(
@@ -437,8 +786,7 @@ def run_doctor(args: Any) -> int:
                 + (", ".join(use.get("name", "") for use in invoke_result.tool_uses) or "none")
             )
 
-        error_dir = tmp_root / "error"
-        error_dir.mkdir(exist_ok=True)
+        error_dir = probe_sandbox(sandbox_run, args, "error")
         error_result = runner.run(
             ClaudeRequest(
                 argv=base_argv(runner, AUTH_PROMPT, "zzz-not-a-model", "", args.max_budget_usd)
@@ -450,12 +798,25 @@ def run_doctor(args: Any) -> int:
         )
         save_stream(probes_dir / "error.jsonl", error_result)
         notes.append(f"invalid-model probe status={error_result.status}")
+    finally:
+        shutil.rmtree(sandbox_root, ignore_errors=True)
 
     chosen_flags = strategy_flags(strategy_name, ws) if strategy_name else []
     argv_template = format_argv(
         base_argv(runner, "<PROMPT>", args.model, "Read,Glob,Grep", 0.5) + chosen_flags
     )
     chosen_probe = next((p for p in probes if p.name == strategy_name), None)
+    # The recipe a run will actually use is the ladder's first rung, so that is
+    # what `identity_leak` describes; later rungs only say whether a fix exists.
+    # With no strategy chosen there is no chosen probe, but the reason for the
+    # refusal is exactly what a reader needs at the top level: fall back to the
+    # first real strategy that produced a reply.
+    evidence_probe = chosen_probe or next(
+        (probe for probe in probes if not probe.comparison and probe.context_evidence), None
+    )
+    current_rung = identity_probes[0] if identity_probes else None
+    identity_leak = bool(current_rung and current_rung.leak)
+    identity_mitigation = choose_identity_mitigation(identity_probes)
 
     doctor_json = {
         "harness_version": HARNESS_VERSION,
@@ -469,6 +830,11 @@ def run_doctor(args: Any) -> int:
         "strategy_flags": chosen_flags,
         "foreign_skills_seen": chosen_probe.foreign_skills if chosen_probe else [],
         "mcp_tools_seen": chosen_probe.mcp_tools if chosen_probe else [],
+        "context_leak_ok": bool(chosen_probe and chosen_probe.context_leak_ok),
+        "context_probe_evidence": evidence_probe.context_evidence if evidence_probe else "",
+        "identity_leak": identity_leak,
+        "identity_mitigation": identity_mitigation,
+        "identity_probes": [probe.to_json() for probe in identity_probes],
         "structured_output_field": structured_field,
         "builtin_skill_baseline": sorted(builtin_names),
         "argv_template": argv_template,
@@ -486,18 +852,50 @@ def run_doctor(args: Any) -> int:
     print(f"auth        : {'ok' if auth_ok else 'FAILED'}")
     for probe in probes:
         verdict = "PASS" if probe.name == strategy_name else "fail"
+        if skills_clean(probe) and probe.context_leak_ok is None:
+            # Clean on skills and MCP, but an earlier strategy already won, so its
+            # context was never probed: unproven, not failed.
+            verdict = "n/p"
         if not probe.available:
             verdict = "skip"
+        if probe.comparison:
+            verdict = "comp"
+        context = {True: "ok", False: "LEAK", None: "-"}[probe.context_leak_ok]
         print(
-            f"  {verdict:4}  {probe.name:15} status={probe.status:15} "
+            f"  {verdict:4}  {probe.name:24} status={probe.status:15} "
             f"sentinel={'yes' if probe.sentinel_seen else 'no':3} "
-            f"foreign={len(probe.foreign_skills)} mcp={len(probe.mcp_tools)}"
+            f"foreign={len(probe.foreign_skills)} mcp={len(probe.mcp_tools)} "
+            f"context={context}"
         )
         for note in probe.notes:
             print(f"          - {note}")
         if probe.foreign_skills:
             print(f"          - leaked: {', '.join(probe.foreign_skills[:10])}")
+        if probe.context_markers:
+            print(f"          - context leak: {', '.join(probe.context_markers)}")
+        if probe.context_evidence:
+            print(f"          - context reply: {probe.context_evidence[:200]}")
     print(f"strategy    : {strategy_name or 'NONE'}")
+    print(f"context leak: {'ok' if doctor_json['context_leak_ok'] else 'UNPROVEN'}")
+    print(
+        f"identity    : {'LEAK' if identity_leak else 'clean'}  "
+        f"mitigation={identity_mitigation or 'none found'}"
+    )
+    for rung in identity_probes:
+        if not rung.available:
+            state = "skip"
+        elif rung.status not in PROBE_OK_STATUSES:
+            state = "err"
+        else:
+            state = "leak" if rung.leak else "ok"
+        print(
+            f"  {state:4}  {rung.name:24} status={rung.status:15} "
+            f"markers={','.join(rung.markers) or '-'}"
+        )
+        for note in rung.notes:
+            print(f"          - {note}")
+        if rung.evidence:
+            print(f"          - reply: {rung.evidence[:200]}")
     print(f"structured  : {structured_field or 'unknown'}")
     print(f"cost (usd)  : {doctor_json['cost_usd_total']}")
     print(f"wrote       : {doctor_path}")
@@ -507,6 +905,9 @@ def run_doctor(args: Any) -> int:
         print(f"note        : {note}")
 
     if strategy_name is None:
+        leaking = [probe.name for probe in probes if probe.context_leak_ok is False]
+        if leaking:
+            print(f"doctor: context leaked under {', '.join(leaking)}.")
         print("doctor: no isolation strategy passed; `run` will refuse to execute.")
         return 1
     return 0

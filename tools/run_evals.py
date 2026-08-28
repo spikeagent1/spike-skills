@@ -225,7 +225,8 @@ def load_doctor(claude_bin: str) -> Tuple[Optional[Dict[str, Any]], Optional[str
     """Validated `doctor.json`, or a message explaining why `run` must refuse.
 
     An eval run that cannot prove its isolation is worse than no run: it silently
-    measures the operator's ~100 personal skills instead of this repo's.
+    measures the operator's ~100 personal skills, or their private memory files,
+    instead of this repo's skills.
     """
     path = workspace.WORKSPACE / "doctor.json"
     if not path.is_file():
@@ -236,6 +237,16 @@ def load_doctor(claude_bin: str) -> Tuple[Optional[Dict[str, Any]], Optional[str
         return None, f"{path} is unreadable: {exc}"
     if not payload.get("strategy"):
         return None, f"{path} records no working isolation strategy; re-run `doctor`"
+    if "context_leak_ok" not in payload:
+        return None, (
+            f"{path} predates the context-leak probe and cannot prove the operator's "
+            "memory files stay out of the run; re-run `doctor`"
+        )
+    if payload.get("context_leak_ok") is not True:
+        return None, (
+            f"{path} records a context leak (context_leak_ok: false): the chosen strategy "
+            "let foreign memory into the model's context; fix the isolation and re-run `doctor`"
+        )
     installed = workspace.claude_version(claude_bin)
     recorded = payload.get("claude_code_version")
     if installed != recorded:
@@ -364,6 +375,11 @@ def cmd_run(args: argparse.Namespace) -> int:
             "strategy": args.isolation_strategy,
             "flags": isolation_flags,
             "doctor_checked_at": doctor_json.get("checked_at"),
+            "context_leak_ok": doctor_json.get("context_leak_ok"),
+            # Carried from `doctor.json`: a CLI-injected identity signal is a
+            # cross-config confound every reader of this run has to know about.
+            "identity_leak": doctor_json.get("identity_leak"),
+            "identity_mitigation": doctor_json.get("identity_mitigation"),
         },
         "load_mode": args.load_mode,
         "system_prompt_mode": args.system_prompt_mode,
@@ -671,6 +687,11 @@ def cmd_routing(args: argparse.Namespace) -> int:
             "strategy": args.isolation_strategy,
             "flags": isolation_flags,
             "doctor_checked_at": doctor_json.get("checked_at"),
+            "context_leak_ok": doctor_json.get("context_leak_ok"),
+            # Carried from `doctor.json`: a CLI-injected identity signal is a
+            # cross-config confound every reader of this run has to know about.
+            "identity_leak": doctor_json.get("identity_leak"),
+            "identity_mitigation": doctor_json.get("identity_mitigation"),
         },
         "mode": args.mode,
         "repeats": args.repeats,
