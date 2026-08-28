@@ -256,8 +256,8 @@ skills:
     status: approved
     cohort: health-and-home-lifestyle
     workshop_proposal: home-cook-20260824-e2475a2764
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: grocery-planner
     classification: owned
