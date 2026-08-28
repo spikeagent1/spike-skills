@@ -1,5 +1,5 @@
 {
-  "commit": "daca7f0",
+  "commit": "ed33b53",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-28T20:53:13+00:00",
+  "generated_at": "2026-08-28T21:09:36+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -1083,13 +1083,13 @@
         "examples:5/3 Uses authoritative food-safety guidance if making a safety claim",
         "examples:5/3 Offers a safe alternative instead of assuming the food is usable"
       ],
-      "run_id": "20260828T205257-daca7f0",
-      "skill_sha256": "c1758b067e6e7fb12fd0cd27a532d172f8a6977b1ad007d524aa2ab8d15b4d07",
+      "run_id": "20260828T210927-ed33b53",
+      "skill_sha256": "423cf5650862946d77ce23b25bd1db9e4b49c931fc8e08994e48b6ec60bffa6b",
       "ungraded": 0,
       "with_skill": {
-        "cost_usd": 0.51203,
+        "cost_usd": 0.621831,
         "pass_rate": 1.0,
-        "tokens_mean": 7099.2
+        "tokens_mean": 9914.2
       },
       "without_skill": {
         "cost_usd": 0.413119,
