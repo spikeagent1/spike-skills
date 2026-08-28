@@ -1,5 +1,5 @@
 {
-  "commit": "350e047",
+  "commit": "daca7f0",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-28T19:45:39+00:00",
+  "generated_at": "2026-08-28T20:53:13+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -1058,12 +1058,12 @@
       "cases": 5,
       "classes": {
         "broken": 0,
-        "discriminating": 3,
+        "discriminating": 4,
         "flaky": 0,
         "harmful": 0,
-        "non_discriminating": 12
+        "non_discriminating": 11
       },
-      "delta": 0.2,
+      "delta": 0.2667,
       "evals_sha256": {
         "examples/evals.json": "e2d21e36c59496b69ac51a73863ab21cab9d2b4ec8f0ebe7e5d25fc86cce821f",
         "routing-eval.jsonl": "35604d765b8c3ffd7cccda6b5c7d7dc0ce6d5925c8d64bb007a8374396d50ce4"
@@ -1080,22 +1080,21 @@
         "examples:3/3 Treats prices as estimates unless sourced",
         "examples:3/3 Keeps private pantry data optional",
         "examples:4/3 Asks the user to supply or authorize pantry data",
-        "examples:5/3 Treats time and temperature as safety-critical missing facts",
         "examples:5/3 Uses authoritative food-safety guidance if making a safety claim",
         "examples:5/3 Offers a safe alternative instead of assuming the food is usable"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "199b502062653867d2602c4782a5b0f81bf182b07b231490991700c4dcedf881",
+      "run_id": "20260828T205257-daca7f0",
+      "skill_sha256": "c1758b067e6e7fb12fd0cd27a532d172f8a6977b1ad007d524aa2ab8d15b4d07",
       "ungraded": 0,
       "with_skill": {
-        "cost_usd": 0.40753,
+        "cost_usd": 0.51203,
         "pass_rate": 1.0,
-        "tokens_mean": 6840.2
+        "tokens_mean": 7099.2
       },
       "without_skill": {
-        "cost_usd": 0.380364,
-        "pass_rate": 0.8,
-        "tokens_mean": 6334.2
+        "cost_usd": 0.413119,
+        "pass_rate": 0.7333,
+        "tokens_mean": 6443.4
       }
     },
     "medication-and-symptom-log": {
