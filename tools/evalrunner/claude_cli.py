@@ -33,6 +33,8 @@ NESTING_ENV_EXACT = ("CLAUDECODE",)
 
 RETRY_BACKOFFS_S = (5.0, 20.0)
 RATE_LIMIT_MARKERS = ("rate_limit", "rate limit", "429", "overloaded", "529")
+# HTTP statuses the CLI reports in `api_error_status` for throttling and overload.
+RATE_LIMIT_HTTP_STATUSES = (429, 529)
 BUDGET_MARKERS = ("max_budget", "maximum budget")
 STDERR_TAIL_CHARS = 4000
 READ_CHUNK_BYTES = 65536
@@ -283,20 +285,45 @@ def _line_has_skill_tool_use(line: str) -> bool:
     return any(use.get("name") == "Skill" for use in _tool_uses_in_event(event))
 
 
+def _is_rate_limit_http_status(value: Any) -> bool:
+    """True when `api_error_status` names a throttling or overload response."""
+    try:
+        return int(value) in RATE_LIMIT_HTTP_STATUSES
+    except (TypeError, ValueError):
+        return False
+
+
 def classify_status(
     result_event: Optional[Mapping[str, Any]], returncode: Optional[int], stderr_tail: str
 ) -> str:
-    """Map a finished invocation onto one of `STATUSES`."""
+    """Map a finished invocation onto one of `STATUSES`.
+
+    A failed turn does not always carry an `errors` list: the CLI reports many
+    failures as `subtype: "success"` with `is_error: true`, the HTTP status in
+    `api_error_status`, and the message in `result`. All of those are scanned.
+    The model's own reply text and stderr are read only when the CLI flagged an
+    error, so a successful answer that happens to discuss HTTP 429 stays `ok`.
+    """
     if result_event is not None:
-        blob = " ".join(
-            [str(result_event.get("subtype") or "")]
-            + [str(err) for err in (result_event.get("errors") or [])]
-        ).lower()
+        is_error = bool(result_event.get("is_error"))
+        parts = [
+            str(result_event.get("subtype") or ""),
+            str(result_event.get("terminal_reason") or ""),
+        ]
+        parts.extend(str(err) for err in (result_event.get("errors") or []))
+        if is_error:
+            message = result_event.get("result")
+            if isinstance(message, str):
+                parts.append(message)
+            parts.append(stderr_tail)
+        blob = " ".join(parts).lower()
         if any(marker in blob for marker in BUDGET_MARKERS):
             return STATUS_BUDGET_EXCEEDED
-        if any(marker in blob for marker in RATE_LIMIT_MARKERS):
+        if _is_rate_limit_http_status(result_event.get("api_error_status")) or any(
+            marker in blob for marker in RATE_LIMIT_MARKERS
+        ):
             return STATUS_RATE_LIMITED
-        return STATUS_ERROR if result_event.get("is_error") else STATUS_OK
+        return STATUS_ERROR if is_error else STATUS_OK
     lowered = stderr_tail.lower()
     if any(marker in lowered for marker in RATE_LIMIT_MARKERS):
         return STATUS_RATE_LIMITED

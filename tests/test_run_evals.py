@@ -25,6 +25,17 @@ def _fixture_lines(name: str) -> list[str]:
     return FIXTURES.joinpath(name).read_text(encoding="utf-8").splitlines()
 
 
+def _captured_error_event() -> dict:
+    """The real result event the CLI emits for a failed turn.
+
+    Shape matters: `subtype` is "success", there is no `errors` key, the message
+    lives in `result`, and the HTTP status is in `api_error_status`.
+    """
+    _, _, result_event, _ = claude_cli.parse_stream_lines(_fixture_lines("error_result.jsonl"))
+    assert result_event is not None
+    return dict(result_event)
+
+
 class FakeClaudeScript:
     """Writes an executable stand-in for the `claude` binary."""
 
@@ -284,6 +295,26 @@ class SubprocessRunnerTest(unittest.TestCase):
         self.assertTrue(result.tool_uses)
         self.assertEqual(result.tool_uses[0]["name"], "Skill")
 
+    def test_real_shaped_rate_limit_event_drives_the_retry_loop(self) -> None:
+        # Same shape the binary emits: subtype "success", no `errors` key, HTTP
+        # status in `api_error_status`. This is what the retry must actually fire on.
+        event = _captured_error_event()
+        event["api_error_status"] = 429
+        event["result"] = "API Error: 429 rate_limit_error. Please retry shortly."
+        stream = self.tmpdir / "real-ratelimit.jsonl"
+        stream.write_text(json.dumps(event) + "\n", encoding="utf-8")
+        counter = self.tmpdir / "real-attempts"
+        runner = self._runner(f'echo x >> "{counter}"\ncat "{stream}"\n')
+        req = claude_cli.ClaudeRequest(
+            argv=runner.argv("-p", "hi"), cwd=self.tmpdir, env={}, timeout_s=30.0
+        )
+        result = runner.run(req)
+        self.assertEqual(result.status, "rate_limited")
+        self.assertEqual(
+            len(counter.read_text(encoding="utf-8").split()),
+            1 + len(claude_cli.RETRY_BACKOFFS_S),
+        )
+
     def test_rate_limited_result_is_retried_then_reported(self) -> None:
         stream = self.tmpdir / "ratelimit.jsonl"
         stream.write_text(
@@ -309,6 +340,67 @@ class SubprocessRunnerTest(unittest.TestCase):
             len(counter.read_text(encoding="utf-8").split()),
             1 + len(claude_cli.RETRY_BACKOFFS_S),
         )
+
+
+class RateLimitDetectionTest(unittest.TestCase):
+    """Rate-limit detection against the shape the binary actually emits."""
+
+    def test_the_captured_error_event_has_the_shape_these_tests_assume(self) -> None:
+        event = _captured_error_event()
+        self.assertEqual(event["subtype"], "success")
+        self.assertIs(event["is_error"], True)
+        self.assertNotIn("errors", event)
+        self.assertIsInstance(event["result"], str)
+        self.assertEqual(event["api_error_status"], 404)
+
+    def test_real_shaped_429_is_rate_limited(self) -> None:
+        event = _captured_error_event()
+        event["api_error_status"] = 429
+        event["result"] = "API Error: 429 rate_limit_error. Please retry shortly."
+        self.assertEqual(claude_cli.classify_status(event, 0, ""), "rate_limited")
+
+    def test_http_status_alone_is_enough(self) -> None:
+        event = _captured_error_event()
+        event["api_error_status"] = 429
+        self.assertEqual(claude_cli.classify_status(event, 0, ""), "rate_limited")
+
+    def test_overloaded_529_is_rate_limited(self) -> None:
+        event = _captured_error_event()
+        event["api_error_status"] = 529
+        self.assertEqual(claude_cli.classify_status(event, 0, ""), "rate_limited")
+
+    def test_result_text_is_scanned_when_no_status_is_present(self) -> None:
+        event = _captured_error_event()
+        event.pop("api_error_status")
+        event["result"] = "The model is overloaded right now."
+        self.assertEqual(claude_cli.classify_status(event, 0, ""), "rate_limited")
+
+    def test_stderr_is_scanned_even_when_a_result_event_exists(self) -> None:
+        event = _captured_error_event()
+        event.pop("api_error_status")
+        event["result"] = "Something went wrong."
+        self.assertEqual(
+            claude_cli.classify_status(event, 1, "API Error: 429 rate_limit_error"), "rate_limited"
+        )
+
+    def test_the_captured_404_event_is_still_a_plain_error(self) -> None:
+        self.assertEqual(claude_cli.classify_status(_captured_error_event(), 1, ""), "error")
+
+    def test_a_successful_reply_about_rate_limits_stays_ok(self) -> None:
+        # The model's own answer is never scanned unless the CLI flagged an error,
+        # so an eval response that discusses HTTP 429 is not a rate limit.
+        event = _captured_error_event()
+        event["is_error"] = False
+        event.pop("api_error_status")
+        event["terminal_reason"] = "end_turn"
+        event["result"] = "A 429 means rate_limit_error; retry with backoff."
+        self.assertEqual(claude_cli.classify_status(event, 0, ""), "ok")
+
+    def test_budget_exhaustion_still_wins_over_rate_limit_markers(self) -> None:
+        event = _captured_error_event()
+        event["subtype"] = "error_max_budget_usd"
+        event["api_error_status"] = 429
+        self.assertEqual(claude_cli.classify_status(event, 0, ""), "budget_exceeded")
 
 
 class ChooseStrategyTest(unittest.TestCase):
