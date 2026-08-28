@@ -57,6 +57,25 @@ def _flags(skill: Dict[str, Any]) -> str:
     return ", ".join(flags) if flags else "-"
 
 
+CONFOUND_LINE = (
+    "- Confound: the CLI injects the operator identity and current date into every config "
+    "(identity_leak=true)"
+)
+
+
+def confound_line(run_meta: Dict[str, Any]) -> Optional[str]:
+    """Header line for a run whose doctor could not keep the CLI's identity block out.
+
+    The block is identical in every config, so it cannot explain a with/without
+    difference -- but a reader comparing runs has to know it was there.
+    """
+    isolation = run_meta.get("isolation") or {}
+    confounds = run_meta.get("confounds") or []
+    if isolation.get("identity_leak") or "cli-identity-block" in confounds:
+        return CONFOUND_LINE
+    return None
+
+
 def render_run_report(results: Dict[str, Any], run_meta: Dict[str, Any]) -> str:
     """Markdown report for one run: header, scorecard, per-skill findings, open issues."""
     skills = results.get("skills") or {}
@@ -82,12 +101,9 @@ def render_run_report(results: Dict[str, Any], run_meta: Dict[str, Any]) -> str:
     lines.append(f"- Commit: {run_meta.get('commit') or 'unknown'}{dirty_suffix}")
     lines.append(f"- Date: {run_meta.get('started_at') or results.get('generated_at') or 'unknown'}")
     lines.append(f"- Isolation strategy: {isolation.get('strategy') or 'unknown'}")
-    if isolation.get("identity_leak"):
-        mitigation = isolation.get("identity_mitigation") or "none found"
-        lines.append(
-            f"- Confound: the CLI put the operator's identity in the model's context "
-            f"under this strategy (doctor `identity_leak`; mitigation: {mitigation})"
-        )
+    confound = confound_line(run_meta)
+    if confound:
+        lines.append(confound)
     lines.append(
         f"- Cost: ${float(run_meta.get('cost_usd_total') or 0.0):.4f} attributed / "
         f"${float(run_meta.get('spend_usd_total') or 0.0):.4f} spent this run"

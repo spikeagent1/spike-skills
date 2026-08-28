@@ -31,6 +31,7 @@ from tools import validate_repo
 from .cases import CaseLoadError, RoutingCase, skill_dirs
 from .claude_cli import ClaudeRequest, ClaudeResult
 from .executor import executor_env, sandbox_cwd
+from .report import confound_line
 from . import cache, workspace
 
 ROOT = workspace.ROOT
@@ -630,6 +631,9 @@ def render_routing_report(aggregate: Dict[str, Any], run_meta: Dict[str, Any]) -
     lines.append(f"- Commit: {run_meta.get('commit') or 'unknown'}{dirty_suffix}")
     lines.append(f"- Date: {run_meta.get('started_at') or 'unknown'}")
     lines.append(f"- Isolation strategy: {isolation.get('strategy') or 'unknown'}")
+    confound = confound_line(run_meta)
+    if confound:
+        lines.append(confound)
     lines.append(f"- Skills on the ballot: {run_meta.get('ballot_size') or 'unknown'}")
     lines.append(f"- Cost: ${float(run_meta.get('cost_usd_total') or 0.0):.4f}")
     lines.append("")

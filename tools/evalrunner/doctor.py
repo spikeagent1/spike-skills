@@ -68,9 +68,31 @@ STRUCTURED_SCHEMA = json.dumps(
 # `~/.claude` tree, not from this repository.
 FOREIGN_MARKERS = ("superpowers", "gstack", "brainstorming", "google-")
 # Strings that can only come from the operator's own machine: their private repo
-# and vault names, the memory file itself, and their GitHub handle. Seeing any of
-# them in a probe reply proves foreign context reached the model.
-CONTEXT_LEAK_MARKERS = ("CLAUDE.md", "Tapan-Brain", "safer-by-default", "gstack", "chughtapan")
+# and vault names, the memory file itself, their GitHub handle, and their plugin
+# suite. Seeing any of them in a probe reply proves foreign memory reached the
+# model, and no strategy that shows one is usable.
+CONTEXT_LEAK_MARKERS = (
+    "CLAUDE.md",
+    "Tapan-Brain",
+    "safer-by-default",
+    "gstack",
+    "chughtapan",
+    "superpowers",
+)
+# Claude Code injects its own reminder -- the operator's address, today's date, and
+# the spend budget -- into every headless call, identically in every config, and no
+# available flag removes it (Task 5b, round 1). It is recorded as `identity_leak`,
+# a confound, rather than treated as leaked memory. Recognition is line-by-line and
+# length-capped, so anything the CLI has not been observed to inject fails closed.
+CLI_IDENTITY_BLOCK_MAX_CHARS = 1000
+CLI_REMINDER_LINE_RES = (
+    re.compile(r"^#{0,3}\s*(user\s*email|current\s*date|budget)\b", re.IGNORECASE),
+    re.compile(r"^the user'?s email address is\b", re.IGNORECASE),
+    re.compile(r"^today'?s date is\b", re.IGNORECASE),
+    re.compile(r"^(usd|token)?\s*budget\s*:", re.IGNORECASE),
+    re.compile(r"^important:\s*this context may or may not be relevant", re.IGNORECASE),
+)
+CURRENT_DATE_RE = re.compile(r"#\s*current\s*date\b|today'?s date is\b", re.IGNORECASE)
 # A `<memory>` block this short cannot carry a quoted memory file. The sentinel is
 # exactly 20 characters, so a model that wraps it in the tags stays under the bar;
 # it is also excluded by value, in case the wording ever grows.
@@ -104,6 +126,7 @@ class ProbeResult:
     context_leak_ok: Optional[bool] = None
     context_markers: List[str] = field(default_factory=list)
     context_evidence: str = ""
+    current_date_seen: bool = False
     comparison: bool = False
 
     def to_json(self) -> Dict[str, Any]:
@@ -118,6 +141,7 @@ class ProbeResult:
             "context_leak_ok": self.context_leak_ok,
             "context_markers": list(self.context_markers),
             "context_evidence": self.context_evidence,
+            "current_date_seen": self.current_date_seen,
             "comparison": self.comparison,
         }
 
@@ -199,27 +223,57 @@ def memory_blocks(text: str) -> List[str]:
     return [block.strip() for block in MEMORY_BLOCK_RE.findall(text)]
 
 
-def context_leak_markers(text: str, email: str = "") -> List[str]:
-    """Every signal in a context-probe reply that foreign context reached the model."""
+def is_cli_identity_block(text: str) -> bool:
+    """True when a `<memory>` block is only Claude Code's own identity/date/budget reminder.
+
+    Every non-empty line must match a shape the CLI has actually been observed to
+    inject, and the block must stay under `CLI_IDENTITY_BLOCK_MAX_CHARS`. One
+    unrecognized line, or a longer block, means unknown content and a hard failure.
+    """
+    body = text.strip()
+    if not body or len(body) > CLI_IDENTITY_BLOCK_MAX_CHARS:
+        return False
+    lines = [line.strip() for line in body.splitlines() if line.strip()]
+    if not lines:
+        return False
+    return all(
+        any(pattern.match(line) for pattern in CLI_REMINDER_LINE_RES) for line in lines
+    )
+
+
+def current_date_injected(text: str) -> bool:
+    """True when the CLI's `# currentDate` reminder shows up in a probe reply."""
+    return bool(CURRENT_DATE_RE.search(text))
+
+
+def context_leak_markers(text: str) -> List[str]:
+    """Every signal in a context-probe reply that foreign *memory* reached the model.
+
+    The operator's address is deliberately not one: the CLI injects it into every
+    config, so it cannot differentiate two configs and is recorded as
+    `identity_leak` instead (controller ruling, Task 5b round 2). Memory content
+    -- the operator's CLAUDE.md, vault, or repos -- stays a hard failure.
+    """
     lowered = text.lower()
     found = [marker for marker in CONTEXT_LEAK_MARKERS if marker.lower() in lowered]
-    if email and email.lower() in lowered:
-        found.append("operator-email")
     for block in memory_blocks(text):
-        if block != NO_MEMORY_SENTINEL and len(block) > MEMORY_BLOCK_MAX_CHARS:
-            found.append("memory-block")
-            break
+        if block == NO_MEMORY_SENTINEL or len(block) <= MEMORY_BLOCK_MAX_CHARS:
+            continue
+        if is_cli_identity_block(block):
+            continue
+        found.append("memory-block")
+        break
     return found
 
 
-def context_leak_ok(text: str, status: str, email: str = "") -> bool:
-    """True when a context probe answered and its answer carries no leak marker.
+def context_leak_ok(text: str, status: str) -> bool:
+    """True when a context probe answered and its answer carries no memory-leak marker.
 
     An empty or failed reply proves nothing, so it is not a pass.
     """
     if status not in PROBE_OK_STATUSES or not text.strip():
         return False
-    return not context_leak_markers(text, email)
+    return not context_leak_markers(text)
 
 
 def identity_markers(text: str, email: str = "", name: str = "") -> List[str]:
@@ -237,7 +291,7 @@ def identity_markers(text: str, email: str = "", name: str = "") -> List[str]:
     return found
 
 
-def mitigation_confirmed(text: str, status: str, email: str = "") -> bool:
+def mitigation_confirmed(text: str, status: str, email: str = "", name: str = "") -> bool:
     """True when a rung's own context probe quotes no operator identity.
 
     A rung that answers UNKNOWN-USER has only declined to repeat what it was told;
@@ -246,7 +300,7 @@ def mitigation_confirmed(text: str, status: str, email: str = "") -> bool:
     """
     if status not in PROBE_OK_STATUSES or not text.strip():
         return False
-    return "operator-email" not in context_leak_markers(text, email)
+    return not identity_markers(text, email, name)
 
 
 def identity_ladder(strategy: Optional[str]) -> List[IdentityMitigation]:
@@ -622,9 +676,10 @@ def run_doctor(args: Any) -> int:
                 env=strategy_env(probe.name, ws, environ),
             )
             costs.append(ctx_result.cost_usd)
-            probe.context_leak_ok = context_leak_ok(ctx_result.text, ctx_result.status, email)
-            probe.context_markers = context_leak_markers(ctx_result.text, email)
+            probe.context_leak_ok = context_leak_ok(ctx_result.text, ctx_result.status)
+            probe.context_markers = context_leak_markers(ctx_result.text)
             probe.context_evidence = evidence_snippet(ctx_result.text, email)
+            probe.current_date_seen = current_date_injected(ctx_result.text)
             probe.notes.append(f"context probe status={ctx_result.status}")
             if NO_MEMORY_SENTINEL not in ctx_result.text and not probe.context_markers:
                 probe.notes.append("context probe answered without the sentinel; no leak marker")
@@ -648,9 +703,10 @@ def run_doctor(args: Any) -> int:
             name=REPO_CWD_PROBE,
             status=repo_result.status,
             comparison=True,
-            context_leak_ok=context_leak_ok(repo_result.text, repo_result.status, email),
-            context_markers=context_leak_markers(repo_result.text, email),
+            context_leak_ok=context_leak_ok(repo_result.text, repo_result.status),
+            context_markers=context_leak_markers(repo_result.text),
             context_evidence=evidence_snippet(repo_result.text, email),
+            current_date_seen=current_date_injected(repo_result.text),
             notes=[f"comparison only: cwd {repo_cwd} is inside the repository"],
         )
         probes.append(repo_probe)
@@ -709,7 +765,7 @@ def run_doctor(args: Any) -> int:
                 rung_probe.status = confirm.status
                 rung_probe.notes.append("confirmation probe did not answer; mitigation unproven")
                 continue
-            if not mitigation_confirmed(confirm.text, confirm.status, email):
+            if not mitigation_confirmed(confirm.text, confirm.status, email, operator_name):
                 rung_probe.leak = True
                 rung_probe.markers.append("context-identity")
                 rung_probe.evidence = evidence_snippet(confirm.text, email)
@@ -817,6 +873,14 @@ def run_doctor(args: Any) -> int:
     current_rung = identity_probes[0] if identity_probes else None
     identity_leak = bool(current_rung and current_rung.leak)
     identity_mitigation = choose_identity_mitigation(identity_probes)
+    date_injected = any(probe.current_date_seen for probe in probes if not probe.comparison)
+    # Named so a run, a report, or a later eval-fixture audit can point at the exact
+    # thing the harness could not remove.
+    confounds: List[str] = []
+    if identity_leak:
+        confounds.append("cli-identity-block")
+    if date_injected:
+        confounds.append("cli-current-date")
 
     doctor_json = {
         "harness_version": HARNESS_VERSION,
@@ -835,6 +899,8 @@ def run_doctor(args: Any) -> int:
         "identity_leak": identity_leak,
         "identity_mitigation": identity_mitigation,
         "identity_probes": [probe.to_json() for probe in identity_probes],
+        "current_date_injected": date_injected,
+        "confounds": confounds,
         "structured_output_field": structured_field,
         "builtin_skill_baseline": sorted(builtin_names),
         "argv_template": argv_template,
@@ -881,6 +947,7 @@ def run_doctor(args: Any) -> int:
         f"identity    : {'LEAK' if identity_leak else 'clean'}  "
         f"mitigation={identity_mitigation or 'none found'}"
     )
+    print(f"confounds   : {', '.join(confounds) or 'none'}")
     for rung in identity_probes:
         if not rung.available:
             state = "skip"

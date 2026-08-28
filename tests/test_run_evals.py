@@ -466,6 +466,18 @@ class ChooseStrategyTest(unittest.TestCase):
         ]
         self.assertEqual(doctor.choose_strategy(probes), "fresh-home")
 
+    def test_a_strategy_leaking_only_the_cli_reminder_is_chosen(self) -> None:
+        probe = self._probe(
+            "project-sources",
+            context_leak_ok=doctor.context_leak_ok(CLI_REMINDER_REPLY, "ok"),
+        )
+        self.assertEqual(doctor.choose_strategy([probe]), "project-sources")
+
+    def test_a_strategy_leaking_a_memory_file_is_not_chosen(self) -> None:
+        leak = "<memory>Contents of ~/.claude/CLAUDE.md: Tapan-Brain</memory>"
+        probe = self._probe("project-sources", context_leak_ok=doctor.context_leak_ok(leak, "ok"))
+        self.assertIsNone(doctor.choose_strategy([probe]))
+
     def test_an_unprobed_context_is_never_chosen(self) -> None:
         probes = [self._probe("project-sources", context_leak_ok=None)]
         self.assertIsNone(doctor.choose_strategy(probes))
@@ -498,51 +510,123 @@ class ChooseStrategyTest(unittest.TestCase):
         self.assertIsNone(doctor.choose_strategy(probes))
 
 
+# The reminder Claude Code injects into every headless call, as the model quoted
+# it back during the real `doctor` run (address replaced with a fixture value).
+CLI_IDENTITY_BLOCK = (
+    "# userEmail\n"
+    "The user's email address is someone@example.edu. Use it only to identify the user, such as"
+    " for authorship, attribution, or filtering their own work. Never send it to an unrelated"
+    " service, such as in a request header, URL, or payload, unless the user explicitly asks.\n"
+    "# currentDate\n"
+    "Today's date is 2026-08-27.\n"
+    "\n"
+    "      IMPORTANT: this context may or may not be relevant to your tasks. You should not"
+    " respond to this context unless it is highly relevant to your task."
+)
+
+CLI_REMINDER_REPLY = (
+    "<memory>\n" + CLI_IDENTITY_BLOCK + "\n</memory>\n\n"
+    "<memory>\nUSD budget: $0/$0.05; $0.05 remaining\n</memory>\n\n"
+    "No memory files have been read or loaded in this conversation."
+)
+
+
 class ContextLeakProbeTest(unittest.TestCase):
     """The context probe catches the memory `--setting-sources project` does not suppress."""
 
     EMAIL = "someone@example.edu"
 
     def test_the_bare_sentinel_reply_is_clean(self) -> None:
-        self.assertEqual(doctor.context_leak_markers("NO-MEMORY-IN-CONTEXT", self.EMAIL), [])
+        self.assertEqual(doctor.context_leak_markers("NO-MEMORY-IN-CONTEXT"), [])
 
     def test_the_sentinel_inside_a_memory_block_is_clean(self) -> None:
         text = "<memory>NO-MEMORY-IN-CONTEXT</memory>"
-        self.assertEqual(doctor.context_leak_markers(text, self.EMAIL), [])
+        self.assertEqual(doctor.context_leak_markers(text), [])
 
     def test_every_foreign_marker_is_caught(self) -> None:
         for marker in doctor.CONTEXT_LEAK_MARKERS:
             with self.subTest(marker=marker):
-                found = doctor.context_leak_markers(f"I was given {marker} notes", "")
+                found = doctor.context_leak_markers(f"I was given {marker} notes")
                 self.assertIn(marker, found)
 
     def test_marker_matching_ignores_case(self) -> None:
-        self.assertIn("CLAUDE.md", doctor.context_leak_markers("quoted from claude.md", ""))
+        self.assertIn("CLAUDE.md", doctor.context_leak_markers("quoted from claude.md"))
 
-    def test_the_operator_email_is_a_marker(self) -> None:
-        found = doctor.context_leak_markers(f"you are {self.EMAIL}", self.EMAIL)
-        self.assertEqual(found, ["operator-email"])
+    def test_the_operator_email_alone_is_not_a_hard_marker(self) -> None:
+        # Ruling (B): the CLI injects the address into every config, so it is a
+        # recorded confound (`identity_leak`), not proof that memory leaked.
+        self.assertEqual(doctor.context_leak_markers(f"you are {self.EMAIL}"), [])
 
-    def test_an_absent_operator_email_matches_nothing(self) -> None:
-        self.assertEqual(doctor.context_leak_markers("a plain reply", ""), [])
+    def test_a_plain_reply_matches_nothing(self) -> None:
+        self.assertEqual(doctor.context_leak_markers("a plain reply"), [])
+
+    def test_the_cli_reminder_block_is_not_a_hard_marker(self) -> None:
+        self.assertEqual(doctor.context_leak_markers(CLI_REMINDER_REPLY), [])
+        self.assertTrue(doctor.context_leak_ok(CLI_REMINDER_REPLY, "ok"))
+
+    def test_a_memory_file_inside_the_reminder_shape_is_still_hard(self) -> None:
+        text = CLI_REMINDER_REPLY.replace(
+            "# currentDate", "# claudeMd\nContents of ~/.claude/CLAUDE.md:\n- Tapan-Brain vault"
+        )
+        markers = doctor.context_leak_markers(text)
+        self.assertIn("CLAUDE.md", markers)
+        self.assertIn("Tapan-Brain", markers)
+        self.assertIn("memory-block", markers)
+        self.assertFalse(doctor.context_leak_ok(text, "ok"))
+
+    def test_superpowers_is_a_hard_marker(self) -> None:
+        self.assertIn("superpowers", doctor.context_leak_markers("the superpowers plugin"))
+
+    def test_the_injected_current_date_is_detected(self) -> None:
+        self.assertTrue(doctor.current_date_injected(CLI_REMINDER_REPLY))
+        self.assertFalse(doctor.current_date_injected("NO-MEMORY-IN-CONTEXT"))
+
+
+class CliIdentityBlockTest(unittest.TestCase):
+    """Only the CLI's own identity/date/budget reminder may be waved through."""
+
+    def test_the_observed_reminder_block_is_recognized(self) -> None:
+        self.assertTrue(doctor.is_cli_identity_block(CLI_IDENTITY_BLOCK))
+
+    def test_the_budget_block_is_recognized(self) -> None:
+        self.assertTrue(doctor.is_cli_identity_block("USD budget: $0/$0.05; $0.05 remaining"))
+        self.assertTrue(doctor.is_cli_identity_block("token budget: 100 remaining"))
+
+    def test_a_header_carrying_its_value_on_one_line_is_recognized(self) -> None:
+        self.assertTrue(
+            doctor.is_cli_identity_block("# userEmail The user's email address is a@b.co")
+        )
+
+    def test_project_memory_is_not_the_reminder(self) -> None:
+        self.assertFalse(doctor.is_cli_identity_block("# claudeMd\nAlways run the linter first."))
+
+    def test_one_foreign_line_disqualifies_the_whole_block(self) -> None:
+        self.assertFalse(
+            doctor.is_cli_identity_block(CLI_IDENTITY_BLOCK + "\nRepos live under ~/dev/.")
+        )
+
+    def test_an_empty_block_is_not_the_reminder(self) -> None:
+        self.assertFalse(doctor.is_cli_identity_block("   "))
+
+    def test_an_oversized_block_is_never_waved_through(self) -> None:
+        padded = CLI_IDENTITY_BLOCK + "\n# currentDate " + "x" * 2000
+        self.assertFalse(doctor.is_cli_identity_block(padded))
 
     def test_a_long_memory_block_is_a_marker(self) -> None:
         text = "<memory>" + "x" * 21 + "</memory>"
-        self.assertEqual(doctor.context_leak_markers(text, self.EMAIL), ["memory-block"])
+        self.assertEqual(doctor.context_leak_markers(text), ["memory-block"])
 
     def test_a_short_memory_block_is_not_a_marker(self) -> None:
-        self.assertEqual(doctor.context_leak_markers("<memory>none</memory>", self.EMAIL), [])
+        self.assertEqual(doctor.context_leak_markers("<memory>none</memory>"), [])
 
     def test_an_unclosed_memory_block_still_counts(self) -> None:
-        self.assertEqual(
-            doctor.context_leak_markers("<memory>" + "y" * 40, self.EMAIL), ["memory-block"]
-        )
+        self.assertEqual(doctor.context_leak_markers("<memory>" + "y" * 40), ["memory-block"])
 
     def test_context_leak_ok_needs_a_reply_and_no_markers(self) -> None:
-        self.assertTrue(doctor.context_leak_ok("NO-MEMORY-IN-CONTEXT", "ok", self.EMAIL))
-        self.assertFalse(doctor.context_leak_ok("", "ok", self.EMAIL))
-        self.assertFalse(doctor.context_leak_ok("NO-MEMORY-IN-CONTEXT", "error", self.EMAIL))
-        self.assertFalse(doctor.context_leak_ok("read ~/.claude/CLAUDE.md", "ok", self.EMAIL))
+        self.assertTrue(doctor.context_leak_ok("NO-MEMORY-IN-CONTEXT", "ok"))
+        self.assertFalse(doctor.context_leak_ok("", "ok"))
+        self.assertFalse(doctor.context_leak_ok("NO-MEMORY-IN-CONTEXT", "error"))
+        self.assertFalse(doctor.context_leak_ok("read ~/.claude/CLAUDE.md", "ok"))
 
 
 class RedactionTest(unittest.TestCase):
@@ -2401,9 +2485,13 @@ class RenderReportTest(unittest.TestCase):
     def test_an_identity_leak_is_surfaced_as_a_confound(self) -> None:
         meta = dict(self.run_meta)
         meta["isolation"] = {"strategy": "project-sources", "identity_leak": True}
+        meta["confounds"] = ["cli-identity-block"]
         text = report.render_run_report(self.results, meta)
-        self.assertIn("Confound", text)
-        self.assertIn("identity", text)
+        self.assertIn(
+            "- Confound: the CLI injects the operator identity and current date into every "
+            "config (identity_leak=true)",
+            text,
+        )
 
     def test_scorecard_has_one_row_per_skill(self) -> None:
         self.assertIn("| briefing |", self.text)
@@ -2676,6 +2764,8 @@ class EndToEndRunTest(unittest.TestCase):
                 "checked_at": "2026-08-28T00:00:00+00:00",
                 "context_leak_ok": True,
                 "identity_leak": True,
+                "current_date_injected": True,
+                "confounds": ["cli-identity-block"],
             },
         )
 
@@ -2827,6 +2917,7 @@ class EndToEndRunTest(unittest.TestCase):
         run_json = json.loads((run_dirs[0] / "run.json").read_text(encoding="utf-8"))
         self.assertIs(run_json["isolation"]["identity_leak"], True)
         self.assertIs(run_json["isolation"]["context_leak_ok"], True)
+        self.assertEqual(run_json["confounds"], ["cli-identity-block"])
 
     def test_full_run_then_baseline_update_then_validate_repo(self) -> None:
         fake = FakeClaudeRunner(self._scripted_results())
@@ -2850,6 +2941,8 @@ class EndToEndRunTest(unittest.TestCase):
         self.assertEqual(len(grading_paths), 4)
         self.assertTrue((run_dir / "results.json").is_file())
         self.assertTrue((run_dir / "report.md").is_file())
+        # doctor.json -> run.json -> report.md: the confound survives the whole chain.
+        self.assertIn(report.CONFOUND_LINE, (run_dir / "report.md").read_text(encoding="utf-8"))
 
         results = json.loads((run_dir / "results.json").read_text(encoding="utf-8"))
         self.assertEqual(results["skills"]["alpha"]["cases"], 4)
@@ -3483,6 +3576,22 @@ class RenderRoutingReportTest(unittest.TestCase):
         self.assertIn("| alpha | 1 | 0 | 0 | 1 | 0 | 0 |", text)
         self.assertIn("do alpha", text)
         self.assertIn("gamma", text)
+        self.assertNotIn("Confound", text)
+
+    def test_the_identity_confound_reaches_the_routing_header(self) -> None:
+        aggregate = routing.aggregate_routing([], [], mode="native", repeats=1, run_id="r1")
+        text = routing.render_routing_report(
+            aggregate,
+            {
+                "isolation": {"strategy": "project-sources", "identity_leak": True},
+                "confounds": ["cli-identity-block"],
+            },
+        )
+        self.assertIn(
+            "- Confound: the CLI injects the operator identity and current date into every "
+            "config (identity_leak=true)",
+            text,
+        )
 
 
 class CheckBaselineRoutingTest(unittest.TestCase):
@@ -3597,6 +3706,8 @@ class RoutingCLITest(unittest.TestCase):
                 "checked_at": "2026-08-28T00:00:00+00:00",
                 "context_leak_ok": True,
                 "identity_leak": True,
+                "current_date_injected": True,
+                "confounds": ["cli-identity-block"],
             },
         )
 
@@ -3651,6 +3762,8 @@ class RoutingCLITest(unittest.TestCase):
         self.assertTrue((run_dir / "run.json").is_file())
         self.assertTrue((run_dir / "results.json").is_file())
         self.assertTrue((run_dir / "report.md").is_file())
+        # doctor.json -> run.json -> report.md: the confound survives the whole chain.
+        self.assertIn(report.CONFOUND_LINE, (run_dir / "report.md").read_text(encoding="utf-8"))
         self.assertTrue((run_dir / "alpha" / "intent-2" / "run-1" / "stream.jsonl").is_file())
         self.assertTrue((run_dir / "alpha" / "intent-2" / "run-3" / "chosen.json").is_file())
         self.assertTrue((run_dir / "alpha" / "intent-2" / "intent_metadata.json").is_file())
