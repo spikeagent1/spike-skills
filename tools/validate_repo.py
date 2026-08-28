@@ -119,6 +119,7 @@ SUPPORTING_FILE_EXEMPT = frozenset({"SKILL.md", "examples/evals.json", "routing-
 FORBIDDEN_SKILL_CONFIG = frozenset({"CLAUDE.md", "AGENTS.md", ".mcp.json", ".claude"})
 MARKDOWN_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 MARKDOWN_TABLE_ROW_RE = re.compile(r"^\s*\|.+\|\s*$", re.MULTILINE)
+BLOCK_SCALAR_RE = re.compile(r"[|>][+-]?\d*")
 CATALOG_PARITY_FIELDS = (
     "classification",
     "runtime_path",
@@ -164,11 +165,20 @@ def _frontmatter_value(raw: str) -> Any:
 def parse_frontmatter(text: str) -> dict[str, Any] | None:
     """Every top-level frontmatter key, or None when the block is absent.
 
-    Handles scalars, block lists (`- x`), flow lists (`[a, b]`), and exactly one
-    nesting level under `metadata` (`metadata: {spike-os: {...}}`, inner values
-    scalar or list). Anything deeper, or a nested map under any other key, is
-    recorded under `FRONTMATTER_PARSE_ERRORS` so `validate_frontmatter` can
-    report it without re-parsing.
+    This is not a YAML parser; it accepts the deliberately small subset the
+    repository writes, and reports anything outside it rather than guessing:
+
+    - two-space indentation, one step per nesting level;
+    - scalars (quoted or bare, with a trailing ` # comment` stripped);
+    - block lists (`- x`) and flow lists (`[a, b]`);
+    - exactly one nesting level under `metadata`
+      (`metadata: {spike-os: {...}}`), whose values are scalars or lists;
+    - no block scalars (`>`, `|`), no anchors, no multi-document streams.
+
+    Anything else -- deeper nesting, a nested map under a key other than
+    `metadata`, a block scalar, an unparsable line -- is recorded under
+    `FRONTMATTER_PARSE_ERRORS` so `validate_frontmatter` reports it verbatim
+    without re-parsing.
     """
     match = re.match(r"^---\n(.*?)\n---\n", text, re.DOTALL)
     if not match:
@@ -178,12 +188,20 @@ def parse_frontmatter(text: str) -> dict[str, Any] | None:
     problems: list[str] = []
     containers: dict[int, dict[str, Any]] = {0: data}
     open_key: dict[int, str] = {}
+    # Indent of a rejected block scalar, whose continuation lines are skipped so
+    # they do not each produce their own unparsable-line noise.
+    skipped_indent: int | None = None
 
     for raw in match.group(1).splitlines():
         if not raw.strip() or raw.lstrip().startswith("#"):
             continue
         indent = len(raw) - len(raw.lstrip(" "))
         stripped = raw.strip()
+
+        if skipped_indent is not None:
+            if indent > skipped_indent:
+                continue
+            skipped_indent = None
 
         if stripped.startswith("- ") or stripped == "-":
             depth = max(indent // 2 - 1, 0)
@@ -220,7 +238,16 @@ def parse_frontmatter(text: str) -> dict[str, Any] | None:
         key, raw_value = field.group(1), field.group(2)
         if key in container:
             problems.append(f"duplicate key {key!r}")
-        if raw_value.strip():
+        if BLOCK_SCALAR_RE.fullmatch(raw_value.strip()):
+            problems.append(
+                f"key {key!r} uses a block scalar ({raw_value.strip()}); "
+                f"block scalars (>, |) are not supported in frontmatter -- "
+                f"put the value on one line, quoted if needed"
+            )
+            container[key] = ""
+            containers.pop(depth + 1, None)
+            skipped_indent = indent
+        elif raw_value.strip():
             container[key] = _frontmatter_value(raw_value)
             containers.pop(depth + 1, None)
         else:
@@ -751,9 +778,13 @@ def validate_frontmatter(
 ) -> None:
     """The frontmatter carries only the agentskills.io keys plus metadata.spike-os.
 
-    Legacy OS keys survive while a skill is still at contract_version 1; the keys
-    in `FRONTMATTER_REJECTED_KEYS` never do. Callers route contract_version 1
-    findings to `warnings` so the unmigrated library stays green.
+    Unknown top-level keys and parse problems are errors at every contract
+    version. Exactly two findings soften to warnings while a skill is still at
+    contract_version 1, because today's library still trips them and the rewrite
+    batches clear them: a key in `FRONTMATTER_REJECTED_KEYS` (social-listening's
+    `triggers`/`tools`) and a `metadata` namespace other than `METADATA_NS`
+    (community-management's `metadata.version`). Legacy OS keys are simply
+    allowed at version 1 and rejected at 2.
     """
     for problem in meta.get(FRONTMATTER_PARSE_ERRORS, []):
         add_error(errors, f"{rel}/SKILL.md: frontmatter {problem}")
@@ -762,13 +793,13 @@ def validate_frontmatter(
     if contract_version == "1":
         allowed |= FRONTMATTER_LEGACY_KEYS
     allowlist = ", ".join(sorted(FRONTMATTER_ALLOWED_KEYS))
+    legacy_sink = warnings if contract_version == "1" else errors
 
     for key in sorted(k for k in meta if k != FRONTMATTER_PARSE_ERRORS):
         if key in FRONTMATTER_REJECTED_KEYS:
-            add_error(
-                errors,
+            legacy_sink.append(
                 f"{rel}/SKILL.md: frontmatter key {key!r} is never allowed; "
-                f"allowed keys are {allowlist}",
+                f"allowed keys are {allowlist}"
             )
         elif key in allowed:
             continue
@@ -793,10 +824,9 @@ def validate_frontmatter(
         return
     for namespace in sorted(metadata):
         if namespace != METADATA_NS:
-            add_error(
-                errors,
+            legacy_sink.append(
                 f"{rel}/SKILL.md: frontmatter metadata may only contain "
-                f"{METADATA_NS!r}, found {namespace!r}",
+                f"{METADATA_NS!r}, found {namespace!r}"
             )
             continue
         block = metadata[namespace]
@@ -970,7 +1000,16 @@ def validate_contract_section(
         return
 
     classification = (sources_entry or {}).get("classification", "")
-    says_adapted = re.search(r"\badapted\b", body, re.IGNORECASE) is not None
+    # Read the provenance claim off the `Provenance:` line only: prose elsewhere in
+    # the Contract section ("not adapted from anything") is not a classification.
+    provenance = [
+        line.split("Provenance:", 1)[1]
+        for line in body.splitlines()
+        if "Provenance:" in line
+    ]
+    says_adapted = any(
+        re.search(r"\badapted\b", line, re.IGNORECASE) for line in provenance
+    )
     if says_adapted and classification != "adapted":
         add_error(
             errors,
@@ -1363,11 +1402,7 @@ def validate_skill(
         )
         contract_version = "1"
 
-    # Frontmatter shape is advisory until a skill is rewritten to version 2, so
-    # the unmigrated library reports warnings instead of failing.
-    validate_frontmatter(
-        rel, meta, contract_version, errors if contract_version == "2" else warnings
-    )
+    validate_frontmatter(rel, meta, contract_version, errors)
 
     name = meta.get("name")
     description = meta.get("description")

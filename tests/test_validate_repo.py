@@ -853,19 +853,6 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("must be the expected_skill on at least 2 lines", output)
 
     def test_frontmatter_rejects_unknown_key(self) -> None:
-        self._write(
-            "skills/pending-skill/SKILL.md",
-            self._skill_md("pending-skill").replace(
-                "---\n\n# Fixture", "owner: someone\n---\n\n# Fixture", 1
-            ),
-        )
-        self._git_add()
-
-        code, output = self._run_validator()
-
-        self.assertEqual(code, 0, output)
-        self.assertIn("unknown frontmatter key 'owner'", output)
-
         self._promote_to_v2(
             "approved-skill", "pending-skill", frontmatter_extra="owner: someone\n"
         )
@@ -876,6 +863,98 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("skills/approved-skill/SKILL.md: unknown frontmatter key 'owner'", output)
         self.assertIn("allowed keys are", output)
+
+    def test_unknown_frontmatter_key_is_an_error_on_v1(self) -> None:
+        """An unknown key is not v1 drift the rewrite will clear; it fails now."""
+        self._write(
+            "skills/pending-skill/SKILL.md",
+            self._skill_md("pending-skill").replace(
+                "---\n\n# Fixture", "owner: someone\n---\n\n# Fixture", 1
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("skills/pending-skill/SKILL.md: unknown frontmatter key 'owner'", output)
+        self.assertNotIn("Warnings:", output)
+
+    def test_only_rejected_keys_and_metadata_namespace_soften_on_v1(self) -> None:
+        """The two findings today's unmigrated library actually trips are warnings."""
+        self._write(
+            "skills/pending-skill/SKILL.md",
+            self._skill_md("pending-skill").replace(
+                "---\n\n# Fixture",
+                "triggers:\n  - run the fixture\ntools:\n  - web\n"
+                "metadata:\n  legacy-ns:\n    version: 1.0.0\n---\n\n# Fixture",
+                1,
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+        self.assertIn("frontmatter key 'triggers' is never allowed", output)
+        self.assertIn("frontmatter key 'tools' is never allowed", output)
+        self.assertIn("metadata may only contain 'spike-os', found 'legacy-ns'", output)
+
+    def test_frontmatter_spike_os_subkeys_are_an_error_on_v1(self) -> None:
+        self._write(
+            "skills/pending-skill/SKILL.md",
+            self._skill_md("pending-skill").replace(
+                "---\n\n# Fixture",
+                "metadata:\n  spike-os:\n    bogus_key: nope\n---\n\n# Fixture",
+                1,
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("metadata.spike-os key 'bogus_key'", output)
+
+    def test_frontmatter_block_scalar_is_a_clear_error_on_every_version(self) -> None:
+        self._write(
+            "skills/pending-skill/SKILL.md",
+            self._skill_md("pending-skill").replace(
+                "description: Portable validation fixture for pending-skill behavior.\n",
+                "description: >-\n"
+                "  Portable validation fixture for pending-skill behavior,\n"
+                "  folded across two lines.\n",
+                1,
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("block scalars (>, |) are not supported in frontmatter", output)
+        # The continuation lines are skipped, not reported one by one.
+        self.assertNotIn("unparsable line", output)
+
+    def test_contract_provenance_parity_reads_only_the_provenance_line(self) -> None:
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            sections={
+                "Contract": (
+                    "Follows [contracts/skill-contract.md]"
+                    "(../../contracts/skill-contract.md) v1. This skill is not "
+                    "adapted from anything upstream.\n"
+                    "- Provenance: repo-owned"
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+        self.assertNotIn("Contract section says 'adapted'", output)
 
     def test_frontmatter_metadata_ns_keys_only(self) -> None:
         self._promote_to_v2(
