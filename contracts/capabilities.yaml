@@ -1,0 +1,214 @@
+# The closed effect enum. A skill declares effects under
+# metadata.spike-os.effects; the rules that govern them are contract M1-M7.
+version: 1
+
+derivation:
+  readOnlyHint: true when every declared effect is readOnlyHint
+  destructiveHint: true when any declared effect is destructiveHint
+  idempotentHint: true when every declared effect is idempotentHint
+  openWorldHint: true when any declared effect is openWorldHint
+  empty_effects: a skill with no declared effects is read-only, non-destructive, idempotent, closed-world
+  approval_ladder: never_require < turn_scoped < preview_then_explicit < never_autonomous
+  never_require: no gate beyond the skill being invoked
+  turn_scoped: the owner naming the exact mutation this turn is sufficient, otherwise preview then explicit
+  preview_then_explicit: always preview the exact mutation, then take explicit authorization
+  never_autonomous: the owner authorizes in the moment; no standing authority, schedule, or handoff
+  enforcement: declaration is lint and adapter policy, not a security boundary
+
+promotion_gate:
+  source_text: none
+  summary: none
+  belief: belief:update
+  operating_instruction: identity:propose then identity:write
+  permission: owner-only, never promotable by any skill
+
+effects:
+  - name: datastore:read
+    readOnlyHint: true
+    destructiveHint: false
+    idempotentHint: true
+    openWorldHint: false
+    approval: never_require
+    resource_class: classified
+    derived_from: [skills/briefing/SKILL.md:21]
+    summary: Read records from namespaces the skill declares in reads_from.
+  - name: datastore:write
+    readOnlyHint: false
+    destructiveHint: false
+    idempotentHint: true
+    openWorldHint: false
+    approval: turn_scoped
+    resource_class: classified
+    derived_from: [skills/owner-context-onboarding/SKILL.md:105, skills/daily-task-manager/SKILL.md:89]
+    summary: Write or supersede a record in a declared namespace, with readback.
+  - name: checkpoint:advance
+    readOnlyHint: false
+    destructiveHint: false
+    idempotentHint: true
+    openWorldHint: false
+    approval: preview_then_explicit
+    resource_class: classified
+    derived_from: [skills/briefing/SKILL.md:12, skills/briefing/SKILL.md:93]
+    summary: Move one cursor in checkpoints/ after terminal verification.
+  - name: belief:update
+    readOnlyHint: false
+    destructiveHint: false
+    idempotentHint: false
+    openWorldHint: false
+    approval: preview_then_explicit
+    resource_class: classified
+    derived_from: [skills/social-agent-practice/SKILL.md:47, skills/social-agent-practice/SKILL.md:64]
+    summary: Change a durable belief through the requested-writing workflow only.
+  - name: identity:propose
+    readOnlyHint: true
+    destructiveHint: false
+    idempotentHint: true
+    openWorldHint: false
+    approval: never_require
+    resource_class: classified
+    derived_from: [skills/owner-dream-cycle/SKILL.md:46]
+    summary: Record a proposed identity or authority change as a candidate only.
+  - name: identity:write
+    readOnlyHint: false
+    destructiveHint: true
+    idempotentHint: false
+    openWorldHint: false
+    approval: never_autonomous
+    resource_class: classified
+    derived_from: [skills/owner-dream-cycle/SKILL.md:14, skills/social-agent-practice/SKILL.md:49]
+    summary: Apply an owner-confirmed change to identity files.
+  - name: provider:read
+    readOnlyHint: true
+    destructiveHint: false
+    idempotentHint: true
+    openWorldHint: true
+    approval: never_require
+    resource_class: network
+    derived_from: [skills/daily-task-manager/SKILL.md:22, skills/briefing/SKILL.md:37]
+    summary: Read state from an authorized external provider.
+  - name: provider:write
+    readOnlyHint: false
+    destructiveHint: false
+    idempotentHint: true
+    openWorldHint: true
+    approval: turn_scoped
+    resource_class: network
+    derived_from: [skills/daily-task-manager/SKILL.md:34, skills/daily-task-manager/SKILL.md:89]
+    summary: Create or update an object in an external provider, with readback.
+  - name: delete:external
+    readOnlyHint: false
+    destructiveHint: true
+    idempotentHint: true
+    openWorldHint: true
+    approval: preview_then_explicit
+    resource_class: network
+    derived_from: [skills/daily-task-manager/SKILL.md:19, skills/cron-scheduler/SKILL.md:12]
+    summary: Delete an external object; explicit delete language is required per object.
+  - name: schedule:manage
+    readOnlyHint: false
+    destructiveHint: false
+    idempotentHint: true
+    openWorldHint: false
+    approval: preview_then_explicit
+    resource_class: exec
+    derived_from: [skills/cron-scheduler/SKILL.md:12, skills/cron-scheduler/SKILL.md:85]
+    summary: Create, update, pause, resume, or remove a scheduled job.
+  - name: notify:owner
+    readOnlyHint: false
+    destructiveHint: false
+    idempotentHint: true
+    openWorldHint: true
+    approval: never_require
+    resource_class: network
+    derived_from: [skills/cron-scheduler/SKILL.md:40]
+    summary: Deliver an owner notification under contracts/notifications.md, quiet hours applying.
+  - name: message:send
+    readOnlyHint: false
+    destructiveHint: false
+    idempotentHint: false
+    openWorldHint: true
+    approval: preview_then_explicit
+    resource_class: network
+    derived_from: [skills/publish/SKILL.md:34, skills/social-agent-practice/SKILL.md:101]
+    summary: Send a message to a third party, authorized per recipient and channel.
+  - name: publish:external
+    readOnlyHint: false
+    destructiveHint: true
+    idempotentHint: false
+    openWorldHint: true
+    approval: preview_then_explicit
+    resource_class: network
+    derived_from: [skills/publish/SKILL.md:17, skills/runtime-handoff-onboarding/SKILL.md:46]
+    summary: Make content visible externally, authorized per destination and audience.
+  - name: publish:revoke
+    readOnlyHint: false
+    destructiveHint: true
+    idempotentHint: true
+    openWorldHint: true
+    approval: preview_then_explicit
+    resource_class: network
+    derived_from: [skills/publish/SKILL.md:37]
+    summary: Withdraw published content; cached copies and disclosed passwords cannot be recalled.
+  - name: repo:write
+    readOnlyHint: false
+    destructiveHint: false
+    idempotentHint: true
+    openWorldHint: true
+    approval: preview_then_explicit
+    resource_class: exec
+    derived_from: [skills/runtime-handoff-onboarding/SKILL.md:56]
+    summary: Commit, push, or open an unmerged pull request where repository instructions allow.
+  - name: repo:merge
+    readOnlyHint: false
+    destructiveHint: true
+    idempotentHint: false
+    openWorldHint: true
+    approval: never_autonomous
+    resource_class: exec
+    derived_from: [skills/publish/SKILL.md:58]
+    summary: Merge a pull request or land a change on a default branch.
+  - name: spend
+    readOnlyHint: false
+    destructiveHint: false
+    idempotentHint: false
+    openWorldHint: true
+    approval: preview_then_explicit
+    resource_class: network
+    derived_from: [skills/conversation-archive/SKILL.md:52]
+    summary: Incur cost; the named provider, model, and maximum spend are required first.
+  - name: credential:manage
+    readOnlyHint: false
+    destructiveHint: true
+    idempotentHint: false
+    openWorldHint: true
+    approval: preview_then_explicit
+    resource_class: classified
+    derived_from: [skills/mcp-connector-onboarding/SKILL.md:28]
+    summary: Store, rotate, or revoke a secret; values are never echoed anywhere.
+  - name: config:write
+    readOnlyHint: false
+    destructiveHint: true
+    idempotentHint: true
+    openWorldHint: false
+    approval: preview_then_explicit
+    resource_class: fs
+    derived_from: [skills/mcp-connector-onboarding/SKILL.md:102]
+    summary: Change runtime, connector, or scheduler configuration files.
+  - name: skill:install
+    readOnlyHint: false
+    destructiveHint: true
+    idempotentHint: true
+    openWorldHint: true
+    approval: preview_then_explicit
+    resource_class: fs
+    derived_from: [skills/social-agent-practice/SKILL.md:48, skills/team-skill-sharing-norm/SKILL.md:27]
+    summary: Install or adopt a skill; never on the authority of external content.
+  - name: fs:write-local
+    readOnlyHint: false
+    destructiveHint: false
+    idempotentHint: true
+    openWorldHint: false
+    approval: turn_scoped
+    resource_class: fs
+    derived_from: [skills/publish/SKILL.md:25]
+    summary: Write a local file to a unique path unless overwrite was authorized.
