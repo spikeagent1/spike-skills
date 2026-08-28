@@ -2605,7 +2605,12 @@ class CompareCLITest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.ws = Path(self.tmp.name)
         self._saved = run_evals.workspace.WORKSPACE
+        self._saved_root = run_evals.workspace.ROOT
         run_evals.workspace.WORKSPACE = self.ws
+        # ROOT too: `compare --a baseline` resolves `evals/baseline.json` against
+        # it, and an unpatched ROOT reads the repository's committed baseline
+        # instead of this fixture's empty one.
+        run_evals.workspace.ROOT = self.ws
 
         for run_id, passed in (("runA", [True, False]), ("runB", [False, False])):
             run_root = self.ws / "runs" / run_id
@@ -2619,6 +2624,7 @@ class CompareCLITest(unittest.TestCase):
 
     def tearDown(self) -> None:
         run_evals.workspace.WORKSPACE = self._saved
+        run_evals.workspace.ROOT = self._saved_root
         self.tmp.cleanup()
 
     def _main_quietly(self, argv: list[str]) -> int:
@@ -3573,6 +3579,40 @@ class AggregateRoutingTest(unittest.TestCase):
         self.assertIn("the figure above is a lower bound", rendered)
         self.assertIn("2 repo skill(s), plus the CLI's own built-ins (1 known by name", rendered)
 
+    def test_the_report_adds_the_compare_run_as_extra_columns(self) -> None:
+        """`--compare-run` renders a second mode beside the primary scorecard."""
+        agg = routing.aggregate_routing(self.cases, self.scores, mode="native")
+        compare = routing.aggregate_routing(self.cases, self.scores, mode="classify")
+        compare["run_id"] = "rid-classify"
+        rendered = routing.render_routing_report(
+            agg, {}, compare=compare, compare_meta={"claude_code_version": "9.9.9"}
+        )
+        self.assertIn("| Lenient % | Strict % | Classify lenient % | Classify strict % |", rendered)
+        self.assertIn("| beta | 2 | 0 | 1 | 1 | 0 | 1 | 50% | 0% | 50% | 0% |", rendered)
+        self.assertIn(
+            "| **total** | 5 | 1 | 1 | 3 | 0 | 1 | 40% | 20% | 40% | 20% |", rendered
+        )
+        self.assertIn("rid-classify", rendered)
+        self.assertIn("9.9.9", rendered)
+
+    def test_a_file_missing_from_the_compare_run_renders_as_not_available(self) -> None:
+        """The compare run need not cover the same files; absent cells say so."""
+        agg = routing.aggregate_routing(self.cases, self.scores, mode="native")
+        alpha_only = [case for case in self.cases if case.skill_file == "alpha"]
+        alpha_scores = [
+            routing.score_case(case, self.chosen[(case.skill_file, case.line_no)])
+            for case in alpha_only
+        ]
+        compare = routing.aggregate_routing(alpha_only, alpha_scores, mode="classify")
+        rendered = routing.render_routing_report(agg, {}, compare=compare)
+        self.assertIn("| beta | 2 | 0 | 1 | 1 | 0 | 1 | 50% | 0% | n/a | n/a |", rendered)
+
+    def test_without_a_compare_run_the_scorecard_keeps_its_original_columns(self) -> None:
+        agg = routing.aggregate_routing(self.cases, self.scores, mode="native")
+        rendered = routing.render_routing_report(agg, {})
+        self.assertIn("| Lenient % | Strict % |\n", rendered)
+        self.assertNotIn("lenient %", rendered.replace("Lenient %", ""))
+
     def test_classify_mode_makes_no_lower_bound_claim(self) -> None:
         agg = routing.aggregate_routing(self.cases, self.scores, mode="classify")
         self.assertNotIn(
@@ -4268,6 +4308,37 @@ class RoutingCLITest(unittest.TestCase):
         self.assertEqual(self._main(["report", "--run", run_id]), 0)
         self.assertIn("# Routing report:", self.stdout)
         self.assertIn("ghost work", self.stdout)
+
+    def test_report_compare_run_adds_the_second_routing_column(self) -> None:
+        self._patch_runner(FakeClaudeRunner(self._native_answers() + self._native_answers()))
+        for label in ("primary", "second"):
+            self.assertEqual(
+                self._main(["routing", "--all", "--model", "sonnet", "--repeats", "3",
+                            "--workers", "1", "--label", label]),
+                0,
+            )
+        run_id = self._routing_run_dir("primary").name
+        compare_id = self._routing_run_dir("second").name
+        self.assertEqual(
+            self._main(["report", "--run", run_id, "--compare-run", compare_id]), 0
+        )
+        self.assertIn("Native lenient %", self.stdout)
+        self.assertIn(compare_id, self.stdout)
+
+    def test_report_compare_run_with_an_unknown_id_exits_two(self) -> None:
+        self._patch_runner(FakeClaudeRunner(self._native_answers()))
+        self.assertEqual(
+            self._main(["routing", "--all", "--model", "sonnet", "--repeats", "3",
+                        "--workers", "1", "--label", "solo"]),
+            0,
+        )
+        run_id = self._routing_run_dir("solo").name
+        with contextlib.redirect_stderr(io.StringIO()):
+            code = run_evals.main(
+                ["--claude-bin", self.claude_bin, "report", "--run", run_id,
+                 "--compare-run", "no-such-run"]
+            )
+        self.assertEqual(code, 2)
 
     def test_baseline_update_fills_the_routing_block(self) -> None:
         self._patch_runner(FakeClaudeRunner(self._native_answers()))

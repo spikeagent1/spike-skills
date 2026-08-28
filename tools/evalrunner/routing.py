@@ -715,8 +715,45 @@ def _pct(rate: Optional[float]) -> str:
     return "n/a" if rate is None else f"{rate * 100:.0f}%"
 
 
-def render_routing_report(aggregate: Dict[str, Any], run_meta: Dict[str, Any]) -> str:
-    """Markdown report for one routing run: header, scorecard, confusion, hijacks."""
+def _compare_columns(compare: Optional[Dict[str, Any]]) -> Tuple[str, str]:
+    """Header cells for the compare run's two rate columns, e.g. `Classify lenient %`."""
+    mode = str((compare or {}).get("mode") or "compare").capitalize()
+    return f"{mode} lenient %", f"{mode} strict %"
+
+
+def _compare_cells(compare: Optional[Dict[str, Any]], name: Optional[str]) -> str:
+    """The compare run's `lenient | strict` cells for one file, or for the totals row.
+
+    `name` None means the totals row. A file the compare run did not cover renders
+    `n/a` rather than a zero, so an absent measurement never reads as a failure.
+    """
+    if compare is None:
+        return ""
+    if name is None:
+        lenient, strict = compare.get("pass_rate"), compare.get("strict_pass_rate")
+    else:
+        counts = (compare.get("files") or {}).get(name)
+        if counts is None:
+            return " n/a | n/a |"
+        lenient, strict = counts.get("pass_rate"), counts.get("strict_pass_rate")
+    return f" {_pct(lenient)} | {_pct(strict)} |"
+
+
+def render_routing_report(
+    aggregate: Dict[str, Any],
+    run_meta: Dict[str, Any],
+    *,
+    compare: Optional[Dict[str, Any]] = None,
+    compare_meta: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Markdown report for one routing run: header, scorecard, confusion, hijacks.
+
+    `compare` is a second routing run's aggregate -- normally the same intents in
+    the other mode -- rendered as two extra scorecard columns so "the description
+    is wrong" and "the native router under-triggers on a fine description" are
+    distinguishable per file. Only its two rates are borrowed; every other
+    section stays the primary run's.
+    """
     model = run_meta.get("model") or {}
     isolation = run_meta.get("isolation") or {}
     dirty_suffix = " (dirty)" if run_meta.get("dirty") else ""
@@ -754,16 +791,33 @@ def render_routing_report(aggregate: Dict[str, Any], run_meta: Dict[str, Any]) -
     lines.append(f"- Cost: ${float(run_meta.get('cost_usd_total') or 0.0):.4f}")
     if aggregate.get("mode") == MODE_NATIVE:
         lines.append(NATIVE_COST_NOTE)
+    if compare is not None:
+        cmeta = compare_meta or {}
+        lines.append(
+            f"- Compare columns: {compare.get('run_id') or cmeta.get('run_id') or 'unknown'} "
+            f"(mode {compare.get('mode') or 'unknown'}, repeats {compare.get('repeats') or 1}, "
+            f"Claude Code {cmeta.get('claude_code_version') or 'unknown'}, "
+            f"cost ${float(cmeta.get('cost_usd_total') or 0.0):.4f})"
+        )
     lines.append("")
 
     totals = aggregate.get("totals") or {}
     rate = aggregate.get("pass_rate")
     lines.append("## Scorecard")
     lines.append("")
+    compare_headers = ""
+    compare_rule = ""
+    compare_empty = ""
+    if compare is not None:
+        lenient_header, strict_header = _compare_columns(compare)
+        compare_headers = f" {lenient_header} | {strict_header} |"
+        compare_rule = " ---: | ---: |"
+        compare_empty = " | |"
     lines.append(
         "| File | Cases | Pass | Ambiguous | Fail | Unanswered | Phantom | Lenient % | Strict % |"
+        + compare_headers
     )
-    lines.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
+    lines.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |" + compare_rule)
     for name in sorted(files):
         counts = files[name]
         lines.append(
@@ -771,20 +825,29 @@ def render_routing_report(aggregate: Dict[str, Any], run_meta: Dict[str, Any]) -
             f"{counts.get('ambiguous_pass', 0)} | {counts.get('fail', 0)} | "
             f"{counts.get('unanswered', 0)} | {counts.get('phantom', 0)} | "
             f"{_pct(counts.get('pass_rate'))} | {_pct(counts.get('strict_pass_rate'))} |"
+            + _compare_cells(compare, name)
         )
     if not files:
-        lines.append("| (no routing cases in this run) | | | | | | | | |")
+        lines.append("| (no routing cases in this run) | | | | | | | | |" + compare_empty)
     lines.append(
         f"| **total** | {aggregate.get('cases', 0)} | {totals.get('pass', 0)} | "
         f"{totals.get('ambiguous_pass', 0)} | {totals.get('fail', 0)} | "
         f"{totals.get('unanswered', 0)} | {totals.get('phantom', 0)} | "
         f"{_pct(rate)} | {_pct(aggregate.get('strict_pass_rate'))} |"
+        + _compare_cells(compare, None)
     )
     lines.append("")
     lines.append(
         f"Pass rate (lenient, pass + ambiguous): {_pct(rate)} · "
         f"strict (exact target only): {_pct(aggregate.get('strict_pass_rate'))}"
     )
+    if compare is not None:
+        lines.append("")
+        lines.append(
+            f"{str(compare.get('mode') or 'compare').capitalize()} mode over the same intents: "
+            f"lenient {_pct(compare.get('pass_rate'))} · "
+            f"strict {_pct(compare.get('strict_pass_rate'))}."
+        )
     lines.append("")
 
     lines.append("## Confusion")

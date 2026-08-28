@@ -147,6 +147,13 @@ def build_parser() -> argparse.ArgumentParser:
     report_parser = subparsers.add_parser("report", help="Render a run's Markdown report.")
     report_parser.add_argument("--run", required=True, help="Run id under evals/workspaces/runs/.")
     report_parser.add_argument("--out", help="Write the report here instead of stdout.")
+    report_parser.add_argument(
+        "--compare-run",
+        help=(
+            "Routing run id whose lenient/strict rates are rendered as two extra "
+            "columns beside --run's routing scorecard (normally the other mode)."
+        ),
+    )
     report_parser.set_defaults(handler=cmd_report)
 
     baseline_parser = subparsers.add_parser("baseline", help="Read, update, or check evals/baseline.json.")
@@ -1052,7 +1059,8 @@ def cmd_report(args: argparse.Namespace) -> int:
     """Render a run's Markdown report to stdout, or to --out.
 
     One run id can name a behavioral run, a routing run, or (with the same label)
-    both; every section that exists for it is rendered.
+    both; every section that exists for it is rendered. `--compare-run` names a
+    second routing run whose rates ride along as extra scorecard columns.
     """
     run_root = workspace.WORKSPACE / "runs" / args.run
     routing_root = workspace.WORKSPACE / "routing" / args.run
@@ -1065,12 +1073,33 @@ def cmd_report(args: argparse.Namespace) -> int:
         )
         return 2
 
+    compare_aggregate: Optional[Dict[str, Any]] = None
+    compare_meta: Dict[str, Any] = {}
+    if args.compare_run:
+        compare_root = workspace.WORKSPACE / "routing" / args.compare_run
+        compare_results = compare_root / "results.json"
+        if not compare_results.is_file():
+            print(
+                f"run_evals.py report: no routing results at {compare_results}",
+                file=sys.stderr,
+            )
+            return 2
+        compare_aggregate = json.loads(compare_results.read_text(encoding="utf-8"))
+        compare_meta = _run_meta(compare_root)
+
     sections: List[str] = []
     if run_root.is_dir():
         sections.append(report.render_run_report(analysis.aggregate_run(run_root), _run_meta(run_root)))
     if routing_results.is_file():
         aggregate = json.loads(routing_results.read_text(encoding="utf-8"))
-        sections.append(routing.render_routing_report(aggregate, _run_meta(routing_root)))
+        sections.append(
+            routing.render_routing_report(
+                aggregate,
+                _run_meta(routing_root),
+                compare=compare_aggregate,
+                compare_meta=compare_meta,
+            )
+        )
     text = "\n".join(sections)
 
     if args.out:
