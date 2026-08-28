@@ -214,7 +214,7 @@ class ValidateRepoTest(unittest.TestCase):
 
         self.assertEqual(code, 1)
         self.assertIn("schema must require evals object shape", output)
-        self.assertIn("eval 1 missing prompt/input", output)
+        self.assertIn("eval 1 missing prompt", output)
         self.assertIn("invalid JSONL", output)
 
     def test_privacy_secret_dependency_and_catalog_cases_fail(self) -> None:
@@ -550,6 +550,57 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("id must be a positive integer", joined)
         self.assertIn("expected_output must be a non-empty string", joined)
         self.assertIn("must be two or more strings", joined)
+
+    def test_schema_fallback_rejects_legacy_dialect_keys(self) -> None:
+        """Task 9: `skill`/`input`/`expect`/`expectations` no longer satisfy the schema."""
+        errors: list[str] = []
+        original_jsonschema = validate_repo.jsonschema
+        validate_repo.jsonschema = None
+        try:
+            validate_repo.validate_eval_schema(
+                {
+                    "skill": "approved-skill",
+                    "evals": [
+                        {
+                            "id": 1,
+                            "input": "Legacy dialect prompt.",
+                            "expect": ["Legacy assertion one", "Legacy assertion two"],
+                        }
+                    ],
+                },
+                Path("examples/evals.json"),
+                SCHEMA,
+                errors,
+            )
+        finally:
+            validate_repo.jsonschema = original_jsonschema
+
+        joined = "\n".join(errors)
+        self.assertIn("skill_name must be a non-empty string", joined)
+        self.assertIn("prompt must be a non-empty string", joined)
+        self.assertIn("assertions must be two or more strings", joined)
+
+    def test_eval_file_rejects_legacy_dialect_keys(self) -> None:
+        """Task 9: validate_eval_file only reads the canonical dialect."""
+        self._write_json(
+            "skills/approved-skill/examples/evals.json",
+            {
+                "skill": "approved-skill",
+                "evals": [
+                    {"id": 1, "input": "Legacy prompt one.", "expect": ["One", "Two"]},
+                    {"id": 2, "input": "Legacy prompt two.", "expectations": ["One", "Two"]},
+                ],
+            },
+        )
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("eval 1 missing prompt", output)
+        self.assertIn("eval 1 needs at least two assertions", output)
+        self.assertIn("eval 2 missing prompt", output)
+        self.assertIn("eval 2 needs at least two assertions", output)
 
     def test_jsonschema_and_fallback_reject_same_whitespace_case(self) -> None:
         if validate_repo.jsonschema is None:

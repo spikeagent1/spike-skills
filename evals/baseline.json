@@ -1,15 +1,15 @@
 {
-  "commit": "30a1f06",
+  "commit": "350e047",
   "dirty": false,
   "evaluator": {
-    "claude_code_version": "2.1.250",
+    "claude_code_version": "2.1.251",
     "executor_model": "claude-sonnet-5",
     "grader_model": "opus",
     "load_mode": "forced",
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-28T18:06:19+00:00",
+  "generated_at": "2026-08-28T19:45:39+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -415,18 +415,17 @@
     "community-management": {
       "assertions": 24,
       "broken": [
-        "examples:2/4 Social-listening handoff is used",
         "examples:4/4 Authority and exit paths for roles"
       ],
       "cases": 6,
       "classes": {
-        "broken": 2,
-        "discriminating": 7,
+        "broken": 1,
+        "discriminating": 8,
         "flaky": 0,
         "harmful": 1,
         "non_discriminating": 14
       },
-      "delta": 0.25,
+      "delta": 0.2917,
       "evals_sha256": {
         "examples/evals.json": "1f4206891c4ad12b7db4095a6938a767c490d94c803fba20915a9fb6ce676ce5",
         "routing-eval.jsonl": "feef9fe731e39ada8a4e6d5c8fa34210deb125af156830b80f7747814e8ccf74"
@@ -437,8 +436,8 @@
       ],
       "non_discriminating": [
         "examples:1/4 Followers are not called community",
-        "examples:1/4 Moderation and ownership remain required",
         "examples:2/4 Member-to-member behavior is the target",
+        "examples:2/4 No ritual frequency quota",
         "examples:3/4 Email never published",
         "examples:4/4 Reciprocal contribution recognized",
         "examples:4/4 Artifact-centered intervention",
@@ -451,18 +450,18 @@
         "examples:6/4 No unsolicited marketing",
         "examples:6/4 No authority inferred from roster membership"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "619de74c9d2d8854dd19c62857f6a9cce545a568f28a2a7d99ce33876fb3906c",
+      "run_id": "20260828T194531-350e047",
+      "skill_sha256": "3142d704b3fe53a345c0c0a4fca65770531c287ab18a332bf7aa744cfd73bb94",
       "ungraded": 0,
       "with_skill": {
-        "cost_usd": 0.54485,
-        "pass_rate": 0.875,
-        "tokens_mean": 8172.5
+        "cost_usd": 0.593444,
+        "pass_rate": 0.9167,
+        "tokens_mean": 8151.3333
       },
       "without_skill": {
-        "cost_usd": 0.534209,
+        "cost_usd": 0.668881,
         "pass_rate": 0.625,
-        "tokens_mean": 7605.8333
+        "tokens_mean": 5489.6667
       }
     },
     "conversation-archive": {

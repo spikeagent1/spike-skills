@@ -316,19 +316,13 @@ def validate_eval_schema_fallback(data: object, rel: Path, errors: list[str]) ->
         add_error(errors, f"{rel}: schema violation: root must be an object")
         return
 
+    if not isinstance(data.get("skill_name"), str) or not data["skill_name"].strip():
+        add_error(errors, f"{rel}: schema violation: skill_name must be a non-empty string")
+
     evals = data.get("evals")
     if not isinstance(evals, list) or not evals:
         add_error(errors, f"{rel}: schema violation: evals must be a non-empty array")
         return
-
-    for key in ("skill_name", "skill", "version", "description"):
-        if key in data and (
-            not isinstance(data[key], str) or not data[key].strip()
-        ):
-            add_error(
-                errors,
-                f"{rel}: schema violation: {key} must be a non-empty string",
-            )
 
     for index, case in enumerate(evals, 1):
         if not isinstance(case, dict):
@@ -342,35 +336,27 @@ def validate_eval_schema_fallback(data: object, rel: Path, errors: list[str]) ->
                 errors,
                 f"{rel}: schema violation: eval {index} id must be a positive integer",
             )
-        has_prompt = (
-            isinstance(case.get("prompt"), str) and bool(case["prompt"].strip())
-        )
-        has_input = isinstance(case.get("input"), str) and bool(case["input"].strip())
-        if not has_prompt and not has_input:
-            add_error(errors, f"{rel}: schema violation: eval {index} needs prompt or input")
-        for key in ("name", "expected_output"):
-            if key in case and (
-                not isinstance(case[key], str) or not case[key].strip()
-            ):
-                add_error(
-                    errors,
-                    f"{rel}: schema violation: eval {index} {key} must be a non-empty string",
-                )
-        for key in ("assertions", "expectations", "expect"):
-            if key not in case:
-                continue
-            value = case[key]
-            if (
-                not isinstance(value, list)
-                or len(value) < 2
-                or not all(
-                    isinstance(item, str) and bool(item.strip()) for item in value
-                )
-            ):
-                add_error(
-                    errors,
-                    f"{rel}: schema violation: eval {index} {key} must be two or more strings",
-                )
+        if not isinstance(case.get("prompt"), str) or not case["prompt"].strip():
+            add_error(errors, f"{rel}: schema violation: eval {index} prompt must be a non-empty string")
+        if "expected_output" in case and (
+            not isinstance(case["expected_output"], str) or not case["expected_output"].strip()
+        ):
+            add_error(
+                errors,
+                f"{rel}: schema violation: eval {index} expected_output must be a non-empty string",
+            )
+        assertions = case.get("assertions")
+        if (
+            not isinstance(assertions, list)
+            or len(assertions) < 2
+            or not all(
+                isinstance(item, str) and bool(item.strip()) for item in assertions
+            )
+        ):
+            add_error(
+                errors,
+                f"{rel}: schema violation: eval {index} assertions must be two or more strings",
+            )
 
 
 def validate_eval_schema(
@@ -1304,33 +1290,33 @@ def validate_eval_file(
         add_error(errors, f"{rel}: missing non-empty evals array")
         return
 
-    declared = data.get("skill_name") or data.get("skill")
+    declared = data.get("skill_name")
     if declared and declared != skill:
-        add_error(errors, f"{rel}: declared skill {declared!r} does not match {skill!r}")
+        add_error(errors, f"{rel}: declared skill_name {declared!r} does not match {skill!r}")
 
     seen_ids: set[int] = set()
     for index, case in enumerate(evals, 1):
         if not isinstance(case, dict):
             add_error(errors, f"{rel}: eval {index} must be an object")
             continue
-        prompt = case.get("prompt") or case.get("input")
-        expectations = case.get("assertions") or case.get("expectations") or case.get("expect")
+        prompt = case.get("prompt")
+        assertions = case.get("assertions")
         if not isinstance(prompt, str) or not prompt.strip():
-            add_error(errors, f"{rel}: eval {index} missing prompt/input")
-        if not isinstance(expectations, list) or len(expectations) < 2:
-            add_error(errors, f"{rel}: eval {index} needs at least two assertions/expectations")
+            add_error(errors, f"{rel}: eval {index} missing prompt")
+        if not isinstance(assertions, list) or len(assertions) < 2:
+            add_error(errors, f"{rel}: eval {index} needs at least two assertions")
         elif not all(
-            isinstance(expectation, str) and bool(expectation.strip())
-            for expectation in expectations
+            isinstance(assertion, str) and bool(assertion.strip())
+            for assertion in assertions
         ):
             add_error(errors, f"{rel}: eval {index} assertions must be non-empty strings")
         else:
-            for expectation in expectations:
-                normalized = re.sub(r"\s+", " ", expectation.strip().lower())
+            for assertion in assertions:
+                normalized = re.sub(r"\s+", " ", assertion.strip().lower())
                 if normalized in NON_INFORMATIVE_ASSERTIONS:
                     add_error(
                         errors,
-                        f"{rel}: eval {index} uses non-informative assertion {expectation!r}",
+                        f"{rel}: eval {index} uses non-informative assertion {assertion!r}",
                     )
 
         case_id = case.get("id")

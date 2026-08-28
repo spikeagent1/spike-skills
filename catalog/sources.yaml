@@ -72,7 +72,11 @@ sources:
       synthetic evals, and explicit attribution limits. Also deleted the
       imported upstream eval set (evals/evals.json, eight Discord- and
       vendor-tool-centric cases) so the six adapted cases in
-      examples/evals.json are the package's only eval file.
+      examples/evals.json are the package's only eval file. Also removed the
+      four unlinked upstream reference files (audience-to-community.md,
+      building-belonging.md, superfans-and-honest-scope.md,
+      where-community-lives.md) and the local rituals.md, none of which
+      SKILL.md links to; outcomes.md and surfaces.md remain, both linked.
 
   publish:
     classification: owned
@@ -149,7 +153,10 @@ sources:
       portable contract: removed claims of comprehensive top-N searching and
       complete abstracts, made source failures and evidence level explicit,
       required reproducible search logs and appraisal, added safety/privacy
-      sections, synthetic evals, and attribution limits.
+      sections, synthetic evals, and attribution limits. Also removed
+      skill-card.md (unused by the repository contract) and relocated its
+      install provenance artifacts (_meta.json, origin.json) from in-skill
+      files to catalog/provenance/literature-review/.
 
   fact-check:
     classification: owned

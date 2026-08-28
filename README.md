@@ -27,7 +27,7 @@ tools/               Deterministic audit helpers
 
 ## Review a candidate
 
-Each package uses `SKILL.md` as its package-level user and reviewer documentation. Approved public packages must define when to use the skill, when not to use it, required and optional inputs, workflow, source freshness, privacy and mutation boundaries, safety boundaries, output contract, dependencies, provenance, and failure conditions. Pending candidates use the same core contract while preserving their `pending-review` governance state. The adjacent `examples/evals.json` or `evals/evals.json` must exercise normal behavior, edge cases, factual uncertainty, privacy, and authorization before mutations.
+Each package uses `SKILL.md` as its package-level user and reviewer documentation. Approved public packages must define when to use the skill, when not to use it, required and optional inputs, workflow, source freshness, privacy and mutation boundaries, safety boundaries, output contract, dependencies, provenance, and failure conditions. Pending candidates use the same core contract while preserving their `pending-review` governance state. The adjacent `examples/evals.json` must exercise normal behavior, edge cases, factual uncertainty, privacy, and authorization before mutations.
 
 Run the local gate from the repository root:
 
