@@ -2048,6 +2048,115 @@ class ValidateRepoTest(unittest.TestCase):
 
         self.assertEqual(code, 0, output)
 
+    def test_namespace_body_token_requires_a_path_boundary(self) -> None:
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. Read https://example.com/conversations/list for the feed.\n"
+                    "2. Open [archive](../conversations/index.md) under the "
+                    "sub-projects/ tree.\n"
+                    "3. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Overview": "conversations/index holds every fixture verdict.",
+                "Workflow": (
+                    "1. Read the notes under projects/status first.\n"
+                    "2. Check the `decisions/` page.\n"
+                    "3. Emit the approved skill fixture verdict."
+                ),
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("body names namespace 'conversations/'", output)
+        self.assertIn("body names namespace 'projects/'", output)
+        self.assertIn("body names namespace 'decisions/'", output)
+
+    def test_spike_os_and_repository_names_are_not_runtime_specific(self) -> None:
+        base = self._skill_md("pending-skill")
+        self._write(
+            "skills/pending-skill/SKILL.md",
+            base.replace(
+                "## Workflow\nValidate the fixture.",
+                "## Workflow\nSet metadata.spike-os in the frontmatter, then read "
+                "spike-skills and the spikeagent1 remote.",
+                1,
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+        self.assertNotIn("runtime-specific value(s)", output)
+
+        self._write(
+            "skills/pending-skill/SKILL.md",
+            base.replace(
+                "## Workflow\nValidate the fixture.",
+                "## Workflow\nOwned by Spike, whose metadata.spike-os block is "
+                "untouched.",
+                1,
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+        self.assertIn(
+            "skills/pending-skill/SKILL.md: 1 runtime-specific value(s)", output
+        )
+
+    def test_effect_sentence_splits_on_semicolons(self) -> None:
+        workflow = (
+            "1. Create or update an unmerged pull request; do not merge it.\n"
+            "2. Emit the approved skill fixture verdict."
+        )
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={"Workflow": workflow},
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("implies repo:write", output)
+        self.assertNotIn("implies repo:merge", output)
+
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(effects="[repo:write]"),
+            sections={"Workflow": workflow},
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -181,8 +181,12 @@ LISTING_BUDGET_CHARS = 12000
 LISTING_BUDGET_WARN_RATIO = 0.8
 SKILL_LISTING_MAX_CHARS = 1536
 BACKTICKED_RE = re.compile(r"`([^`\n]+)`")
+# A namespace token counts only where a path starts: a line start, whitespace, or
+# an opening bracket, quote, or backtick. Without it `example.com/conversations/`,
+# `../conversations/`, and `sub-projects/` all read as namespace uses.
+NAMESPACE_BOUNDARY = r"(?:^|[\s(\[`\"'])"
 SKILL_NAME_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
-SENTENCE_SPLIT_RE = re.compile(r"[.\n]")
+SENTENCE_SPLIT_RE = re.compile(r"[.;\n]")
 EFFECT_NEGATION_RE = re.compile(
     r"\b(do not|never|must not|refuse|read-only|is not|not authorized)\b", re.IGNORECASE
 )
@@ -224,9 +228,13 @@ RUNTIME_SPECIFIC_TOKENS = (
     "Spike",
     "Tapan",
 )
+# `spike-os` is the metadata namespace every v2 skill declares and `spike-skills`
+# is this repository; neither is a runtime value a skill should stop naming.
+RUNTIME_SPECIFIC_EXCLUSIONS = {"Spike": r"(?!-os\b|-skills\b)"}
 RUNTIME_SPECIFIC_RE = re.compile(
     "|".join(
-        rf"(?<![0-9A-Za-z_]){re.escape(token)}(?![0-9A-Za-z_])"
+        rf"(?<![0-9A-Za-z_]){re.escape(token)}"
+        rf"{RUNTIME_SPECIFIC_EXCLUSIONS.get(token, '')}(?![0-9A-Za-z_])"
         for token in RUNTIME_SPECIFIC_TOKENS
     ),
     re.IGNORECASE,
@@ -1644,7 +1652,7 @@ def validate_namespaces(
     for name in sorted(namespaces):
         if name in declared:
             continue
-        if re.search(rf"\b{re.escape(name)}/", body):
+        if re.search(rf"{NAMESPACE_BOUNDARY}{re.escape(name)}/", body, re.MULTILINE):
             add_error(
                 errors,
                 f"{rel}/SKILL.md: body names namespace {name + '/'!r} but "
