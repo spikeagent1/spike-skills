@@ -47,6 +47,7 @@ GLOSSARY_HEADING = "## R. Runtime vocabulary"
 
 KEY_RE = re.compile(r"^([A-Za-z0-9_.-]+):\s*(.*)$")
 BACKTICKED_RE = re.compile(r"`([^`]+)`")
+VOCABULARY_ROW_RE = re.compile(r"^\|\s*`([^`]+)`\s*\|(.*)\|\s*$")
 NON_KEY_RE = re.compile(r"[^a-z0-9]+")
 HEADING_RE = re.compile(r"^##[ \t]+(.+?)\s*$", re.MULTILINE)
 LITERALS: dict[str, Any] = {"true": True, "false": False, "null": None, "": None}
@@ -190,6 +191,27 @@ def glossary_terms(root: Path | None = None) -> list[str]:
             continue
         ordered.append(token)
     return ordered
+
+
+def adapter_markdown_terms(runtime: str, root: Path | None = None) -> dict[str, bool]:
+    """The `## Vocabulary` rows of one `ADAPTER.md`: term -> is it marked UNCONFIRMED.
+
+    The render and `adapter.yaml` must agree, so a value flagged in one is flagged
+    in the other.
+    """
+    path = (root or ROOT) / "adapters" / runtime / "ADAPTER.md"
+    rendered: dict[str, bool] = {}
+    inside = False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## "):
+            inside = line.strip() == "## Vocabulary"
+            continue
+        if not inside:
+            continue
+        match = VOCABULARY_ROW_RE.match(line)
+        if match is not None:
+            rendered[match.group(1)] = "UNCONFIRMED" in match.group(2)
+    return rendered
 
 
 def missing_terms(adapter: dict[str, Any], vocabulary: dict[str, Any]) -> list[str]:

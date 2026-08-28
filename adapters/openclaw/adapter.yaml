@@ -64,7 +64,7 @@ vocabulary:
     value: a deploy, which restarts the gateway and re-seeds the git-owned workspace files
     note: Sessions and memory survive a restart; edits to git-owned files do not.
   identity_files:
-    value: SOUL.md, IDENTITY.md, USER.md, AGENTS.md, BOOTSTRAP.md, HANDOFF.md, and HEARTBEAT.md under /data/.openclaw/workspace
+    value: SOUL.md, IDENTITY.md, USER.md, AGENTS.md, TOOLS.md, BOOTSTRAP.md, HANDOFF.md, and HEARTBEAT.md under /data/.openclaw/workspace
     note: All are re-copied from git on every boot except BOOTSTRAP.md, which is seeded once.
   skills_dir:
     value: /data/.openclaw/workspace/skills
@@ -132,6 +132,7 @@ identity_files:
   - /data/.openclaw/workspace/IDENTITY.md
   - /data/.openclaw/workspace/USER.md
   - /data/.openclaw/workspace/AGENTS.md
+  - /data/.openclaw/workspace/TOOLS.md
   - /data/.openclaw/workspace/BOOTSTRAP.md
   - /data/.openclaw/workspace/HANDOFF.md
   - /data/.openclaw/workspace/HEARTBEAT.md

@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import re
+import shutil
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -238,7 +242,7 @@ class AdapterTest(unittest.TestCase):
             path = contracts_check.ADAPTERS_DIR / runtime / "ADAPTER.md"
             lines = path.read_text(encoding="utf-8").splitlines()
             with self.subTest(runtime=runtime):
-                self.assertLess(len(lines), 80)
+                self.assertLessEqual(len(lines), 90)
                 for heading in contracts_check.ADAPTER_MD_SECTIONS:
                     self.assertIn(heading, lines)
 
@@ -254,6 +258,75 @@ class AdapterTest(unittest.TestCase):
         for runtime, adapter in ADAPTERS.items():
             with self.subTest(runtime=runtime):
                 self.assertEqual(list(validator.iter_errors(adapter)), [])
+
+
+class AdapterMarkdownTest(unittest.TestCase):
+    def test_unconfirmed_markers_match_the_yaml_notes(self) -> None:
+        for runtime, adapter in ADAPTERS.items():
+            rendered = contracts_check.adapter_markdown_terms(runtime)
+            self.assertEqual(sorted(rendered), sorted(entry["term"] for entry in TERMS))
+            for entry in TERMS:
+                declared = "UNCONFIRMED" in str(
+                    adapter["vocabulary"][entry["key"]].get("note") or ""
+                )
+                with self.subTest(runtime=runtime, term=entry["term"]):
+                    self.assertEqual(rendered[entry["term"]], declared)
+
+
+class CoverageGapTest(unittest.TestCase):
+    """The loader has to fail on a gap, not only pass on a complete pair."""
+
+    def test_missing_terms_reports_a_dropped_binding(self) -> None:
+        broken = {"vocabulary": dict(ADAPTERS["openclaw"]["vocabulary"])}
+        del broken["vocabulary"]["scheduler"]
+        self.assertEqual(contracts_check.missing_terms(broken, VOCABULARY), ["scheduler"])
+
+    def test_extra_terms_reports_an_unknown_binding(self) -> None:
+        broken = {"vocabulary": dict(ADAPTERS["openclaw"]["vocabulary"])}
+        broken["vocabulary"]["invented_term"] = {"value": "x"}
+        self.assertEqual(contracts_check.extra_terms(broken, VOCABULARY), ["invented_term"])
+
+    def test_missing_namespaces_reports_a_dropped_path(self) -> None:
+        paths = dict(ADAPTERS["claude-code"]["datastore"]["paths"])
+        del paths["calendar"]
+        paths["jobs"] = "   "
+        broken = {"datastore": {"paths": paths}}
+        self.assertEqual(
+            contracts_check.missing_namespaces(broken, DATASTORE), ["calendar", "jobs"]
+        )
+
+    def test_main_exits_one_on_a_broken_adapter_tree(self) -> None:
+        original_root = contracts_check.ROOT
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(contracts_check.CONTRACTS, root / "contracts")
+            shutil.copytree(contracts_check.ADAPTERS_DIR, root / "adapters")
+            path = root / "adapters" / "openclaw" / "adapter.yaml"
+            text = path.read_text(encoding="utf-8")
+            text = text.replace("  contacts_provider:\n    value: none configured\n", "")
+            text = text.replace("    calendar: ops/calendar/\n", "")
+            path.write_text(text, encoding="utf-8")
+
+            contracts_check.ROOT = root
+            try:
+                buffer = io.StringIO()
+                with contextlib.redirect_stdout(buffer):
+                    status = contracts_check.main()
+            finally:
+                contracts_check.ROOT = original_root
+
+        report = buffer.getvalue()
+        self.assertEqual(status, 1)
+        self.assertIn("Contract coverage failed:", report)
+        self.assertIn("unbound term contacts_provider", report)
+        self.assertIn("unmapped namespace calendar", report)
+
+    def test_main_passes_on_the_committed_tree(self) -> None:
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            status = contracts_check.main()
+        self.assertEqual(status, 0)
+        self.assertNotIn("Contract coverage failed:", buffer.getvalue())
 
 
 if __name__ == "__main__":

@@ -34,7 +34,7 @@ error once `tools/validate_repo.py` gates runtime binding (Task 12).
 | OpenClaw MCP server, ChatGPT app connector | `connector registry` | `vocabulary.connector_registry` | mcp-connector-onboarding 12 | yes, both |
 | `openclaw doctor`, transport status | `runtime health check` | `vocabulary.runtime_health_check` | mcp-connector-onboarding 102; runtime-handoff-onboarding 8 | yes, both |
 | OpenClaw, "gateway restart", "next runtime build" | `runtime reload` | `vocabulary.runtime_reload` | runtime-handoff-onboarding 8; mcp-connector-onboarding 50; skill-library-ops 40,47 | yes, both |
-| bootstrap, handoff, soul, identity, user, agent, heartbeat notes | `identity files` | `vocabulary.identity_files`, top-level `identity_files` | runtime-handoff-onboarding 12,95; owner-dream-cycle 14,46 | yes, both |
+| bootstrap, handoff, soul, identity, user, agent, heartbeat, tool notes | `identity files` | `vocabulary.identity_files`, top-level `identity_files` | runtime-handoff-onboarding 12,95; owner-dream-cycle 14,46 | yes, both — openclaw binds all eight, `TOOLS.md` included |
 | `/data/.openclaw/workspace/skills` | `skills dir` | `vocabulary.skills_dir`, top-level `skills_dir` | skill-library-ops templates | yes, both |
 | Skill Workshop, proposal IDs | `proposal workflow` | `vocabulary.proposal_workflow` | skill-library-ops 59,79 | yes, both |
 | Astro | `journal build toolchain` | `vocabulary.journal_build_toolchain` | public-post-workshop 33-42 | yes, both — none in claude-code |

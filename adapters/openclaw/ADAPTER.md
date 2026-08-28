@@ -28,7 +28,7 @@ no git-owned runtime file states: verify it, never treat it as evidence (F2).
 | `connector registry` | /data/.openclaw/openclaw.json, deep-merged from the git seed on every boot |
 | `runtime health check` | openclaw doctor through the spike wrapper, plus gbrain doctor --json |
 | `runtime reload` | a deploy, which restarts the gateway and re-seeds the git-owned workspace files |
-| `identity files` | SOUL.md, IDENTITY.md, USER.md, AGENTS.md, BOOTSTRAP.md, HANDOFF.md, and HEARTBEAT.md under /data/.openclaw/workspace |
+| `identity files` | SOUL.md, IDENTITY.md, USER.md, AGENTS.md, TOOLS.md, BOOTSTRAP.md, HANDOFF.md, and HEARTBEAT.md under /data/.openclaw/workspace |
 | `skills dir` | /data/.openclaw/workspace/skills |
 | `effects ledger` | ops/effects/ pages in the owner datastore |
 | `checkpoint store` | ops/checkpoints/ pages in the owner datastore |
@@ -57,15 +57,16 @@ Tasks are **mirror-only** until a task provider is registered, and the skill say
 so (`contracts/sync.md`); calendar and contacts are unconfigured.
 
 ## Channels and quiet hours
-`notification channel` first, then a reply in the main session. Quiet hours are
+`notification channel` first (outbound `sendMessage` is not currently enabled — see the
+`adapter.yaml` note), then a reply in the main session. Quiet hours are
 `${QUIET_START}`–`${QUIET_END}` in the `owner timezone` and govern delivery, not
 execution, with the two overrides in `contracts/notifications.md`.
 
 ## Identity files
-`SOUL.md` `IDENTITY.md` `USER.md` `AGENTS.md` `BOOTSTRAP.md` `HANDOFF.md`
+`SOUL.md` `IDENTITY.md` `USER.md` `AGENTS.md` `TOOLS.md` `BOOTSTRAP.md` `HANDOFF.md`
 `HEARTBEAT.md` under `/data/.openclaw/workspace`: re-seeded from git on every
 boot, outside the datastore, changed only through `identity:propose` then
-`identity:write`.
+`identity:write`. `TOOLS.md` is the deployment's tool notes, not policy.
 
 ## Skills dir
 `/data/.openclaw/workspace/skills`. The installer stages into

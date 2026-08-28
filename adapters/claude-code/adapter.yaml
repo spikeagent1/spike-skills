@@ -19,13 +19,13 @@ vocabulary:
   durable_memory:
     value: the same vault; ~/.claude/CLAUDE.md is its always-loaded summary
   task_provider:
-    value: the Todoist MCP server when the connector registry declares one, otherwise mirror-only
-    note: UNCONFIRMED - no Todoist server is registered on this host, so tasks are mirror-only and the skill must disclose that.
+    value: the Todoist MCP server when the connector registry lists one, otherwise mirror-only
+    note: UNCONFIRMED - claude mcp list names no Todoist server on this host, so tasks are mirror-only and the skill must disclose that.
   calendar_provider:
     value: the Google Calendar MCP server
   mail_provider:
     value: the agentmail MCP server for the agent, the Gmail MCP server for the owner
-    note: UNCONFIRMED - agentmail is not registered on this host; Gmail is connected.
+    note: UNCONFIRMED - claude mcp list shows no agentmail server on this host, so the agent half is unavailable here; Gmail and Google Calendar are connected. agentmail may be present in other Claude Code sessions.
   contacts_provider:
     value: none configured
   owner_timezone:
@@ -47,7 +47,7 @@ vocabulary:
     value: none in this runtime
   agent_inbox:
     value: ${AGENT_INBOX}
-    note: UNCONFIRMED - reached through the agentmail MCP server, which is not registered on this host.
+    note: UNCONFIRMED - reached through the agentmail MCP server, which claude mcp list does not show on this host.
   durable_tool_paths:
     value: ~/.bun/bin, ~/.local/bin, and ~/dev/tapan-agent/bin
     note: UNCONFIRMED - ~/dev/tapan-agent/bin does not exist on this host; the first two do.
@@ -55,9 +55,11 @@ vocabulary:
     value: the macOS keychain, plus per-server env in ~/.claude.json
     note: Read a credential where it lives; never copy a value into a record, a log, or a reply.
   connector_registry:
-    value: the mcpServers block of ~/.claude.json
+    value: the union of claude mcp list (account-level connectors) and the mcpServers blocks of ~/.claude.json (top-level and per-project)
+    note: Neither half is the whole registry. On this host ~/.claude.json holds gbrain and railway, while Gmail and Google Calendar are account-level and appear only in claude mcp list.
   runtime_health_check:
     value: mcp__gbrain__get_health, or claude mcp list for the registry as a whole
+    note: Both attested on this host - get_health is in gbrain --tools-json, and claude mcp list runs. Neither could be round-tripped live because the configured server binary ~/.bun/bin/gbrain is missing.
   runtime_reload:
     value: restart the session, or reconnect one server with /mcp
   identity_files:
@@ -106,8 +108,8 @@ datastore:
     search: mcp__gbrain__search query=<query>
     list: mcp__gbrain__list_pages type=<namespace>
     timeline: mcp__gbrain__get_timeline slug=<namespace>/<id>
-    write: mcp__gbrain__put_page slug=<namespace>/<id> with full Markdown and frontmatter
-    append_timeline: mcp__gbrain__add_timeline_entry slug=<namespace>/<id> date summary detail
+    write: mcp__gbrain__put_page slug=<namespace>/<id> content=<full Markdown with frontmatter>
+    append_timeline: mcp__gbrain__add_timeline_entry slug=<namespace>/<id> date=<local date> summary=<one line> detail=<optional>
     supersede: put the replacement page, then put the original with status superseded
   field_map:
     namespace: type
@@ -116,7 +118,7 @@ datastore:
     provenance.source_ids: source_ids
     id: the page slug, which is the filename without .md
     kind: no vault equivalent; written through as frontmatter
-  note: Paths are relative to ~/Tapan-Brain except conversations, a separate root defaulting to ~/Tapan-Brain-imports/conversations/. Fallback order for every verb is the gbrain MCP server, then ~/Tapan-Brain/bin/gbrain-local with the same subcommands, then reading or writing the Markdown file directly. Embeddings are off, so search is keyword-only; prefer exact slugs.
+  note: Paths are relative to ~/Tapan-Brain except conversations, a separate root defaulting to ~/Tapan-Brain-imports/conversations/. Only profile/, people/, projects/, and decisions/ exist in the vault today; agents/, every ops/ path, and ${CONVERSATIONS_ROOT} are chosen layouts the installer creates on first write, not directories already there. The vault's own inbox/ is a different thing - user-approved source captures, cited from index.md - so the inbox namespace deliberately maps to ops/inbox/ and never to it. Fallback order for every verb is the gbrain MCP server, then ~/Tapan-Brain/bin/gbrain-local with the same subcommands, then reading or writing the Markdown file directly. The MCP tool names above are attested by gbrain --tools-json on this host, which enumerates all 41 tools including get_timeline and get_health; the configured server binary ~/.bun/bin/gbrain is missing, so no live round-trip confirmed them. Embeddings are off, so search is keyword-only; prefer exact slugs.
 
 notification:
   channels:

@@ -1,7 +1,7 @@
 # ADAPTER — claude-code
 
 Rendered from `adapters/claude-code/adapter.yaml`; `${...}` is filled at install from `${HOME}/.config/spike-os/claude-code.local.yaml`.
-A value marked **UNCONFIRMED** is not supported on this host today: verify it before relying on it, never assume it (F2).
+A value marked **UNCONFIRMED** is not attested on this host today: verify it before relying on it, never assume it (F2).
 
 ## Vocabulary
 | Term | Value |
@@ -10,7 +10,7 @@ A value marked **UNCONFIRMED** is not supported on this host today: verify it be
 | `agent` | the Claude Code session, operating under ~/.claude/CLAUDE.md |
 | `owner datastore` | the Tapan-Brain vault at ~/Tapan-Brain, indexed by _system/shared-context.pglite |
 | `durable memory` | the same vault; ~/.claude/CLAUDE.md is its always-loaded summary |
-| `task provider` | the Todoist MCP server when the connector registry declares one, otherwise mirror-only — **UNCONFIRMED** |
+| `task provider` | the Todoist MCP server when the connector registry lists one, otherwise mirror-only — **UNCONFIRMED** |
 | `calendar provider` | the Google Calendar MCP server |
 | `mail provider` | the agentmail MCP server for the agent, the Gmail MCP server for the owner — **UNCONFIRMED** |
 | `contacts provider` | none configured |
@@ -24,7 +24,7 @@ A value marked **UNCONFIRMED** is not supported on this host today: verify it be
 | `agent inbox` | ${AGENT_INBOX} — **UNCONFIRMED** |
 | `durable tool paths` | ~/.bun/bin, ~/.local/bin, and ~/dev/tapan-agent/bin — **UNCONFIRMED** |
 | `credential store` | the macOS keychain, plus per-server env in ~/.claude.json |
-| `connector registry` | the mcpServers block of ~/.claude.json |
+| `connector registry` | the union of `claude mcp list` (account-level connectors) and the `mcpServers` blocks of ~/.claude.json (top-level and per-project) |
 | `runtime health check` | mcp__gbrain__get_health, or claude mcp list for the registry as a whole |
 | `runtime reload` | restart the session, or reconnect one server with /mcp |
 | `identity files` | ~/.claude/CLAUDE.md and the profile pages under ~/Tapan-Brain/profile/ |
@@ -42,12 +42,16 @@ A value marked **UNCONFIRMED** is not supported on this host today: verify it be
 Vault root `~/Tapan-Brain/`: `profile` `people` `agents` `decisions`, `projects/<name>/`.
 Under `ops/`: `journal` `tasks` `calendar` `inbox` `jobs` `effects` `checkpoints`
 `notifications`. `conversations` is `${CONVERSATIONS_ROOT}`, a separate root.
+Only `profile/` `people/` `projects/` `decisions/` exist in the vault today; `agents/`,
+every `ops/` path, and `${CONVERSATIONS_ROOT}` are chosen layouts the installer creates on
+first write. The vault's own `inbox/` is a **different thing** — user-approved source
+captures, cited from `index.md` — so the `inbox` namespace maps to `ops/inbox/`, never to it.
 
 | Verb | Invocation |
 |---|---|
 | `read` `search` `list` `timeline` | `mcp__gbrain__get_page` · `search` · `list_pages` · `get_timeline`, on `<ns>/<id>` |
-| `write` | `mcp__gbrain__put_page` with full Markdown and frontmatter, then read back |
-| `append_timeline` | `mcp__gbrain__add_timeline_entry` with date, summary, detail |
+| `write` | `mcp__gbrain__put_page` with `slug` and `content` (full Markdown with frontmatter), then read back |
+| `append_timeline` | `mcp__gbrain__add_timeline_entry` with `slug`, `date`, `summary`, optional `detail` |
 | `supersede` | put the replacement, then the original with `status: superseded` |
 
 Envelope fields the vault names differently — the adapter maps them, records are never
@@ -77,3 +81,6 @@ Every verb has three ordered paths: the gbrain MCP server, then
 `~/Tapan-Brain/bin/gbrain-local` (same subcommands), then the Markdown file directly.
 Markdown is canonical and the index is rebuilt from it, so the last path is safe — name
 the one that answered. Embeddings are off, so search is keyword-only: prefer exact slugs.
+The MCP tool names above come from `gbrain --tools-json` on this host (41 tools, including
+`get_timeline` and `get_health`); the configured server binary is missing, so nothing was
+round-tripped live — expect the CLI or the file to answer, and say which did.
