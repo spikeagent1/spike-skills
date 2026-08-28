@@ -60,7 +60,7 @@ Report each line as **on hand** (owner-confirmed), **to buy**, **unconfirmed** (
 
 ## Sources and freshness
 
-Prices, fees, and stock come from the shop's own source or the delivery service's own, ahead of any aggregator, and never from a cached page or a prior run (F2), timestamped beside the figure (F3). With no current source read this turn, figures stay ranges or allocations — an exact price stays out, because labelling the uncertainty is not a substitute for the lookup (F1), and stock is never asserted from recall.
+Prices, fees, and stock come from the shop's own source or the delivery service's own, ahead of any aggregator, and never from a cached page or a prior run (F2), timestamped beside the figure (F3). With no current source read this turn, figures stay ranges or allocations — an exact price stays out, because labelling the uncertainty is not a substitute for the lookup (F1), and stock is never asserted from recall. A total is still given on that basis — a range or an allocation, with delivery, service, and tip fees as their own line; a zero, a blank, or "not calculable" is not a total.
 
 ## Privacy and mutations
 
