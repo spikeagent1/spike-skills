@@ -236,8 +236,8 @@ skills:
     status: approved
     cohort: health-and-home-lifestyle
     workshop_proposal: health-appointment-prep-20260824-6b0431d4d7
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: medication-and-symptom-log
     classification: owned
