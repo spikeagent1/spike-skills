@@ -2785,8 +2785,10 @@ class ChosenSkillTest(unittest.TestCase):
         )
         self.assertEqual(routing.chosen_skill(result), "fact-check")
 
-    def test_empty_skill_input_is_none(self) -> None:
-        self.assertIsNone(routing.chosen_skill(_skill_result("")))
+    def test_a_skill_use_with_no_name_is_the_unnamed_sentinel(self) -> None:
+        # Not None: the router did route, and reading that as "declined to route"
+        # would score a broken stream as a passing negative case.
+        self.assertEqual(routing.chosen_skill(_skill_result("")), routing.UNNAMED_SKILL)
 
 
 class RoutingMajorityTest(unittest.TestCase):
@@ -2871,16 +2873,21 @@ class RoutingScoringTest(unittest.TestCase):
         self.assertEqual(score["chosen"], "alpha")
         self.assertEqual(score["answered"], 2)
 
-    def test_a_case_where_every_repeat_failed_is_flagged(self) -> None:
+    def test_a_case_where_every_repeat_failed_is_unanswered_not_a_pass(self) -> None:
         null_case = _routing_case(expected_skill=None)
         score = routing.score_case(null_case, [None, None], statuses=["error", "error"])
         self.assertEqual(score["answered"], 0)
-        # Still scored — the matrix has no fifth outcome — but never silently.
-        self.assertEqual(score["outcome"], "pass")
+        # A `null`-expected case would otherwise "pass" on the silence of two
+        # failed calls; the matrix must not be applied to what was not measured.
+        self.assertEqual(score["outcome"], "unanswered")
+        self.assertEqual(score["rule"], "null")
         self.assertTrue(any("every repeat failed" in item for item in score["warnings"]))
 
         aggregate = routing.aggregate_routing([null_case], [score])
         self.assertEqual(aggregate["unanswered"], ["alpha:1"])
+        self.assertEqual(aggregate["totals"]["unanswered"], 1)
+        self.assertEqual(aggregate["totals"]["pass"], 0)
+        self.assertIsNone(aggregate["pass_rate"])
         self.assertIn("## Unanswered", routing.render_routing_report(aggregate, {}))
 
     def test_statuses_are_optional(self) -> None:
@@ -2929,11 +2936,11 @@ class AggregateRoutingTest(unittest.TestCase):
         agg = routing.aggregate_routing(self.cases, self.scores)
         self.assertEqual(
             agg["files"]["alpha"],
-            {"cases": 3, "pass": 1, "ambiguous_pass": 0, "fail": 2, "phantom": 0},
+            {"cases": 3, "pass": 1, "ambiguous_pass": 0, "fail": 2, "unanswered": 0, "phantom": 0},
         )
         self.assertEqual(
             agg["files"]["beta"],
-            {"cases": 2, "pass": 0, "ambiguous_pass": 1, "fail": 1, "phantom": 1},
+            {"cases": 2, "pass": 0, "ambiguous_pass": 1, "fail": 1, "unanswered": 0, "phantom": 1},
         )
 
     def test_totals_cover_every_case(self) -> None:
@@ -3277,7 +3284,7 @@ class RenderRoutingReportTest(unittest.TestCase):
         self.assertIn("2.1.250", text)
         self.assertIn(HARNESS_VERSION, text)
         self.assertIn("abc123", text)
-        self.assertIn("| alpha | 1 | 0 | 0 | 1 | 0 |", text)
+        self.assertIn("| alpha | 1 | 0 | 0 | 1 | 0 | 0 |", text)
         self.assertIn("do alpha", text)
         self.assertIn("gamma", text)
 
@@ -3453,7 +3460,10 @@ class RoutingCLITest(unittest.TestCase):
 
         results = json.loads((run_dir / "results.json").read_text(encoding="utf-8"))
         self.assertEqual(results["cases"], 3)
-        self.assertEqual(results["totals"], {"pass": 2, "ambiguous_pass": 0, "fail": 1, "phantom": 1})
+        self.assertEqual(
+            results["totals"],
+            {"pass": 2, "ambiguous_pass": 0, "fail": 1, "unanswered": 0, "phantom": 1},
+        )
         self.assertEqual(results["hijacks"], {"alpha": 1})
         self.assertEqual([row["intent"] for row in results["confusion"]], ["ghost work"])
         self.assertEqual(results["mode"], "native")
@@ -3524,7 +3534,10 @@ class RoutingCLITest(unittest.TestCase):
         results = json.loads(
             (self._routing_run_dir("cls") / "results.json").read_text(encoding="utf-8")
         )
-        self.assertEqual(results["totals"], {"pass": 3, "ambiguous_pass": 0, "fail": 0, "phantom": 1})
+        self.assertEqual(
+            results["totals"],
+            {"pass": 3, "ambiguous_pass": 0, "fail": 0, "unanswered": 0, "phantom": 1},
+        )
 
     def test_dry_run_writes_requests_without_calling_claude(self) -> None:
         empty = FakeClaudeRunner([])
@@ -3594,7 +3607,7 @@ class RoutingCLITest(unittest.TestCase):
         self.assertEqual(baseline["routing"]["repeats"], 3)
         self.assertEqual(
             baseline["routing"]["files"]["alpha"],
-            {"cases": 2, "pass": 1, "ambiguous_pass": 0, "fail": 1, "phantom": 1},
+            {"cases": 2, "pass": 1, "ambiguous_pass": 0, "fail": 1, "unanswered": 0, "phantom": 1},
         )
         self.assertEqual(baseline["routing"]["phantom_targets"], ["ghost-skill"])
         # The behavioral half of this fixture baseline is deliberately empty, so
@@ -3632,6 +3645,153 @@ class RoutingCLITest(unittest.TestCase):
                 ["export-trigger-set", "--skill", "ghost", "--out", str(self.root / "x.json")]
             )
         self.assertEqual(code, 2)
+
+
+class RepeatsGuardTest(unittest.TestCase):
+    """`--repeats 0` used to write a fully-scored run after zero API calls."""
+
+    @staticmethod
+    def _main_quietly(argv: list[str]) -> int:
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = run_evals.main(argv)
+        RepeatsGuardTest.stderr = err.getvalue()
+        return code
+
+    def test_routing_rejects_zero_and_negative_repeats(self) -> None:
+        for repeats in ("0", "-1"):
+            self.assertEqual(
+                self._main_quietly(["routing", "--all", "--model", "sonnet", "--repeats", repeats]),
+                2,
+                repeats,
+            )
+            self.assertIn("--repeats must be at least 1", self.stderr)
+
+    def test_run_rejects_zero_repeats(self) -> None:
+        self.assertEqual(
+            self._main_quietly(["run", "--all", "--model", "sonnet", "--repeats", "0"]), 2
+        )
+        self.assertIn("--repeats must be at least 1", self.stderr)
+
+    def test_the_guard_fires_before_any_doctor_or_case_loading(self) -> None:
+        # Nothing may be written or called on the way to this refusal.
+        self.assertEqual(
+            self._main_quietly(
+                ["routing", "--skill", "no-such-skill", "--model", "sonnet", "--repeats", "0"]
+            ),
+            2,
+        )
+        self.assertIn("--repeats must be at least 1", self.stderr)
+
+    def test_scoring_zero_repeats_is_unanswered_not_a_verdict(self) -> None:
+        for case in (
+            _routing_case(expected_skill=None),
+            _routing_case(),
+            _routing_case(expected_skill="ghost", phantom_expected=True, must_not_route="alpha"),
+        ):
+            score = routing.score_case(case, [])
+            self.assertEqual(score["outcome"], "unanswered", case.expected_skill)
+            self.assertEqual(score["answered"], 0)
+            self.assertTrue(any("no repeat produced an answer" in w for w in score["warnings"]))
+
+    def test_an_all_unanswered_aggregate_has_no_pass_rate(self) -> None:
+        cases_list = [_routing_case(expected_skill=None), _routing_case(line_no=2)]
+        scores = [routing.score_case(case, []) for case in cases_list]
+        aggregate = routing.aggregate_routing(cases_list, scores, mode="native", repeats=0)
+        self.assertEqual(aggregate["totals"]["unanswered"], 2)
+        self.assertEqual(aggregate["totals"]["pass"], 0)
+        self.assertEqual(aggregate["totals"]["fail"], 0)
+        self.assertIsNone(aggregate["pass_rate"])
+        self.assertEqual(aggregate["unanswered"], ["alpha:1", "alpha:2"])
+        self.assertEqual(aggregate["files"]["alpha"]["unanswered"], 2)
+
+
+class PartialToolInputTest(unittest.TestCase):
+    """The skill name must survive without the completed assistant message.
+
+    The parser used to read the name only from the completed block this CLI build
+    happens to re-emit. A build that stops doing so would make every native
+    intent read as "routed to nothing", and `null`-expected cases would pass on
+    the strength of a parsing gap.
+    """
+
+    def _fixture_events(self) -> list[dict]:
+        return [json.loads(line) for line in _fixture_lines("skill_tool_use_partial.jsonl")]
+
+    @staticmethod
+    def _lines(events: list[dict]) -> list[str]:
+        return [json.dumps(event) for event in events]
+
+    @staticmethod
+    def _has_skill_tool_use(event: dict) -> bool:
+        return any(use.get("name") == "Skill" for use in claude_cli._tool_uses_in_event(event))
+
+    def _without_completed_block(self) -> list[str]:
+        """The real stream with the completed assistant tool_use message removed."""
+        return self._lines(
+            [
+                event
+                for event in self._fixture_events()
+                if not (event.get("type") == "assistant" and self._has_skill_tool_use(event))
+            ]
+        )
+
+    def test_the_name_is_rebuilt_from_the_input_json_deltas(self) -> None:
+        lines = self._without_completed_block()
+        self.assertTrue(any('"input_json_delta"' in line for line in lines))
+        _, tool_uses, _, _ = claude_cli.parse_stream_lines(lines)
+        skill_uses = [use for use in tool_uses if use["name"] == "Skill"]
+        self.assertEqual(len(skill_uses), 1)
+        self.assertEqual(skill_uses[0]["input"]["skill"], "fact-check")
+        result = claude_cli.ClaudeResult(status="ok", tool_uses=tool_uses)
+        self.assertEqual(routing.chosen_skill(result), "fact-check")
+
+    def test_a_stream_with_neither_deltas_nor_a_completed_block_is_unanswered(self) -> None:
+        lines = [
+            line
+            for line in self._without_completed_block()
+            if '"input_json_delta"' not in line
+        ]
+        _, tool_uses, _, _ = claude_cli.parse_stream_lines(lines)
+        self.assertTrue(any(use["name"] == "Skill" for use in tool_uses))
+        result = claude_cli.ClaudeResult(status="ok", tool_uses=tool_uses)
+        self.assertEqual(routing.chosen_skill(result), routing.UNNAMED_SKILL)
+
+        score = routing.score_case(
+            _routing_case(expected_skill=None), [routing.UNNAMED_SKILL], statuses=["ok"]
+        )
+        self.assertEqual(score["outcome"], "unanswered")
+        self.assertTrue(any("never named it" in item for item in score["warnings"]))
+
+    def test_a_truncated_delta_run_leaves_the_input_empty(self) -> None:
+        # Half-parsed arguments would be worse than an admitted gap.
+        events = [
+            event
+            for event in self._fixture_events()
+            if not (event.get("type") == "assistant" and self._has_skill_tool_use(event))
+        ]
+        trimmed = []
+        for event in events:
+            fragment = claude_cli._partial_tool_input(event)
+            if fragment is not None and fragment[1].rstrip().endswith("}"):
+                continue
+            trimmed.append(event)
+        _, tool_uses, _, _ = claude_cli.parse_stream_lines(self._lines(trimmed))
+        skill_uses = [use for use in tool_uses if use["name"] == "Skill"]
+        self.assertEqual(skill_uses[0]["input"], {})
+
+    def test_the_completed_block_still_wins_when_it_arrives(self) -> None:
+        _, tool_uses, _, _ = claude_cli.parse_stream_lines(
+            _fixture_lines("skill_tool_use_partial.jsonl")
+        )
+        skill_uses = [use for use in tool_uses if use["name"] == "Skill"]
+        self.assertEqual(len(skill_uses), 1)
+        self.assertEqual(skill_uses[0]["input"]["skill"], "fact-check")
+        self.assertIn("args", skill_uses[0]["input"])
+
+    def test_delta_accumulation_does_not_disturb_a_non_partial_stream(self) -> None:
+        _, tool_uses, _, _ = claude_cli.parse_stream_lines(_fixture_lines("skill_tool_use.jsonl"))
+        self.assertEqual([use["name"] for use in tool_uses], ["Skill"])
+        self.assertEqual(tool_uses[0]["input"], {"skill": "zz-eval-sentinel-fa2a907f"})
 
 
 if __name__ == "__main__":

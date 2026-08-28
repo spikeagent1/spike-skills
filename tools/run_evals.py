@@ -204,6 +204,23 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _bad_repeats(command: str, repeats: int) -> bool:
+    """True (after printing why) when `--repeats` would run nothing at all.
+
+    `range(1, repeats + 1)` is empty for anything below 1, which would produce a
+    complete-looking results.json — scored from no answers — without a single API
+    call. A run that measures nothing must fail loudly, not report.
+    """
+    if repeats >= 1:
+        return False
+    print(
+        f"run_evals.py {command}: --repeats must be at least 1 (got {repeats}); "
+        "a run with no repeats measures nothing",
+        file=sys.stderr,
+    )
+    return True
+
+
 def load_doctor(claude_bin: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     """Validated `doctor.json`, or a message explaining why `run` must refuse.
 
@@ -295,6 +312,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 2
     if not (args.skill or args.cohort or args.case or args.all):
         print("run_evals.py run: choose --skill, --cohort, --case, or --all", file=sys.stderr)
+        return 2
+    if _bad_repeats("run", args.repeats):
         return 2
 
     doctor_json, problem = load_doctor(args.claude_bin)
@@ -594,6 +613,8 @@ def cmd_routing(args: argparse.Namespace) -> int:
     """Run every selected routing intent in one mode and score the answers."""
     if not (args.skill or args.all):
         print("run_evals.py routing: choose --skill or --all", file=sys.stderr)
+        return 2
+    if _bad_repeats("routing", args.repeats):
         return 2
 
     doctor_json, problem = load_doctor(args.claude_bin)

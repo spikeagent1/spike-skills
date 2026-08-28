@@ -184,6 +184,19 @@ def _tool_uses_in_event(event: Mapping[str, Any]) -> List[Dict[str, Any]]:
     return uses
 
 
+def _partial_tool_input(event: Mapping[str, Any]) -> Optional[Tuple[Any, str]]:
+    """`(block index, json fragment)` from an `input_json_delta`, else None."""
+    if event.get("type") != "stream_event":
+        return None
+    inner = event.get("event") or {}
+    if inner.get("type") != "content_block_delta":
+        return None
+    delta = inner.get("delta") or {}
+    if delta.get("type") != "input_json_delta":
+        return None
+    return inner.get("index"), str(delta.get("partial_json") or "")
+
+
 def parse_stream_lines(
     lines: Iterable[str],
 ) -> Tuple[str, List[Dict[str, Any]], Optional[Dict[str, Any]], List[Dict[str, Any]]]:
@@ -191,12 +204,23 @@ def parse_stream_lines(
 
     Unparseable or truncated lines are dropped, so a killed process still yields
     whatever arrived before the kill.
+
+    Under `--include-partial-messages` a tool_use arrives in three pieces: a
+    `content_block_start` with an empty input, a run of `input_json_delta`
+    fragments, and (on this CLI build) the completed assistant message. The
+    fragments are accumulated per block index and parsed at the end, so the
+    arguments are recoverable even if the completed message never arrives —
+    the same reconstruction the vendored
+    `imports/anthropic-skill-creator/scripts/run_eval.py:143-149` does inline.
     """
     text_parts: List[str] = []
     tool_uses: List[Dict[str, Any]] = []
     seen_tool_ids: Dict[str, int] = {}
     result_event: Optional[Dict[str, Any]] = None
     events: List[Dict[str, Any]] = []
+    # Block index -> position in `tool_uses`, and the JSON text streamed for it.
+    index_positions: Dict[Any, int] = {}
+    index_fragments: Dict[Any, List[str]] = {}
 
     for raw in lines:
         line = raw.strip()
@@ -218,6 +242,16 @@ def parse_stream_lines(
         elif event.get("type") == "result":
             result_event = event
 
+        fragment = _partial_tool_input(event)
+        if fragment is not None:
+            index_fragments.setdefault(fragment[0], []).append(fragment[1])
+
+        block_index = None
+        if event.get("type") == "stream_event":
+            inner = event.get("event") or {}
+            if inner.get("type") == "content_block_start":
+                block_index = inner.get("index")
+
         for use in _tool_uses_in_event(event):
             key = use.get("id")
             if key is not None and key in seen_tool_ids:
@@ -228,15 +262,44 @@ def parse_stream_lines(
                 position = seen_tool_ids[key]
                 if use.get("input") and not tool_uses[position].get("input"):
                     tool_uses[position] = use
+                if block_index is not None:
+                    index_positions[block_index] = position
                 continue
             if key is not None:
                 seen_tool_ids[key] = len(tool_uses)
+            if block_index is not None:
+                index_positions[block_index] = len(tool_uses)
             tool_uses.append(use)
 
+    _fill_inputs_from_fragments(tool_uses, index_positions, index_fragments)
     text = "".join(text_parts)
     if not text and result_event is not None and isinstance(result_event.get("result"), str):
         text = result_event["result"]
     return text, tool_uses, result_event, events
+
+
+def _fill_inputs_from_fragments(
+    tool_uses: List[Dict[str, Any]],
+    index_positions: Mapping[Any, int],
+    index_fragments: Mapping[Any, Sequence[str]],
+) -> None:
+    """Rebuild a tool_use `input` the completed message never delivered.
+
+    A truncated or unparseable fragment run is left alone: an empty input is a
+    readable "we do not know", where half-parsed arguments would be a lie.
+    """
+    for index, position in index_positions.items():
+        if position >= len(tool_uses) or tool_uses[position].get("input"):
+            continue
+        blob = "".join(index_fragments.get(index) or []).strip()
+        if not blob:
+            continue
+        try:
+            parsed = json.loads(blob)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if isinstance(parsed, dict) and parsed:
+            tool_uses[position]["input"] = parsed
 
 
 def parse_output(

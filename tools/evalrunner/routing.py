@@ -50,7 +50,15 @@ DEFAULT_STRUCTURED_FIELD = "structured_output"
 OUTCOME_PASS = "pass"
 OUTCOME_AMBIGUOUS = "ambiguous_pass"
 OUTCOME_FAIL = "fail"
-OUTCOMES = (OUTCOME_PASS, OUTCOME_AMBIGUOUS, OUTCOME_FAIL)
+# A case the run produced no usable answer for. Not a fourth verdict in design
+# §5's matrix — an admission that the matrix was never applied, so a silent run
+# (no repeats, every call failed, a stream that never named the skill) can never
+# be read as a passing negative case.
+OUTCOME_UNANSWERED = "unanswered"
+OUTCOMES = (OUTCOME_PASS, OUTCOME_AMBIGUOUS, OUTCOME_FAIL, OUTCOME_UNANSWERED)
+
+# The router demonstrably invoked a skill, but the stream never carried its name.
+UNNAMED_SKILL = "<unnamed-skill>"
 
 RULE_EXPECTED = "expected"
 RULE_NULL = "null"
@@ -327,15 +335,23 @@ def chosen_skill(result: ClaudeResult, *, field: str = DEFAULT_STRUCTURED_FIELD)
     Native mode answers with the first `Skill` tool_use that names a skill;
     partial-message streams emit the block twice (an empty `content_block_start`
     then the complete assistant message), so a use with no skill in its input is
-    skipped rather than read as "routed to nothing". Classify mode answers with
-    `choice` from the structured output.
+    skipped rather than read as "routed to nothing". A stream that carries a
+    `Skill` use but never names the skill returns `UNNAMED_SKILL`, which scores
+    `unanswered`: the router did route, and only the record of where is missing.
+    Classify mode answers with `choice` from the structured output.
     """
+    saw_skill_use = False
     for use in result.tool_uses:
         if use.get("name") != SKILL_TOOL_NAME:
             continue
+        saw_skill_use = True
         name = normalize_skill_name((use.get("input") or {}).get("skill"))
         if name:
             return name
+    if saw_skill_use:
+        # The router did route somewhere — reporting None here would score a
+        # broken stream as "correctly declined to route".
+        return UNNAMED_SKILL
 
     event = result.result_event or {}
     structured = event.get(field)
@@ -382,9 +398,10 @@ def score_case(
     `statuses` (one per repeat, when the caller has them) keeps a failed call from
     voting: a call that errored before answering says nothing about the router,
     and counting its silence as "routed to nothing" would turn a broken run into
-    a passing negative case. A case where every repeat failed is still scored —
-    the matrix has no fifth outcome — but `answered` is 0 and it carries a
-    warning, so the aggregate can report it instead of hiding it.
+    a passing negative case. When nothing usable is left to vote — no repeats ran
+    at all, every repeat failed, or the router invoked a skill the stream never
+    named — the case is `unanswered` and the matrix is not applied: "we did not
+    measure this" must never be recorded as pass or fail.
     """
     votes = [
         chosen
@@ -397,29 +414,45 @@ def score_case(
         "in this repo; dropped"
         for name in case.phantom_ambiguous
     ]
-    if statuses and not votes:
-        warnings.append(
-            f"{case.skill_file}:{case.line_no}: every repeat failed "
-            f"({', '.join(sorted(set(statuses)))}); the verdict below rests on no answer"
-        )
 
     if case.phantom_expected and case.soft:
         rule = RULE_SOFT
-        outcome = OUTCOME_PASS if chosen in (None, case.skill_file) else OUTCOME_FAIL
     elif case.phantom_expected:
         rule = RULE_MUST_NOT_ROUTE
-        outcome = OUTCOME_FAIL if chosen == case.must_not_route else OUTCOME_PASS
     elif case.expected_skill is None:
         rule = RULE_NULL
-        outcome = OUTCOME_PASS if chosen is None else OUTCOME_FAIL
     else:
         rule = RULE_EXPECTED
-        if chosen == case.expected_skill:
-            outcome = OUTCOME_PASS
-        elif chosen is not None and chosen in case.ambiguous_with:
-            outcome = OUTCOME_AMBIGUOUS
-        else:
-            outcome = OUTCOME_FAIL
+
+    if not votes:
+        outcome = OUTCOME_UNANSWERED
+        detail = (
+            f"every repeat failed ({', '.join(sorted(set(statuses)))})"
+            if statuses
+            else "no repeat produced an answer"
+        )
+        warnings.append(
+            f"{case.skill_file}:{case.line_no}: {detail}; scored {OUTCOME_UNANSWERED}, "
+            "the routing matrix was not applied"
+        )
+    elif chosen == UNNAMED_SKILL:
+        outcome = OUTCOME_UNANSWERED
+        warnings.append(
+            f"{case.skill_file}:{case.line_no}: the router invoked a skill but the stream "
+            f"never named it; scored {OUTCOME_UNANSWERED}"
+        )
+    elif rule == RULE_SOFT:
+        outcome = OUTCOME_PASS if chosen in (None, case.skill_file) else OUTCOME_FAIL
+    elif rule == RULE_MUST_NOT_ROUTE:
+        outcome = OUTCOME_FAIL if chosen == case.must_not_route else OUTCOME_PASS
+    elif rule == RULE_NULL:
+        outcome = OUTCOME_PASS if chosen is None else OUTCOME_FAIL
+    elif chosen == case.expected_skill:
+        outcome = OUTCOME_PASS
+    elif chosen is not None and chosen in case.ambiguous_with:
+        outcome = OUTCOME_AMBIGUOUS
+    else:
+        outcome = OUTCOME_FAIL
 
     return {
         "skill_file": case.skill_file,
@@ -438,6 +471,11 @@ def score_case(
     }
 
 
+def _empty_counts() -> Dict[str, int]:
+    """Zeroed per-file counters; every outcome has a column so none can hide."""
+    return {"cases": 0, "pass": 0, "ambiguous_pass": 0, "fail": 0, "unanswered": 0, "phantom": 0}
+
+
 def aggregate_routing(
     routing_cases: Sequence[RoutingCase],
     scores: Sequence[Dict[str, Any]],
@@ -453,17 +491,14 @@ def aggregate_routing(
     fixture accepts as an alternative was not hijacked, it was shared.
     """
     files: Dict[str, Dict[str, int]] = {}
-    totals = {"pass": 0, "ambiguous_pass": 0, "fail": 0, "phantom": 0}
+    totals = {"pass": 0, "ambiguous_pass": 0, "fail": 0, "unanswered": 0, "phantom": 0}
     confusion: List[Dict[str, Any]] = []
     hijacks: Counter = Counter()
     warnings: List[str] = list(extra_warnings)
     phantom_targets: List[str] = []
 
     for score in scores:
-        entry = files.setdefault(
-            score["skill_file"],
-            {"cases": 0, "pass": 0, "ambiguous_pass": 0, "fail": 0, "phantom": 0},
-        )
+        entry = files.setdefault(score["skill_file"], _empty_counts())
         entry["cases"] += 1
         entry[score["outcome"]] += 1
         totals[score["outcome"]] += 1
@@ -489,15 +524,15 @@ def aggregate_routing(
         warnings.extend(score.get("warnings") or [])
 
     for case in routing_cases:
-        files.setdefault(
-            case.skill_file, {"cases": 0, "pass": 0, "ambiguous_pass": 0, "fail": 0, "phantom": 0}
-        )
+        files.setdefault(case.skill_file, _empty_counts())
 
+    # Unanswered cases are excluded from the denominator: a pass rate must be a
+    # share of the cases the run actually measured.
     scored = totals["pass"] + totals["ambiguous_pass"] + totals["fail"]
     unanswered = [
         f"{score['skill_file']}:{score['line_no']}"
         for score in scores
-        if score.get("statuses") and not score.get("answered")
+        if score["outcome"] == OUTCOME_UNANSWERED
     ]
     return {
         "run_id": run_id,
@@ -603,21 +638,21 @@ def render_routing_report(aggregate: Dict[str, Any], run_meta: Dict[str, Any]) -
     rate = aggregate.get("pass_rate")
     lines.append("## Scorecard")
     lines.append("")
-    lines.append("| File | Cases | Pass | Ambiguous | Fail | Phantom |")
-    lines.append("| --- | ---: | ---: | ---: | ---: | ---: |")
+    lines.append("| File | Cases | Pass | Ambiguous | Fail | Unanswered | Phantom |")
+    lines.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: |")
     for name in sorted(files):
         counts = files[name]
         lines.append(
             f"| {name} | {counts.get('cases', 0)} | {counts.get('pass', 0)} | "
             f"{counts.get('ambiguous_pass', 0)} | {counts.get('fail', 0)} | "
-            f"{counts.get('phantom', 0)} |"
+            f"{counts.get('unanswered', 0)} | {counts.get('phantom', 0)} |"
         )
     if not files:
-        lines.append("| (no routing cases in this run) | | | | | |")
+        lines.append("| (no routing cases in this run) | | | | | | |")
     lines.append(
         f"| **total** | {aggregate.get('cases', 0)} | {totals.get('pass', 0)} | "
         f"{totals.get('ambiguous_pass', 0)} | {totals.get('fail', 0)} | "
-        f"{totals.get('phantom', 0)} |"
+        f"{totals.get('unanswered', 0)} | {totals.get('phantom', 0)} |"
     )
     lines.append("")
     lines.append(f"Pass rate (pass + ambiguous): {rate * 100:.0f}%" if rate is not None else "Pass rate: n/a")
@@ -656,7 +691,10 @@ def render_routing_report(aggregate: Dict[str, Any], run_meta: Dict[str, Any]) -
     if unanswered:
         lines.append("## Unanswered")
         lines.append("")
-        lines.append("Every repeat of these intents failed; their verdicts rest on no answer.")
+        lines.append(
+            "The run produced no usable answer for these intents, so the routing matrix "
+            "was not applied to them; they count in neither the pass nor the fail column."
+        )
         lines.append("")
         lines.extend(f"- {item}" for item in unanswered)
         lines.append("")
