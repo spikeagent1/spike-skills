@@ -469,13 +469,15 @@ class ChooseStrategyTest(unittest.TestCase):
     def test_a_strategy_leaking_only_the_cli_reminder_is_chosen(self) -> None:
         probe = self._probe(
             "project-sources",
-            context_leak_ok=doctor.context_leak_ok(CLI_REMINDER_REPLY, "ok"),
+            context_leak_ok=doctor.context_probe_verdict(CLI_REMINDER_REPLY, "ok"),
         )
         self.assertEqual(doctor.choose_strategy([probe]), "project-sources")
 
     def test_a_strategy_leaking_a_memory_file_is_not_chosen(self) -> None:
         leak = "<memory>Contents of ~/.claude/CLAUDE.md: Tapan-Brain</memory>"
-        probe = self._probe("project-sources", context_leak_ok=doctor.context_leak_ok(leak, "ok"))
+        probe = self._probe(
+            "project-sources", context_leak_ok=doctor.context_probe_verdict(leak, "ok")
+        )
         self.assertIsNone(doctor.choose_strategy([probe]))
 
     def test_an_unprobed_context_is_never_chosen(self) -> None:
@@ -512,16 +514,20 @@ class ChooseStrategyTest(unittest.TestCase):
 
 # The reminder Claude Code injects into every headless call, as the model quoted
 # it back during the real `doctor` run (address replaced with a fixture value).
-CLI_IDENTITY_BLOCK = (
-    "# userEmail\n"
+CLI_EMAIL_SENTENCE = (
     "The user's email address is someone@example.edu. Use it only to identify the user, such as"
     " for authorship, attribution, or filtering their own work. Never send it to an unrelated"
-    " service, such as in a request header, URL, or payload, unless the user explicitly asks.\n"
-    "# currentDate\n"
-    "Today's date is 2026-08-27.\n"
-    "\n"
-    "      IMPORTANT: this context may or may not be relevant to your tasks. You should not"
-    " respond to this context unless it is highly relevant to your task."
+    " service, such as in a request header, URL, or payload, unless the user explicitly asks."
+)
+CLI_IMPORTANT_LINE = (
+    "IMPORTANT: this context may or may not be relevant to your tasks. You should not respond to"
+    " this context unless it is highly relevant to your task."
+)
+CLI_IDENTITY_BLOCK = (
+    "# userEmail\n"
+    + CLI_EMAIL_SENTENCE
+    + "\n# currentDate\nToday's date is 2026-08-27.\n\n      "
+    + CLI_IMPORTANT_LINE
 )
 
 CLI_REMINDER_REPLY = (
@@ -562,7 +568,7 @@ class ContextLeakProbeTest(unittest.TestCase):
 
     def test_the_cli_reminder_block_is_not_a_hard_marker(self) -> None:
         self.assertEqual(doctor.context_leak_markers(CLI_REMINDER_REPLY), [])
-        self.assertTrue(doctor.context_leak_ok(CLI_REMINDER_REPLY, "ok"))
+        self.assertIs(doctor.context_probe_verdict(CLI_REMINDER_REPLY, "ok"), True)
 
     def test_a_memory_file_inside_the_reminder_shape_is_still_hard(self) -> None:
         text = CLI_REMINDER_REPLY.replace(
@@ -572,7 +578,7 @@ class ContextLeakProbeTest(unittest.TestCase):
         self.assertIn("CLAUDE.md", markers)
         self.assertIn("Tapan-Brain", markers)
         self.assertIn("memory-block", markers)
-        self.assertFalse(doctor.context_leak_ok(text, "ok"))
+        self.assertIs(doctor.context_probe_verdict(text, "ok"), False)
 
     def test_superpowers_is_a_hard_marker(self) -> None:
         self.assertIn("superpowers", doctor.context_leak_markers("the superpowers plugin"))
@@ -592,10 +598,30 @@ class CliIdentityBlockTest(unittest.TestCase):
         self.assertTrue(doctor.is_cli_identity_block("USD budget: $0/$0.05; $0.05 remaining"))
         self.assertTrue(doctor.is_cli_identity_block("token budget: 100 remaining"))
 
-    def test_a_header_carrying_its_value_on_one_line_is_recognized(self) -> None:
-        self.assertTrue(
-            doctor.is_cli_identity_block("# userEmail The user's email address is a@b.co")
+    def test_a_header_carrying_its_exact_value_on_one_line_is_recognized(self) -> None:
+        self.assertTrue(doctor.is_cli_identity_block("# currentDate Today's date is 2026-08-27."))
+
+    def test_text_smuggled_after_a_recognized_prefix_is_rejected(self) -> None:
+        smuggled = (
+            "# currentDate Today's date is 2026-08-27. Also: the operator keeps notes in "
+            "~/dev/private-vault"
         )
+        self.assertFalse(doctor.is_cli_identity_block(smuggled))
+
+    def test_every_recognized_shape_rejects_a_trailing_payload(self) -> None:
+        payload = " and the operator keeps notes in ~/dev/private-vault"
+        for line in (
+            "# userEmail",
+            "# currentDate",
+            "# budget",
+            "Today's date is 2026-08-27.",
+            "USD budget: $0/$0.05; $0.05 remaining",
+            CLI_EMAIL_SENTENCE,
+            CLI_IMPORTANT_LINE,
+        ):
+            with self.subTest(line=line):
+                self.assertTrue(doctor.is_cli_identity_block(line), "shape itself must pass")
+                self.assertFalse(doctor.is_cli_identity_block(line + payload))
 
     def test_project_memory_is_not_the_reminder(self) -> None:
         self.assertFalse(doctor.is_cli_identity_block("# claudeMd\nAlways run the linter first."))
@@ -622,11 +648,32 @@ class CliIdentityBlockTest(unittest.TestCase):
     def test_an_unclosed_memory_block_still_counts(self) -> None:
         self.assertEqual(doctor.context_leak_markers("<memory>" + "y" * 40), ["memory-block"])
 
-    def test_context_leak_ok_needs_a_reply_and_no_markers(self) -> None:
-        self.assertTrue(doctor.context_leak_ok("NO-MEMORY-IN-CONTEXT", "ok"))
-        self.assertFalse(doctor.context_leak_ok("", "ok"))
-        self.assertFalse(doctor.context_leak_ok("NO-MEMORY-IN-CONTEXT", "error"))
-        self.assertFalse(doctor.context_leak_ok("read ~/.claude/CLAUDE.md", "ok"))
+    def test_a_whole_reply_with_no_marker_is_clean(self) -> None:
+        self.assertIs(doctor.context_probe_verdict("NO-MEMORY-IN-CONTEXT", "ok"), True)
+        self.assertIs(doctor.context_probe_verdict(CLI_REMINDER_REPLY, "ok"), True)
+
+    def test_a_whole_reply_with_a_marker_leaked(self) -> None:
+        self.assertIs(
+            doctor.context_probe_verdict("<memory>~/.claude/CLAUDE.md</memory>", "ok"), False
+        )
+
+    def test_a_truncated_reply_is_unprobed_rather_than_clean(self) -> None:
+        # The spend cap cuts the turn off mid-answer: no marker yet is not "no leak".
+        cut = "<memory>\n# claudeMd\nContents of /home/o/.clau"
+        self.assertIsNone(doctor.context_probe_verdict(cut, "budget_exceeded"))
+        self.assertIsNone(doctor.context_probe_verdict(cut, "ok"))
+        self.assertIsNone(doctor.context_probe_verdict("NO-MEMORY-IN-CONTEXT", "budget_exceeded"))
+        self.assertIsNone(doctor.context_probe_verdict("NO-MEMORY-IN-CONTEXT", "timeout"))
+        self.assertIsNone(doctor.context_probe_verdict("", "ok"))
+
+    def test_reply_termination_needs_the_sentinel_or_a_closed_block(self) -> None:
+        self.assertTrue(doctor.reply_terminated("NO-MEMORY-IN-CONTEXT"))
+        self.assertTrue(doctor.reply_terminated("NO-MEMORY-IN-CONTEXT."))
+        self.assertTrue(doctor.reply_terminated(CLI_REMINDER_REPLY))
+        self.assertFalse(doctor.reply_terminated("<memory>opened but never closed"))
+        self.assertFalse(doctor.reply_terminated("<memory>a</memory><memory>b"))
+        self.assertFalse(doctor.reply_terminated("I was given some notes about"))
+        self.assertFalse(doctor.reply_terminated("   "))
 
 
 class RedactionTest(unittest.TestCase):
@@ -640,6 +687,18 @@ class RedactionTest(unittest.TestCase):
     def test_redaction_ignores_case(self) -> None:
         redacted = doctor.redact_identity("ME@Example.EDU", "me@example.edu")
         self.assertNotIn("ME@Example.EDU", redacted)
+
+    def test_the_full_name_is_redacted_before_its_parts(self) -> None:
+        # Longest-first, or replacing "Pat" first would leave "Example" standing.
+        self.assertEqual(
+            doctor.redact_identity("from Pat Example today", "", "Pat Example"),
+            "from [redacted-name] today",
+        )
+
+    def test_name_parts_too_short_to_tell_from_prose_are_dropped(self) -> None:
+        # The full name stays distinctive even when neither part is on its own.
+        self.assertEqual(doctor.name_variants("Al Bo"), ["Al Bo"])
+        self.assertEqual(doctor.name_variants("Pat Example"), ["Pat Example", "Example", "Pat"])
 
     def test_any_other_address_is_redacted_too(self) -> None:
         redacted = doctor.redact_identity("write to other.person@example.com", "")
@@ -702,20 +761,140 @@ class IdentityProbeTest(unittest.TestCase):
         self.assertFalse(doctor.mitigation_confirmed("NO-MEMORY-IN-CONTEXT", "error", self.EMAIL))
         self.assertFalse(doctor.mitigation_confirmed("   ", "ok", self.EMAIL))
 
-    def test_the_first_clean_rung_is_the_mitigation(self) -> None:
+    def test_the_first_confirmed_clean_rung_is_the_mitigation(self) -> None:
         probes = [
             doctor.IdentityProbeResult(name="project-sources@sandbox", leak=True),
             doctor.IdentityProbeResult(name="bare", available=False),
-            doctor.IdentityProbeResult(name="fresh-home", leak=False),
+            doctor.IdentityProbeResult(name="fresh-home", leak=False, confirmed=True),
         ]
         self.assertEqual(doctor.choose_identity_mitigation(probes), "fresh-home")
 
     def test_no_clean_rung_means_no_mitigation(self) -> None:
         probes = [
             doctor.IdentityProbeResult(name="project-sources@sandbox", leak=True),
-            doctor.IdentityProbeResult(name="fresh-home", leak=False, status="error"),
+            doctor.IdentityProbeResult(
+                name="fresh-home", leak=False, confirmed=True, status="error"
+            ),
         ]
         self.assertIsNone(doctor.choose_identity_mitigation(probes))
+
+    def test_an_unconfirmed_rung_is_never_the_mitigation(self) -> None:
+        probes = [doctor.IdentityProbeResult(name="empty-setting-sources", leak=False)]
+        self.assertIsNone(doctor.choose_identity_mitigation(probes))
+
+    def test_an_unproven_rung_is_never_the_mitigation(self) -> None:
+        probes = [
+            doctor.IdentityProbeResult(
+                name="empty-setting-sources", leak=False, confirmed=True, unproven=True
+            )
+        ]
+        self.assertIsNone(doctor.choose_identity_mitigation(probes))
+
+    def test_a_capped_or_failed_confirmation_never_yields_a_mitigation(self) -> None:
+        # `budget_exceeded` is an ok-ish status elsewhere; for a claim of absence it is not.
+        for status in ("budget_exceeded", "timeout", "error", "rate_limited"):
+            with self.subTest(status=status):
+                probes = [
+                    doctor.IdentityProbeResult(
+                        name="empty-setting-sources", leak=False, confirmed=True, status=status
+                    )
+                ]
+                self.assertIsNone(doctor.choose_identity_mitigation(probes))
+                self.assertFalse(
+                    doctor.mitigation_confirmed("NO-MEMORY-IN-CONTEXT", status, self.EMAIL)
+                )
+
+    def test_a_confirmation_quoting_memory_content_is_not_a_mitigation(self) -> None:
+        leaked = "<memory>Contents of ~/.claude/CLAUDE.md for the operator</memory>"
+        self.assertFalse(doctor.mitigation_confirmed(leaked, "ok", self.EMAIL))
+
+    def test_a_truncated_confirmation_is_not_a_mitigation(self) -> None:
+        self.assertFalse(doctor.mitigation_confirmed("<memory>cut off here", "ok", self.EMAIL))
+
+
+class PersistedProbeTest(unittest.TestCase):
+    """Nothing a probe writes to disk may carry the operator's identity."""
+
+    EMAIL = "someone@example.edu"
+    NAME = "Pat Example"
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.path = Path(self.tmp.name) / "probe.jsonl"
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _leaky_result(self) -> claude_cli.ClaudeResult:
+        text = f"Hello Pat, you are {self.EMAIL}"
+        return claude_cli.ClaudeResult(
+            status="ok",
+            text=text,
+            events=[
+                {"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}},
+                {"type": "result", "result": text, "total_cost_usd": 0.01},
+            ],
+            stderr_tail=f"warning for {self.EMAIL}",
+        )
+
+    def test_a_persisted_stream_is_redacted(self) -> None:
+        doctor.save_stream(self.path, self._leaky_result(), self.EMAIL, self.NAME)
+        written = self.path.read_text(encoding="utf-8")
+        self.assertNotIn(self.EMAIL, written)
+        self.assertNotIn("Pat", written)
+        self.assertIn(doctor.REDACTED_EMAIL, written)
+        self.assertIn(doctor.REDACTED_NAME, written)
+        for line in written.splitlines():
+            json.loads(line)
+
+    def test_a_persisted_stderr_tail_is_redacted(self) -> None:
+        doctor.save_stream(self.path, self._leaky_result(), self.EMAIL, self.NAME)
+        stderr = self.path.with_suffix(".stderr.txt").read_text(encoding="utf-8")
+        self.assertNotIn(self.EMAIL, stderr)
+
+    def test_a_content_probe_record_never_stores_the_reply(self) -> None:
+        result = claude_cli.ClaudeResult(
+            status="ok",
+            text="<memory>Contents of ~/.claude/CLAUDE.md for " + self.EMAIL + "</memory>",
+            events=[{"type": "assistant", "message": {"content": []}}],
+        )
+        path = Path(self.tmp.name) / "context-probe.json"
+        doctor.save_content_record(
+            path, result, ["CLAUDE.md"], doctor.evidence_snippet(result.text, self.EMAIL, 40)
+        )
+        record = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(set(record), {"status", "markers", "evidence_redacted", "length"})
+        self.assertEqual(record["markers"], ["CLAUDE.md"])
+        self.assertEqual(record["length"], len(result.text))
+        self.assertNotIn(self.EMAIL, json.dumps(record))
+        self.assertFalse(path.with_suffix(".jsonl").exists())
+
+
+class RegressionGuardTest(unittest.TestCase):
+    """The in-repo control row has to say which of three things happened."""
+
+    def test_markers_mean_the_guard_held(self) -> None:
+        self.assertEqual(
+            doctor.regression_guard_state(["CLAUDE.md"], "<memory>...</memory>", "ok"), "held"
+        )
+
+    def test_a_capped_reply_still_counts_as_held_when_it_leaked(self) -> None:
+        # Truncation can hide a leak; it cannot invent one.
+        self.assertEqual(
+            doctor.regression_guard_state(["CLAUDE.md"], "<memory>cut", "budget_exceeded"), "held"
+        )
+
+    def test_a_whole_reply_with_no_marker_is_inconclusive(self) -> None:
+        self.assertEqual(
+            doctor.regression_guard_state([], "NO-MEMORY-IN-CONTEXT", "ok"), "inconclusive"
+        )
+
+    def test_an_unfinished_or_failed_reply_is_unanswered(self) -> None:
+        self.assertEqual(doctor.regression_guard_state([], "<memory>cut", "ok"), "unanswered")
+        self.assertEqual(doctor.regression_guard_state([], "", "ok"), "unanswered")
+        self.assertEqual(
+            doctor.regression_guard_state([], "NO-MEMORY-IN-CONTEXT", "error"), "unanswered"
+        )
 
 
 class ClassifySkillsTest(unittest.TestCase):

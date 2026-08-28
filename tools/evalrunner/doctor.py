@@ -85,12 +85,32 @@ CONTEXT_LEAK_MARKERS = (
 # a confound, rather than treated as leaked memory. Recognition is line-by-line and
 # length-capped, so anything the CLI has not been observed to inject fails closed.
 CLI_IDENTITY_BLOCK_MAX_CHARS = 1000
-CLI_REMINDER_LINE_RES = (
-    re.compile(r"^#{0,3}\s*(user\s*email|current\s*date|budget)\b", re.IGNORECASE),
-    re.compile(r"^the user'?s email address is\b", re.IGNORECASE),
-    re.compile(r"^today'?s date is\b", re.IGNORECASE),
-    re.compile(r"^(usd|token)?\s*budget\s*:", re.IGNORECASE),
-    re.compile(r"^important:\s*this context may or may not be relevant", re.IGNORECASE),
+# Each value shape is the sentence the CLI was observed to inject, with only its
+# variable field loosened. They are applied with `fullmatch`, and a header may
+# carry exactly one of them inline -- so nothing can ride along behind a
+# recognized prefix.
+_EMAIL_VALUE = (
+    r"the user'?s email address is \S+\. use it only to identify the user, such as for "
+    r"authorship, attribution, or filtering their own work\. never send it to an unrelated "
+    r"service, such as in a request header, url, or payload, unless the user explicitly asks\."
+)
+_DATE_VALUE = r"today'?s date is \d{4}-\d{2}-\d{2}\.?"
+_BUDGET_VALUE = r"(?:usd|token) budget:[\s$\d.,/;]*(?:remaining)?"
+_IMPORTANT_VALUE = (
+    r"important: this context may or may not be relevant to your tasks\. you should not respond "
+    r"to this context unless it is highly relevant to your task\."
+)
+_HEADER_VALUES = (
+    (r"user\s*email", _EMAIL_VALUE),
+    (r"current\s*date", _DATE_VALUE),
+    (r"budget", _BUDGET_VALUE),
+)
+CLI_REMINDER_LINE_RES = tuple(
+    re.compile(rf"#{{0,3}}\s*{header}(?:\s+{value})?", re.IGNORECASE)
+    for header, value in _HEADER_VALUES
+) + tuple(
+    re.compile(value, re.IGNORECASE)
+    for value in (_EMAIL_VALUE, _DATE_VALUE, _BUDGET_VALUE, _IMPORTANT_VALUE)
 )
 CURRENT_DATE_RE = re.compile(r"#\s*current\s*date\b|today'?s date is\b", re.IGNORECASE)
 # A `<memory>` block this short cannot carry a quoted memory file. The sentinel is
@@ -98,8 +118,11 @@ CURRENT_DATE_RE = re.compile(r"#\s*current\s*date\b|today'?s date is\b", re.IGNO
 # it is also excluded by value, in case the wording ever grows.
 MEMORY_BLOCK_MAX_CHARS = 20
 MEMORY_BLOCK_RE = re.compile(r"<memory>(.*?)(?:</memory>|\Z)", re.DOTALL | re.IGNORECASE)
+MEMORY_OPEN_RE = re.compile(r"<memory>", re.IGNORECASE)
+MEMORY_CLOSE_RE = re.compile(r"</memory>", re.IGNORECASE)
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 REDACTED_EMAIL = "[redacted-email]"
+REDACTED_NAME = "[redacted-name]"
 EVIDENCE_CHARS = 400
 MIN_NAME_CHARS = 3
 # Comparison rows are recorded for evidence and never selected as a strategy.
@@ -128,6 +151,7 @@ class ProbeResult:
     context_evidence: str = ""
     current_date_seen: bool = False
     comparison: bool = False
+    guard_state: Optional[str] = None
 
     def to_json(self) -> Dict[str, Any]:
         return {
@@ -143,6 +167,7 @@ class ProbeResult:
             "context_evidence": self.context_evidence,
             "current_date_seen": self.current_date_seen,
             "comparison": self.comparison,
+            "guard_state": self.guard_state,
         }
 
 
@@ -157,6 +182,8 @@ class IdentityProbeResult:
     markers: List[str] = field(default_factory=list)
     evidence: str = ""
     notes: List[str] = field(default_factory=list)
+    confirmed: bool = False
+    unproven: bool = False
 
     def to_json(self) -> Dict[str, Any]:
         return {
@@ -167,6 +194,8 @@ class IdentityProbeResult:
             "markers": list(self.markers),
             "evidence": self.evidence,
             "notes": list(self.notes),
+            "confirmed": self.confirmed,
+            "unproven": self.unproven,
         }
 
 
@@ -199,20 +228,38 @@ def choose_strategy(probe_results: Iterable[ProbeResult]) -> Optional[str]:
     return None
 
 
-def redact_identity(text: str, email: str = "") -> str:
-    """Text with the operator's address -- and any other address -- replaced.
+def name_variants(name: str) -> List[str]:
+    """The operator's full name and its given name, longest first.
 
-    Probe replies are written to `doctor.json` and printed to the terminal, so the
-    address the probe is looking for must never survive into either.
+    Longest first so replacing the full name never leaves a stray given name
+    behind. Parts under `MIN_NAME_CHARS` are dropped: they cannot be told apart
+    from ordinary words, and mangling prose is its own kind of damage.
+    """
+    parts = [part for part in name.split() if len(part) >= MIN_NAME_CHARS]
+    full = name.strip()
+    variants = ([full] if len(full) >= MIN_NAME_CHARS else []) + parts
+    return sorted(dict.fromkeys(variants), key=len, reverse=True)
+
+
+def redact_identity(text: str, email: str = "", name: str = "") -> str:
+    """Text with the operator's address and name -- and any other address -- replaced.
+
+    Probe replies reach `doctor.json`, the probe stream files, and the terminal, so
+    the identity the probe is hunting for must never survive into any of them.
     """
     if email:
         text = re.sub(re.escape(email), REDACTED_EMAIL, text, flags=re.IGNORECASE)
-    return EMAIL_RE.sub(REDACTED_EMAIL, text)
+    text = EMAIL_RE.sub(REDACTED_EMAIL, text)
+    for variant in name_variants(name):
+        text = re.sub(re.escape(variant), REDACTED_NAME, text, flags=re.IGNORECASE)
+    return text
 
 
-def evidence_snippet(text: str, email: str = "", limit: int = EVIDENCE_CHARS) -> str:
+def evidence_snippet(
+    text: str, email: str = "", limit: int = EVIDENCE_CHARS, name: str = ""
+) -> str:
     """One-line, redacted, length-bounded excerpt of a probe reply."""
-    flat = " ".join(redact_identity(text, email).split())
+    flat = " ".join(redact_identity(text, email, name).split())
     if len(flat) <= limit:
         return flat
     return flat[:limit] + " [truncated]"
@@ -237,7 +284,7 @@ def is_cli_identity_block(text: str) -> bool:
     if not lines:
         return False
     return all(
-        any(pattern.match(line) for pattern in CLI_REMINDER_LINE_RES) for line in lines
+        any(pattern.fullmatch(line) for pattern in CLI_REMINDER_LINE_RES) for line in lines
     )
 
 
@@ -266,14 +313,45 @@ def context_leak_markers(text: str) -> List[str]:
     return found
 
 
-def context_leak_ok(text: str, status: str) -> bool:
-    """True when a context probe answered and its answer carries no memory-leak marker.
+def reply_terminated(text: str) -> bool:
+    """True when a content probe's reply ran to its own end rather than being cut off.
 
-    An empty or failed reply proves nothing, so it is not a pass.
+    Two endings are recognizable: the reply finishes with the sentinel, or every
+    `<memory>` it opened is closed. A reply the spend cap or a timeout truncated
+    shows neither, and must never be read as "the model quoted no memory".
     """
-    if status not in PROBE_OK_STATUSES or not text.strip():
+    body = text.strip()
+    if not body:
         return False
+    if body.rstrip(" .\n").endswith(NO_MEMORY_SENTINEL):
+        return True
+    opens = len(MEMORY_OPEN_RE.findall(body))
+    return opens > 0 and opens == len(MEMORY_CLOSE_RE.findall(body))
+
+
+def context_probe_verdict(text: str, status: str) -> Optional[bool]:
+    """True when the context is clean, False when it leaked, None when unjudgeable.
+
+    `None` is not a soft pass: `choose_strategy` treats an unprobed context exactly
+    like a leaking one. Only `STATUS_OK` counts -- `budget_exceeded` means the turn
+    was cut off by the spend cap, and an answer that stops early carries no proof.
+    """
+    if status != STATUS_OK or not reply_terminated(text):
+        return None
     return not context_leak_markers(text)
+
+
+def regression_guard_state(markers: Sequence[str], text: str, status: str) -> str:
+    """What the in-repo control row proved: `held`, `inconclusive`, or `unanswered`.
+
+    Markers are evidence in their own right -- truncation can hide a leak, never
+    invent one -- so a capped reply that still quoted memory counts as held.
+    """
+    if markers:
+        return "held"
+    if status != STATUS_OK or not reply_terminated(text):
+        return "unanswered"
+    return "inconclusive"
 
 
 def identity_markers(text: str, email: str = "", name: str = "") -> List[str]:
@@ -292,13 +370,16 @@ def identity_markers(text: str, email: str = "", name: str = "") -> List[str]:
 
 
 def mitigation_confirmed(text: str, status: str, email: str = "", name: str = "") -> bool:
-    """True when a rung's own context probe quotes no operator identity.
+    """True when a rung's own context probe ran to the end and quoted no identity.
 
     A rung that answers UNKNOWN-USER has only declined to repeat what it was told;
-    the injected identity block can still be sitting in its context. Only the
-    context probe, which asks for everything verbatim, settles that.
+    the injected identity block can still be sitting in its context. Only a whole
+    context reply -- `STATUS_OK`, terminated, and free of memory markers -- settles
+    it, because a claim of absence is exactly what truncation fakes best.
     """
-    if status not in PROBE_OK_STATUSES or not text.strip():
+    if status != STATUS_OK or not reply_terminated(text):
+        return False
+    if context_leak_markers(text):
         return False
     return not identity_markers(text, email, name)
 
@@ -322,9 +403,16 @@ def identity_ladder(strategy: Optional[str]) -> List[IdentityMitigation]:
 
 
 def choose_identity_mitigation(probes: Iterable[IdentityProbeResult]) -> Optional[str]:
-    """First rung that ran and produced no identity signal, or None when none did."""
+    """First rung whose absence of identity was positively confirmed, else None.
+
+    Every condition is a positive proof: the rung ran to completion (`STATUS_OK`,
+    not merely "ok-ish" -- a budget-capped turn proves nothing), its confirmation
+    probe answered (`confirmed`, not `unproven`), and it showed no identity.
+    """
     for probe in probes:
-        if probe.available and probe.status in PROBE_OK_STATUSES and not probe.leak:
+        if not probe.available or probe.status != STATUS_OK:
+            continue
+        if probe.confirmed and not probe.unproven and not probe.leak:
             return probe.name
     return None
 
@@ -467,14 +555,47 @@ def base_argv(
     )
 
 
-def save_stream(path: Path, result: ClaudeResult) -> None:
-    """Persist a probe's raw events and stderr for fixture capture."""
+def save_stream(path: Path, result: ClaudeResult, email: str = "", name: str = "") -> None:
+    """Persist a probe's events and stderr for fixture capture, identity redacted.
+
+    Redaction runs over each serialized event rather than over chosen fields, so a
+    reply quoted in a nested block is covered too; the placeholders carry no JSON
+    metacharacters, so the line stays parseable. These files exist to become test
+    fixtures -- a raw one is a committed leak waiting to happen.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
         for event in result.events:
-            handle.write(json.dumps(event) + "\n")
+            handle.write(redact_identity(json.dumps(event), email, name) + "\n")
     if result.stderr_tail:
-        path.with_suffix(".stderr.txt").write_text(result.stderr_tail, encoding="utf-8")
+        path.with_suffix(".stderr.txt").write_text(
+            redact_identity(result.stderr_tail, email, name), encoding="utf-8"
+        )
+
+
+def save_content_record(
+    path: Path, result: ClaudeResult, markers: Sequence[str], evidence: str
+) -> None:
+    """Persist what a content probe *proved*, never what the model quoted.
+
+    The context and control probes ask the model to read its whole context aloud,
+    so their replies are the operator's memory verbatim. Only the verdict, the
+    markers, a redacted excerpt, and the reply length are kept.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "status": result.status,
+                "markers": list(markers),
+                "evidence_redacted": evidence,
+                "length": len(result.text),
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def probe_environ(
@@ -514,8 +635,16 @@ def run_probe(
     cwd: Path,
     flags: Sequence[str],
     env: Mapping[str, str],
+    email: str = "",
+    name: str = "",
+    content: bool = False,
 ) -> ClaudeResult:
-    """Run one tool-less probe and persist its stream under `probes/<label>.jsonl`."""
+    """Run one tool-less probe and persist it under `probes/<label>`.
+
+    A `content` probe asked the model to recite its own context, so its reply is
+    kept only as a verdict record (`save_content_record`); every other probe keeps
+    a redacted stream.
+    """
     result = runner.run(
         ClaudeRequest(
             argv=base_argv(runner, prompt, args.model, "", args.max_budget_usd) + list(flags),
@@ -524,7 +653,15 @@ def run_probe(
             timeout_s=args.timeout,
         )
     )
-    save_stream(workspace.PROBES / f"{label}.jsonl", result)
+    if content:
+        save_content_record(
+            workspace.PROBES / f"{label}.json",
+            result,
+            context_leak_markers(result.text),
+            evidence_snippet(result.text, email, name=name),
+        )
+    else:
+        save_stream(workspace.PROBES / f"{label}.jsonl", result, email, name)
     return result
 
 
@@ -572,7 +709,7 @@ def run_doctor(args: Any) -> int:
                 timeout_s=args.timeout,
             )
         )
-        save_stream(probes_dir / "auth.jsonl", auth_result)
+        save_stream(probes_dir / "auth.jsonl", auth_result, email, operator_name)
         costs.append(auth_result.cost_usd)
         auth_ok = auth_result.status in PROBE_OK_STATUSES and bool(auth_result.text.strip())
         if not auth_ok:
@@ -594,7 +731,7 @@ def run_doctor(args: Any) -> int:
                 timeout_s=args.timeout,
             )
         )
-        save_stream(probes_dir / "builtin-baseline.jsonl", baseline_result)
+        save_stream(probes_dir / "builtin-baseline.jsonl", baseline_result, email, operator_name)
         costs.append(baseline_result.cost_usd)
         baseline_init = init_event(baseline_result.events)
         builtin_names = set(baseline_init.get("skills") or []) if baseline_init else set()
@@ -634,7 +771,7 @@ def run_doctor(args: Any) -> int:
             result = runner.run(
                 ClaudeRequest(argv=argv, cwd=proj, env=env, timeout_s=args.timeout)
             )
-            save_stream(probes_dir / f"isolation-{strategy.name}.jsonl", result)
+            save_stream(probes_dir / f"isolation-{strategy.name}.jsonl", result, email, operator_name)
             costs.append(result.cost_usd)
 
             init = init_event(result.events)
@@ -674,14 +811,21 @@ def run_doctor(args: Any) -> int:
                 cwd=probe_sandbox(sandbox_run, args, f"context-{probe.name}"),
                 flags=strategy_flags(probe.name, ws),
                 env=strategy_env(probe.name, ws, environ),
+                email=email,
+                name=operator_name,
+                content=True,
             )
             costs.append(ctx_result.cost_usd)
-            probe.context_leak_ok = context_leak_ok(ctx_result.text, ctx_result.status)
+            probe.context_leak_ok = context_probe_verdict(ctx_result.text, ctx_result.status)
             probe.context_markers = context_leak_markers(ctx_result.text)
-            probe.context_evidence = evidence_snippet(ctx_result.text, email)
+            probe.context_evidence = evidence_snippet(ctx_result.text, email, name=operator_name)
             probe.current_date_seen = current_date_injected(ctx_result.text)
             probe.notes.append(f"context probe status={ctx_result.status}")
-            if NO_MEMORY_SENTINEL not in ctx_result.text and not probe.context_markers:
+            if probe.context_leak_ok is None:
+                probe.notes.append(
+                    "context probe did not run to the end; the context stays unproven"
+                )
+            elif NO_MEMORY_SENTINEL not in ctx_result.text and not probe.context_markers:
                 probe.notes.append("context probe answered without the sentinel; no leak marker")
 
         # Regression guard for Task 3's discovery: the same probe from a cwd inside
@@ -697,18 +841,32 @@ def run_doctor(args: Any) -> int:
             cwd=repo_cwd,
             flags=strategy_flags("project-sources", ws),
             env=scrub_env(environ),
+            email=email,
+            name=operator_name,
+            content=True,
         )
         costs.append(repo_result.cost_usd)
+        repo_markers = context_leak_markers(repo_result.text)
+        guard_state = regression_guard_state(repo_markers, repo_result.text, repo_result.status)
         repo_probe = ProbeResult(
             name=REPO_CWD_PROBE,
             status=repo_result.status,
             comparison=True,
-            context_leak_ok=context_leak_ok(repo_result.text, repo_result.status),
-            context_markers=context_leak_markers(repo_result.text),
-            context_evidence=evidence_snippet(repo_result.text, email),
+            context_leak_ok=context_probe_verdict(repo_result.text, repo_result.status),
+            context_markers=repo_markers,
+            context_evidence=evidence_snippet(repo_result.text, email, name=operator_name),
             current_date_seen=current_date_injected(repo_result.text),
+            guard_state=guard_state,
             notes=[f"comparison only: cwd {repo_cwd} is inside the repository"],
         )
+        if guard_state == "inconclusive":
+            repo_probe.notes.append(
+                "control row expected to leak but did not - guard inconclusive"
+            )
+        elif guard_state == "unanswered":
+            repo_probe.notes.append(
+                "control row did not run to the end; the guard proved nothing this run"
+            )
         probes.append(repo_probe)
 
         strategy_name = choose_strategy(probes)
@@ -738,12 +896,14 @@ def run_doctor(args: Any) -> int:
                 cwd=probe_sandbox(sandbox_run, args, f"identity-{rung.name}"),
                 flags=flags,
                 env=env,
+                email=email,
+                name=operator_name,
             )
             costs.append(id_result.cost_usd)
             rung_probe.status = id_result.status
             rung_probe.markers = identity_markers(id_result.text, email, operator_name)
             rung_probe.leak = bool(rung_probe.markers)
-            rung_probe.evidence = evidence_snippet(id_result.text, email)
+            rung_probe.evidence = evidence_snippet(id_result.text, email, name=operator_name)
             if id_result.status not in PROBE_OK_STATUSES:
                 rung_probe.notes.append("probe did not complete; absence of a leak proves nothing")
             elif UNKNOWN_USER_SENTINEL not in id_result.text and not rung_probe.markers:
@@ -759,21 +919,28 @@ def run_doctor(args: Any) -> int:
                 cwd=probe_sandbox(sandbox_run, args, f"identity-confirm-{rung.name}"),
                 flags=flags,
                 env=env,
+                email=email,
+                name=operator_name,
+                content=True,
             )
             costs.append(confirm.cost_usd)
-            if confirm.status not in PROBE_OK_STATUSES or not confirm.text.strip():
-                rung_probe.status = confirm.status
-                rung_probe.notes.append("confirmation probe did not answer; mitigation unproven")
+            if confirm.status != STATUS_OK or not reply_terminated(confirm.text):
+                rung_probe.unproven = True
+                rung_probe.notes.append(
+                    f"confirmation probe did not answer (status={confirm.status}); "
+                    "mitigation unproven"
+                )
                 continue
             if not mitigation_confirmed(confirm.text, confirm.status, email, operator_name):
                 rung_probe.leak = True
                 rung_probe.markers.append("context-identity")
-                rung_probe.evidence = evidence_snippet(confirm.text, email)
+                rung_probe.evidence = evidence_snippet(confirm.text, email, name=operator_name)
                 rung_probe.notes.append(
                     "did not name the operator, but its context probe still quotes the "
                     "injected identity block"
                 )
                 continue
+            rung_probe.confirmed = True
             rung_probe.notes.append("confirmed: the context probe quotes no operator identity")
             break
 
@@ -811,7 +978,8 @@ def run_doctor(args: Any) -> int:
             )
             # Written as a single-line JSON array, the shape `--output-format json` emits.
             probes_dir.joinpath("structured-output.json").write_text(
-                json.dumps(struct_result.events) + "\n", encoding="utf-8"
+                redact_identity(json.dumps(struct_result.events), email, operator_name) + "\n",
+                encoding="utf-8",
             )
             costs.append(struct_result.cost_usd)
             result_obj = extract_result_object(struct_result.events)
@@ -835,7 +1003,7 @@ def run_doctor(args: Any) -> int:
                 ),
                 early_stop_on_skill=True,
             )
-            save_stream(probes_dir / "skill-invoke.jsonl", invoke_result)
+            save_stream(probes_dir / "skill-invoke.jsonl", invoke_result, email, operator_name)
             costs.append(invoke_result.cost_usd)
             notes.append(
                 "skill-invoke probe tool_uses: "
@@ -852,7 +1020,7 @@ def run_doctor(args: Any) -> int:
                 timeout_s=args.timeout,
             )
         )
-        save_stream(probes_dir / "error.jsonl", error_result)
+        save_stream(probes_dir / "error.jsonl", error_result, email, operator_name)
         notes.append(f"invalid-model probe status={error_result.status}")
     finally:
         shutil.rmtree(sandbox_root, ignore_errors=True)
@@ -874,6 +1042,10 @@ def run_doctor(args: Any) -> int:
     identity_leak = bool(current_rung and current_rung.leak)
     identity_mitigation = choose_identity_mitigation(identity_probes)
     date_injected = any(probe.current_date_seen for probe in probes if not probe.comparison)
+    regression_guard = next(
+        (probe.guard_state for probe in probes if probe.comparison and probe.guard_state),
+        "unanswered",
+    )
     # Named so a run, a report, or a later eval-fixture audit can point at the exact
     # thing the harness could not remove.
     confounds: List[str] = []
@@ -901,6 +1073,7 @@ def run_doctor(args: Any) -> int:
         "identity_probes": [probe.to_json() for probe in identity_probes],
         "current_date_injected": date_injected,
         "confounds": confounds,
+        "regression_guard": regression_guard,
         "structured_output_field": structured_field,
         "builtin_skill_baseline": sorted(builtin_names),
         "argv_template": argv_template,
@@ -927,6 +1100,10 @@ def run_doctor(args: Any) -> int:
         if probe.comparison:
             verdict = "comp"
         context = {True: "ok", False: "LEAK", None: "-"}[probe.context_leak_ok]
+        if probe.comparison:
+            context = {"held": "LEAK", "inconclusive": "clean", "unanswered": "UNANS"}[
+                probe.guard_state or "unanswered"
+            ]
         print(
             f"  {verdict:4}  {probe.name:24} status={probe.status:15} "
             f"sentinel={'yes' if probe.sentinel_seen else 'no':3} "
@@ -948,6 +1125,7 @@ def run_doctor(args: Any) -> int:
         f"mitigation={identity_mitigation or 'none found'}"
     )
     print(f"confounds   : {', '.join(confounds) or 'none'}")
+    print(f"guard       : {regression_guard}")
     for rung in identity_probes:
         if not rung.available:
             state = "skip"
