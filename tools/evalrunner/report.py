@@ -24,11 +24,10 @@ BASELINE_REL = Path("evals") / "baseline.json"
 CONFIG_WITH_SKILL = "with_skill"
 CONFIG_WITHOUT_SKILL = "without_skill"
 
-# Same three candidates `tools.validate_repo.eval_files` recognizes, duplicated
+# The same candidates `tools.validate_repo.eval_files` recognizes, duplicated
 # rather than imported so this module stays dependency-free (see module docstring).
 CANDIDATE_EVAL_FILES = (
     Path("examples") / "evals.json",
-    Path("evals") / "evals.json",
     Path("routing-eval.jsonl"),
 )
 

@@ -113,6 +113,7 @@ domains:
       - cron-scheduler
       - team-skill-sharing-norm
       - public-post-workshop
+      - skill-library-ops
     next:
       - local-backup-and-export
       - privacy-review

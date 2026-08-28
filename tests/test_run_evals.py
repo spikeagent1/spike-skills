@@ -1099,7 +1099,7 @@ class CaseLoaderTest(unittest.TestCase):
         _write_skill_tree(
             self.root,
             "beta",
-            evals={
+            examples={
                 "skill": "beta",
                 "evals": [
                     {
@@ -1116,7 +1116,7 @@ class CaseLoaderTest(unittest.TestCase):
         self.assertEqual(case.assertions, ["Beta is reported", "No mutation"])
         self.assertEqual(case.name, "happy-path")
         self.assertIsNone(case.expected_output)
-        self.assertEqual(case.key, "beta:evals:1")
+        self.assertEqual(case.key, "beta:examples:1")
 
     def test_expectations_key_is_also_accepted(self) -> None:
         _write_skill_tree(
@@ -1137,7 +1137,17 @@ class CaseLoaderTest(unittest.TestCase):
             examples={"evals": [{"id": n, "prompt": f"e{n}", "assertions": ["a"]} for n in (1, 2)]},
             evals={"evals": [{"id": n, "input": f"v{n}", "expect": ["a"]} for n in (1, 2)]},
         )
-        loaded = self._load()
+        # `validate_repo.eval_files` now discovers `examples/evals.json` only; the
+        # per-file offset remains the loader's contract when it is given more.
+        original = cases.validate_repo.eval_files
+        cases.validate_repo.eval_files = lambda directory: [
+            directory / "examples" / "evals.json",
+            directory / "evals" / "evals.json",
+        ]
+        try:
+            loaded = self._load()
+        finally:
+            cases.validate_repo.eval_files = original
         self.assertEqual([c.eval_id for c in loaded], [1, 2, 101, 102])
         self.assertEqual(
             [c.key for c in loaded],
@@ -3091,6 +3101,14 @@ class EndToEndRunTest(unittest.TestCase):
             "    released:\n"
             "      - alpha\n"
             "    next: []\n",
+        )
+        self._write(
+            "catalog/cohorts.yaml",
+            "cohorts:\n"
+            "  - name: test\n"
+            "    status: completed\n"
+            "    skills:\n"
+            "      - alpha\n",
         )
         self._write(
             "catalog/sources.yaml",
