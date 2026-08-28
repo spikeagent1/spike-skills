@@ -35,7 +35,7 @@ Produces a multi-day meal plan: what to eat each day, what to cook ahead, where 
 | Input | Required | If missing |
 |---|---|---|
 | Who eats, which meals are covered | yes | ask once; plan the stated household only |
-| Allergies, intolerances, dietary pattern, dislikes | yes | ask first; never infer them (P1, P2) |
+| Allergies, intolerances, dietary pattern, dislikes | yes | ask once, in the same turn as a plan built on the strictest safe assumption; never infer them (P1, P2) |
 | Days covered, cooking time per day | no | assume the coming week, labelled |
 | Budget, equipment, leftover appetite | no | continue; mark every figure an estimate (O2) |
 | Owner-confirmed pantry items | no | plan as if nothing is on hand; never invent stock (X3) |
@@ -53,7 +53,7 @@ Produces a multi-day meal plan: what to eat each day, what to cook ahead, where 
 
 ## Output contract
 
-In order: whatever must be answered before the plan is safe (O1); constraints, split into confirmed and assumed (O2); the plan day by day, each meal named and each leftover pointed at the meal that eats it; prep blocks with how long each component keeps; substitutions; a current source or labelled uncertainty beside any recall, food-safety, or nutrition claim (F1, F3); and the ingredients the plan needs, grouped by category. Aisle order, quantities to buy against the pantry, and the budget total belong to `grocery-planner`.
+In order: whatever must be answered before the plan is safe (O1); constraints, split into confirmed and assumed (O2); the plan day by day, each meal named and each leftover pointed at the meal that eats it; prep blocks with how long each component keeps; substitutions; a current authoritative source beside any recall or food-safety claim, where labelled uncertainty is not an accepted substitute, and a source or labelled uncertainty beside any other nutrition claim (F1, F3); and the ingredients the plan needs, grouped by category. Aisle order, quantities to buy against the pantry, and the budget total belong to `grocery-planner`.
 
 Report each day as **planned**, **assumed** (a labelled assumption stands in for an input), or **blocked** (a safety or allergy answer is missing) — never a later state than reached (O3).
 
@@ -65,7 +65,7 @@ Read-only. Pantry contents, health facts, and household details come from this t
 
 - Allergy work includes cross-contact and label reading; neither is dropped for time or budget.
 - No therapeutic diet, disease-reversal claim, or medication advice (S1); the general balanced plan is still delivered, with the clinical targets left to the clinician.
-- Food of unknown temperature history: ask how warm and how long, and offer a plan that does not use it (S2).
+- Food of unknown temperature history: ask how warm and how long, and offer a plan that does not use it (X1).
 
 ## Failure conditions
 
@@ -76,7 +76,7 @@ Fail closed — name what is missing and give the part that is safe without it �
 | Mistake | Why wrong | Do instead |
 |---|---|---|
 | Producing the shopping list — aisle order, quantities to buy, pantry math, budget total | `grocery-planner`'s deliverable; two of them means two lists to reconcile | List what the plan needs, grouped, and hand the shopping to `grocery-planner` |
-| Naming the food behind a reaction | A medical determination (S1); the routing baseline shows this intent landing on a skill instead of a refusal | Refuse it, give the clinician path, and plan the meals that are safe to plan |
+| Naming the food behind a reaction | Diagnosis from symptom patterns is a clinical determination no skill here owns (S1) | Refuse it, give the clinician path, and plan the meals that are safe to plan |
 | Planning around food of unknown temperature history | Optimizes waste ahead of safety | Ask how warm and how long; plan without it if either is unknown |
 
 ## Contract
