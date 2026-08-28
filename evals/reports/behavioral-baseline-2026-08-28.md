@@ -11,7 +11,7 @@
 - Isolation strategy: project-sources
 - Confound: the CLI injects the operator identity and current date into every config (identity_leak=true)
 - Cost: $24.8485 attributed / $20.8079 spent this run
-- Cost note: `$20.8079 spent this run` is what this invocation paid; `$24.8485 attributed` sums the underlying call cost of every graded assertion, including the 83 answers the content-addressed cache replayed from the interrupted earlier attempts. Both figures are lower bounds: a call the CLI kills before it emits its `result` event contributes no cost at all.
+- Cost note: `$20.8079 spent this run` is what this invocation paid; `$24.8485 attributed` sums the underlying call cost of every graded assertion, including the answers the content-addressed cache replayed from the interrupted earlier attempts — 43 executor answers, plus the grader lookups that came with them (`run.json` records `cache_hits: 83`, which counts executor *and* grader cache reads). Both figures are lower bounds: a call the CLI kills before it emits its `result` event contributes no cost at all.
 - Version skew: the behavioral half ran under Claude Code **2.1.250**; the routing baseline (`routing-baseline-2026-08-28.md`) ran under **2.1.251**. The CLI auto-updated while this job was in flight, and `doctor` refuses to run against a version it was not written for, so `doctor` had to be re-run — re-pinning the workspace to 2.1.251 — before routing could start. Re-running the behavioral half at 2.1.251 would have cost roughly another $21, so the skew stands and is recorded here instead of being hidden: each half is internally consistent, but a behavioral number and a routing number do not come from the same CLI build.
 - Baseline: `evals/baseline.json` was written from this run plus the native routing run `20260828T174809-8fe2907-dirty-baseline`. That routing run is recorded `dirty: true` only because a concurrent task was authoring `contracts/` in the working tree while it executed; `git diff 8fe2907..01e2870` touches zero `skills/` files, so the ballot and every `SKILL.md` under test were exactly the committed ones.
 
@@ -19,10 +19,11 @@
 
 - 138 cases across 30 skills, answered in both configs: 276 executor runs, 275 graded. One grading result never completed (`social-agent-onboarding`, 1 ungraded).
 - **with_skill 398/518 assertions = 77%** · **without_skill 268/513 = 52%** · **+25pp**.
-- Assertion classes across the corpus: **136 discriminating, 258 non_discriminating, 109 broken, 10 harmful, 0 flaky** (518 assertion rows). Only 26% of the corpus separates the two configs.
+- Assertion classes across the corpus: **136 discriminating, 258 non_discriminating, 109 broken, 10 harmful, 0 flaky** (518 assertion rows; 513 graded — the 5 rows of the one ungraded case carry no class). Only 26% of the corpus separates the two configs.
 - **Harmful skills (with_skill below without_skill): `household-maintenance` — 87% with / 93% without, -7pp.** It is also the only skill in the corpus with **zero** discriminating assertions, so its eval set measures nothing and the -7pp is noise from a set that cannot separate the configs. It gets new text-gradeable cases appended before its rewrite, and is re-baselined first.
 - Harmful *assertions* (a specific assertion the skill makes worse) appear in 8 skills, 10 assertions total: `community-management` (1), `draft-in-voice` (2), `grocery-planner` (1), `health-appointment-prep` (1), `home-cook` (1), `household-maintenance` (1), `literature-review` (1), `purchase-research` (2). They are listed per skill under **Per-skill findings**.
-- 141 assertions were flagged by the grader as structurally unsatisfiable on this harness (table below) — eval defects, not skill defects.
+- 109 assertions are **broken** (they fail in both configs); the grader flagged **92** of them as structurally unsatisfiable under the text-only harness. All 92 are among the 109 — eval defects, not skill defects. The count of grader *notes* is **141**, not 92: a broken assertion collects one note per config it was flagged in, and 49 of the 92 were flagged in both configs while 43 were flagged in one (49x2 + 43 = 141). The table below is the note list, so it has 141 rows and repeats those 49 assertions.
+- Correction: the commit that recorded this baseline (`4b1168f`) says "141 as structurally unsatisfiable" in its message body. That figure counts grader *notes*, not distinct assertions, and overcounts by the per-config duplication; the correct count is 92 distinct assertions. A commit message cannot be amended once pushed, so this report is the corrected record.
 
 ## Scorecard
 
@@ -883,9 +884,11 @@ should say so.
   content-addressed cache keys every executor and grader call by harness
   version, Claude Code version, model, system prompt, skill body, tools, and
   prompt, so re-invoking the identical command replayed every completed answer
-  and only paid for what was still missing. 83 of this run's 276 executor calls
-  were served from cache for exactly that reason. The `spent this run` figure is
-  therefore lower than the `attributed` figure by design.
+  and only paid for what was still missing. 43 of this run's 276 executor calls
+  were replayed from cache for exactly that reason. (`run.json` records
+  `cache_hits: 83`: that counter covers every cache read, grader lookups
+  included, so it is roughly double the executor-answer count.) The `spent this
+  run` figure is therefore lower than the `attributed` figure by design.
 - **Claude Code auto-updated mid-job**, from 2.1.250 to 2.1.251. The behavioral
   run had already started under 2.1.250 and finished there; the routing run,
   launched immediately afterwards, refused to start
