@@ -77,7 +77,7 @@ def config_ref(config: str) -> Optional[str]:
     return None
 
 
-def sandbox_cwd(run_dir: Path, args: Any = None) -> Path:
+def sandbox_cwd(run_dir: Path, args: Any = None, *, leaf: str = "proj") -> Path:
     """Empty working directory for one run, outside the repository.
 
     Claude Code loads the operator's `~/.claude/CLAUDE.md` whenever the working
@@ -86,7 +86,8 @@ def sandbox_cwd(run_dir: Path, args: Any = None) -> Path:
     repo keeps the operator's personal memory out of the eval context; the skill's
     own files stay reachable through the explicit `--add-dir` grant. The scratch
     path mirrors the tail of the run directory so an artifact stays traceable to
-    the process that produced it.
+    the process that produced it; `leaf` separates the executor's directory from
+    the grader's for the same run.
     """
     configured = getattr(args, "sandbox_root", None) if args is not None else None
     root = Path(configured or os.environ.get(SANDBOX_ENV_VAR) or tempfile.gettempdir())
@@ -94,7 +95,7 @@ def sandbox_cwd(run_dir: Path, args: Any = None) -> Path:
         root = root / SANDBOX_DIRNAME
     run_dir = Path(run_dir)
     tail = Path(*run_dir.parts[-5:]) if len(run_dir.parts) >= 5 else Path(run_dir.name)
-    cwd = root / tail / "proj"
+    cwd = root / tail / leaf
     cwd.mkdir(parents=True, exist_ok=True)
     return cwd
 

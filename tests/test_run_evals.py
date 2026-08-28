@@ -578,7 +578,7 @@ class ProbeEnvironTest(unittest.TestCase):
 
 class HarnessVersionTest(unittest.TestCase):
     def test_version_is_pinned(self) -> None:
-        self.assertEqual(HARNESS_VERSION, "0.1.1")
+        self.assertEqual(HARNESS_VERSION, "0.1.2")
 
 
 def _write_json(path: Path, data: object) -> None:
@@ -1377,6 +1377,23 @@ class GraderRequestTest(unittest.TestCase):
         self.assertEqual(argv[-2:], ["--setting-sources", "project"])
         self.assertNotIn("CLAUDECODE", req.env)
 
+    def test_grader_cwd_is_an_empty_scratch_dir_outside_the_repository(self) -> None:
+        # Same leak as the executor: a cwd inside the repo pulls the operator's
+        # ~/.claude/CLAUDE.md into context, and the grader sees the response text.
+        payload = grader.build_payload(self.case, "The response body.")
+        req = grader.build_grader_request(payload, self.args, [])
+        self.assertTrue(req.cwd.is_dir())
+        self.assertFalse(req.cwd.is_relative_to(executor.ROOT))
+        self.assertEqual(list(req.cwd.iterdir()), [])
+
+    def test_grader_scratch_dir_is_distinct_from_the_executor_scratch_dir(self) -> None:
+        run_dir = Path("/tmp/runs/r1/alpha/eval-1/with_skill/run-1")
+        payload = grader.build_payload(self.case, "The response body.")
+        graded = grader.build_grader_request(payload, self.args, [], run_dir=run_dir)
+        executed = executor.build_request(self.case, "without_skill", self.args, [], run_dir)
+        self.assertNotEqual(graded.cwd, executed.cwd)
+        self.assertFalse(graded.cwd.is_relative_to(executor.ROOT))
+
 
 class ParseGradingTest(unittest.TestCase):
     ASSERTIONS = ["Sources are cited", "No mutation"]
@@ -1586,6 +1603,22 @@ class RunCommandPlumbingTest(unittest.TestCase):
         self.assertIsNone(
             run_evals._resolve_skills(argparse.Namespace(skill=None, cohort=None))
         )
+
+    def test_a_cohort_that_lists_no_skills_is_an_error_not_everything(self) -> None:
+        # catalog/cohorts.yaml ships `routing-overlap-and-long-tail` with `skills: []`.
+        # Falling through to "no filter" would silently run all 146 cases.
+        self.assertEqual(
+            cases.cohort_skills("routing-overlap-and-long-tail"), [], "fixture assumption"
+        )
+        with self.assertRaises(cases.CaseLoadError):
+            run_evals._resolve_skills(
+                argparse.Namespace(skill=None, cohort="routing-overlap-and-long-tail")
+            )
+
+    def test_a_skill_filter_of_only_separators_is_an_error(self) -> None:
+        for raw in (",", "", "  ", ",,"):
+            with self.assertRaises(cases.CaseLoadError, msg=raw):
+                run_evals._resolve_skills(argparse.Namespace(skill=raw, cohort=None))
 
     @staticmethod
     def _main_quietly(argv: list[str]) -> int:

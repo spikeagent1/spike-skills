@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Sequence
 from .cases import BehavioralCase
 from .claude_cli import ClaudeRequest, ClaudeResult, ClaudeRunner, scrub_env, strategy_env
 from .doctor import probe_environ
+from .executor import sandbox_cwd
 from . import HARNESS_VERSION, workspace
 
 PROMPTS = Path(__file__).resolve().parent / "prompts"
@@ -121,9 +122,17 @@ def _grader_env(args: Any) -> Dict[str, str]:
 
 
 def build_grader_request(
-    payload: Dict[str, Any], args: Any, isolation_flags: Sequence[str]
+    payload: Dict[str, Any],
+    args: Any,
+    isolation_flags: Sequence[str],
+    run_dir: Optional[Path] = None,
 ) -> ClaudeRequest:
-    """Tool-less structured-output invocation that grades one response."""
+    """Tool-less structured-output invocation that grades one response.
+
+    The grader runs from the same kind of out-of-repo scratch directory as the
+    executor: a cwd inside the repository pulls the operator's `~/.claude/CLAUDE.md`
+    into context, which would bias the verdicts just as it biased the responses.
+    """
     argv = [
         args.claude_bin,
         "-p",
@@ -144,9 +153,11 @@ def build_grader_request(
         str(GRADER_BUDGET_USD),
         *isolation_flags,
     ]
+    override = getattr(args, "grader_cwd", None)
+    cwd = Path(override) if override else sandbox_cwd(run_dir or Path("grader"), args, leaf="grader")
     return ClaudeRequest(
         argv=argv,
-        cwd=Path(getattr(args, "grader_cwd", None) or workspace.WORKSPACE),
+        cwd=cwd,
         env=_grader_env(args),
         timeout_s=float(getattr(args, "timeout", 180.0)),
     )
@@ -292,7 +303,7 @@ def grade_run(
         )
     else:
         payload = build_payload(case, response)
-        result = runner.run(build_grader_request(payload, args, isolation_flags))
+        result = runner.run(build_grader_request(payload, args, isolation_flags, run_dir))
         grader_status = result.status
         cost = result.cost_usd
         parsed = parse_grading(result, case.assertions, field=structured_field(args))

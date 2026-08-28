@@ -148,13 +148,36 @@ def load_doctor(claude_bin: str) -> Tuple[Optional[Dict[str, Any]], Optional[str
 
 
 def _resolve_skills(args: argparse.Namespace) -> Optional[List[str]]:
-    """Skill filter from `--skill` and `--cohort`, or None for no skill filter."""
+    """Skill filter from `--skill` and `--cohort`, or None when neither was given.
+
+    A selector that was given but names nothing is an error, never "no filter":
+    `catalog/cohorts.yaml` ships queued cohorts with `skills: []`, and falling
+    through to None would silently widen a one-cohort request into the whole
+    corpus — the largest blast radius the CLI has.
+    """
+    skill = getattr(args, "skill", None)
+    cohort = getattr(args, "cohort", None)
+    # `is None` and not truthiness: `--skill ""` was given and names nothing, which
+    # is an error, while an absent flag is the legitimate "no filter" case.
+    if skill is None and cohort is None:
+        return None
+
     names: List[str] = []
-    if args.skill:
-        names.extend(name.strip() for name in args.skill.split(",") if name.strip())
-    if args.cohort:
-        names.extend(cases.cohort_skills(args.cohort))
-    return names or None
+    if skill:
+        names.extend(name.strip() for name in skill.split(",") if name.strip())
+    if cohort:
+        names.extend(cases.cohort_skills(cohort))
+    if not names:
+        given = " ".join(
+            part
+            for part in (
+                f"--skill {skill!r}" if skill is not None else "",
+                f"--cohort {cohort!r}" if cohort is not None else "",
+            )
+            if part
+        )
+        raise cases.CaseLoadError(f"{given} names no skills; refusing to run every case")
+    return names
 
 
 def _parse_configs(raw: str) -> List[str]:
