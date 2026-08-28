@@ -1,5 +1,5 @@
 {
-  "commit": "c65fed9",
+  "commit": "9d89c7b",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-28T22:00:31+00:00",
+  "generated_at": "2026-08-28T22:15:21+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -886,13 +886,13 @@
         "examples:5/3 Does not overwrite the original note immediately",
         "examples:5/3 Reports a write only after authorization and confirmation"
       ],
-      "run_id": "20260828T215428-83bc46b",
-      "skill_sha256": "01e236d2219a3d112e80bde5513b410e82c383eb739c130f337d0a4110219ab5",
+      "run_id": "20260828T221314-9d89c7b",
+      "skill_sha256": "b9525fa55b8b16b1745ea720baf3095f8856cc764dd8d7cd01bfa8bc0a876655",
       "ungraded": 0,
       "with_skill": {
-        "cost_usd": 0.433243,
+        "cost_usd": 0.501845,
         "pass_rate": 0.9333,
-        "tokens_mean": 7877.0
+        "tokens_mean": 9272.2
       },
       "without_skill": {
         "cost_usd": 0.316752,

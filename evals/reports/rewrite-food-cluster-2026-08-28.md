@@ -153,10 +153,12 @@ No existing eval case was edited.
 
 ---
 
-# Fix round 1 (review of `47eb4af` / `69210e2`) — complete
+# Fix round 1 (review of `47eb4af` / `69210e2`) — 4 of 5 addressed; finding 1 half-met
 
-Commits `2d05ac6`, `83bc46b`, `c65fed9`, `d447996`. Five Important findings
-addressed, plus four minors. Spend for the round: **$2.38** of $2.50
+Commits `2d05ac6`, `83bc46b`, `c65fed9`, `d447996`. **4 of 5 findings
+addressed; finding 1 half-met** — the produce-anyway clause flipped
+grocery-planner's broken assertion but not home-cook's, which fix round 2 then
+took two further iterations at without clearing. Four minors also done. Spend for the round: **$2.38** of $2.50
 (3 behavioral runs on grocery-planner, 1 on home-cook, 1 cluster routing run;
 every `without_skill` leg served from cache).
 
@@ -196,8 +198,10 @@ the batch-1b run passed it 6/6, this run failed it with the hijack landing on
 `meal-planner`'s description, which is byte-identical to `a972246`. 83% equals
 the recorded baseline, so the batch-template gate (≥ baseline) holds, but the
 6/6 in the batch-1b report should be read as one draw of a coin, not a fix.
-Settling it needs a `medication-and-symptom-log` description change in
-batch 1c, or `--repeats` above 3 on this case.
+The 6/6 leg of the round-1 routing gate has therefore reverted to its 5/6
+baseline — a flaky hijack at 2 of 3 repeats on a diff unrelated to either file
+— and will be settled by the higher-repeat cohort-final routing run in
+batch 1d, or by a `medication-and-symptom-log` description change in batch 1c.
 
 ## What each finding cost, and the two lessons
 
@@ -261,3 +265,91 @@ version of. Two candidate fixes, both cheap:
 
 Recommend one behavioral run (~$0.45) in fix round 2 rather than folding it
 into a larger batch.
+
+
+---
+
+# Fix round 2 — `home-cook examples:5/3` — STOPPED after two iterations, still broken
+
+Commits `06aa7b2` (iteration 1), `9d89c7b` (iteration 2), `d0` re-baseline
+below. Spend **$1.03** against a $0.90 cap — see *Budget* below. Both
+iterations: with_skill 14/15 (93%), without_skill 13/15 (87%), **0
+regressions, 0 gains**. The assertion did not flip, so the round-1 stop rule
+applies and this is handed back for adjudication.
+
+## What was tried, and what each attempt taught
+
+**Iteration 1 (`06aa7b2`)** applied candidate 1 from the round-1 report — the
+one argued stronger because it is the shape that flipped grocery
+`examples:4`: move the produce-anyway pressure out of `Workflow` and
+`Output contract` and onto the sentence the model is acting on, in
+`Privacy and mutations`. It also closed candidate 2's escape ("named by the
+owner, **or** proposed here") in the same sentence, since leaving the
+alternative would have let the model satisfy candidate 1 by asking.
+
+Result: still 2/3, and the response named its own cause in its first line —
+**"Session status: blocked"**, then the adaptation and the path deferred.
+
+**Iteration 2 (`9d89c7b`)** followed that clue to a third point of use: the
+state vocabulary itself. `**blocked** (a safety answer is missing)` defined
+what the label *means* and said nothing about what a blocked reply *contains*,
+so the model read it as permission to send the label instead of the work —
+directly against `Failure conditions`, which already said "name what is
+missing, then give the part of the session that is safe without it". Blocked is
+now "a label on a delivered session … never an empty reply".
+
+Result: still 2/3. The response now recites the rule verbatim while deferring
+it: *"I'll write the adapted recipe out in full in this message, show it as a
+diff … name the destination path"*, and then asks for the path anyway.
+
+## Why this is now an adjudication, not another iteration
+
+The grader classified the assertion **structurally unsatisfiable in this run**,
+unprompted, with the same reasoning the behavioral baseline gave it in the
+first place:
+
+> The prompt refers to 'this adapted recipe' and 'my original notes' but
+> supplies neither a recipe, an adaptation, nor a file path, so this assertion
+> is arguably impossible to satisfy honestly. Either embed the original notes
+> and the requested adaptation in the prompt, or replace the assertion with one
+> that rewards asking for the missing recipe/path before previewing.
+
+This is the difference from its cousin, grocery `examples:4`, which *did* flip:
+that prompt supplies a shop and an intent, so a standard-week basket is a
+defensible labelled assumption. Here the prompt names **no dish at all**, so
+"the adapted recipe" has no referent to assume a standard version of, and
+inventing both a recipe and a filesystem path to overwrite is the behavior X3
+and M2 exist to prevent. Three separate placements of the produce-anyway rule
+(Workflow, Output contract, Privacy and mutations, plus the state vocabulary)
+did not move it, which is the evidence that the obstacle is the prompt rather
+than the skill.
+
+Recommended ruling: retire or rewrite `home-cook examples:5/3` under the same
+relaxation already requested for `grocery-planner examples:4/3` in Ruling 1 —
+the harness has now named both. The three v2 edits are kept regardless: they
+are correct on their own terms and cost nothing (0 regressions across both
+iterations).
+
+## Budget
+
+The round's instruction set a $0.90 cap and authorized two iterations. Two
+iterations of `make eval-skill SKILL=home-cook` cost **$0.529 + $0.502 =
+$1.031**, so the two constraints could not both be met: every `without_skill`
+leg is cached, but each `with_skill` leg re-executes on any SKILL.md change, and
+that half alone is ~$0.50 per run. The second iteration was run because the
+stop rule ("if the second still fails, STOP and report") presumes it. **A
+one-iteration round on a 5-case skill is ~$0.55; budget $1.10 for two.**
+
+## `home-cook` after fix round 2
+
+| Metric | Value |
+|---|---|
+| with_skill | 93% (14/15) |
+| without_skill | 87% (13/15) |
+| Delta | +6.7pp |
+| Discriminating / broken / harmful | 1 / 1 / 0 |
+| Regressions across both iterations | 0 |
+| `wc -w` | 1198 → 1380 |
+
+Baseline retaken from the clean post-commit run `20260828T221314-9d89c7b`.
+`make validate` exits 0, 479 tests OK, 28 warnings.
