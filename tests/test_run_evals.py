@@ -2704,6 +2704,54 @@ class RenderReportTest(unittest.TestCase):
     def test_evidence_snippet_is_attached_to_a_listed_finding(self) -> None:
         self.assertIn("evidence for A1 (True)", self.text)
 
+    def test_the_text_only_proxy_is_stated_as_an_audit_signal(self) -> None:
+        """Without this paragraph a reader books `non_discriminating` as a runner bug."""
+        self.assertIn("## How to read these numbers", self.text)
+        self.assertIn("The harness is text-only", self.text)
+        self.assertIn("no mutation", self.text)
+        self.assertIn("not a runner bug", self.text)
+
+    def test_zero_discriminating_skills_are_named(self) -> None:
+        # owner-dream-cycle's only assertion passes in both configs.
+        self.assertIn("## Skills with zero discriminating assertions", self.text)
+        self.assertIn("- **owner-dream-cycle** — 1 assertion(s)", self.text)
+        # briefing has A2 pass/fail, so it is not blind.
+        self.assertNotIn("- **briefing**", self.text)
+
+    def test_zero_discriminating_helper_skips_skills_with_no_assertions(self) -> None:
+        results = {"skills": {"ghost": {"assertions": 0, "classes": {"discriminating": 0}}}}
+        self.assertEqual(report.zero_discriminating(results), [])
+
+    def test_a_run_with_signal_everywhere_says_so(self) -> None:
+        text = report.render_run_report(
+            {"skills": {"briefing": self.results["skills"]["briefing"]}, "rows": []},
+            self.run_meta,
+        )
+        self.assertIn("every skill has at least one discriminating assertion", text)
+
+    def test_structurally_unsatisfiable_renders_as_a_table(self) -> None:
+        results = dict(self.results)
+        results["structurally_unsatisfiable"] = [
+            {
+                "skill": "briefing",
+                "key": "briefing:examples:1",
+                "eval_id": 1,
+                "assertion": "Calendar queried | authoritatively",
+                "reason": "no connector is reachable\nfrom the harness",
+            }
+        ]
+        text = report.render_run_report(results, self.run_meta)
+        self.assertIn("| Skill | Case | Assertion | Why it cannot be satisfied |", text)
+        self.assertIn(
+            "| briefing | briefing:examples:1 (eval-1) | Calendar queried \\| authoritatively "
+            "| no connector is reachable from the harness |",
+            text,
+        )
+
+    def test_an_empty_unsatisfiable_section_is_still_present(self) -> None:
+        self.assertIn("## Structurally unsatisfiable assertions", self.text)
+        self.assertIn("- none flagged by the grader", self.text)
+
 
 class BaselineTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -3472,6 +3520,45 @@ class AggregateRoutingTest(unittest.TestCase):
         self.assertIn(
             "Pass rate (lenient, pass + ambiguous): 40% \u00b7 strict (exact target only): 20%",
             rendered,
+        )
+
+    def test_failures_split_by_who_took_the_intent(self) -> None:
+        """(a) nobody, (b) a repo skill, (c) something off the repo ballot."""
+        agg = routing.aggregate_routing(self.cases, self.scores)
+        split = routing.failure_split(agg, ballot=["alpha", "beta"], builtins=["debug"])
+        self.assertEqual(
+            [row["intent"] for row in split["hijacked_by_builtin"]],
+            ["alpha two", "alpha three"],
+        )
+        self.assertEqual([row["intent"] for row in split["hijacked_by_repo_skill"]], ["beta ghost"])
+        self.assertEqual(split["answered_no_skill"], [])
+        # `gamma` is on neither the repo ballot nor the built-in baseline.
+        self.assertFalse(split["hijacked_by_builtin"][0]["known_builtin"])
+
+    def test_an_unanswered_style_failure_with_no_choice_is_bucket_a(self) -> None:
+        case = _routing_case("alpha", line_no=9, intent="who does this", expected_skill="alpha")
+        agg = routing.aggregate_routing([case], [routing.score_case(case, [None, None, None])])
+        split = routing.failure_split(agg, ballot=["alpha"])
+        self.assertEqual([row["intent"] for row in split["answered_no_skill"]], ["who does this"])
+
+    def test_the_report_shows_the_split_and_the_native_cost_floor(self) -> None:
+        agg = routing.aggregate_routing(self.cases, self.scores, mode="native")
+        rendered = routing.render_routing_report(
+            agg,
+            {"ballot": ["alpha", "beta"], "ballot_size": 2, "builtin_skill_baseline": ["debug"]},
+        )
+        self.assertIn("## Failure split", rendered)
+        self.assertIn("**(a) Answered natively with no skill: 0**", rendered)
+        self.assertIn("**(b) Hijacked by a repo skill: 1**", rendered)
+        self.assertIn("**(c) Hijacked by a built-in or unnamed tool: 2**", rendered)
+        self.assertIn("not in the doctor built-in baseline", rendered)
+        self.assertIn("the figure above is a lower bound", rendered)
+        self.assertIn("2 repo skill(s), plus the CLI's own built-ins (1 known by name", rendered)
+
+    def test_classify_mode_makes_no_lower_bound_claim(self) -> None:
+        agg = routing.aggregate_routing(self.cases, self.scores, mode="classify")
+        self.assertNotIn(
+            "lower bound", routing.render_routing_report(agg, {"ballot": ["alpha"]})
         )
 
     def test_confusion_list_maps_intent_to_what_was_chosen(self) -> None:

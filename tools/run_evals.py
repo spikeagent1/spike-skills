@@ -703,6 +703,10 @@ def cmd_routing(args: argparse.Namespace) -> int:
         "repeats": args.repeats,
         "project_dir": str(proj),
         "ballot_size": len(descriptions),
+        # The names on the ballot, so a report can tell a repo skill absorbing an
+        # intent apart from a CLI built-in doing it.
+        "ballot": [name for name, _ in descriptions],
+        "builtin_skill_baseline": list(doctor_json.get("builtin_skill_baseline") or []),
         "descriptions_sha256": digest,
         "descriptions_from": args.descriptions_from,
         "extra_skills": list(args.extra_skill),

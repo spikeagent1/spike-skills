@@ -654,6 +654,62 @@ def trigger_set(routing_cases: Iterable[RoutingCase], skill: str) -> List[Dict[s
 # ---------------------------------------------------------------------------
 
 
+# Native mode kills the call the moment the model names a skill, so the CLI
+# never emits the `result` event that carries cost. Reported cost is therefore a
+# floor, not a measurement.
+NATIVE_COST_NOTE = (
+    "- Cost note: native mode kills each call as soon as a skill is named, so the "
+    "CLI emits no `result` event for it and the figure above is a lower bound."
+)
+
+FAILURE_SPLIT_HELP = (
+    "Every failing intent lands in exactly one of three buckets, and they call for "
+    "different fixes. (a) is a description that never triggered; (b) is two repo "
+    "descriptions overlapping; (c) is a repo description losing to a CLI built-in "
+    "the operator did not choose to put on the ballot."
+)
+
+
+def failure_split(
+    aggregate: Dict[str, Any],
+    ballot: Sequence[str],
+    builtins: Sequence[str] = (),
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Failing intents bucketed by who took them, per the routing-report contract.
+
+    `answered_no_skill`: the model answered without invoking anything.
+    `hijacked_by_repo_skill`: a skill in this repo absorbed the intent.
+    `hijacked_by_builtin`: something outside the repo ballot did — a CLI built-in
+    or an unnamed tool call. Anything not on the repo ballot counts here, so a
+    name the built-in baseline missed is still reported as foreign, not as ours.
+    """
+    on_ballot = set(ballot)
+    known_builtins = set(builtins)
+    buckets: Dict[str, List[Dict[str, Any]]] = {
+        "answered_no_skill": [],
+        "hijacked_by_repo_skill": [],
+        "hijacked_by_builtin": [],
+    }
+    for row in aggregate.get("confusion") or []:
+        chosen = row.get("chosen")
+        if not chosen:
+            buckets["answered_no_skill"].append(row)
+        elif chosen in on_ballot:
+            buckets["hijacked_by_repo_skill"].append(row)
+        else:
+            entry = dict(row)
+            entry["known_builtin"] = chosen in known_builtins
+            buckets["hijacked_by_builtin"].append(entry)
+    return buckets
+
+
+_SPLIT_TITLES = (
+    ("answered_no_skill", "(a) Answered natively with no skill"),
+    ("hijacked_by_repo_skill", "(b) Hijacked by a repo skill"),
+    ("hijacked_by_builtin", "(c) Hijacked by a built-in or unnamed tool"),
+)
+
+
 def _pct(rate: Optional[float]) -> str:
     """Rate as a whole-percent cell, or `n/a` when nothing was scored."""
     return "n/a" if rate is None else f"{rate * 100:.0f}%"
@@ -685,8 +741,19 @@ def render_routing_report(aggregate: Dict[str, Any], run_meta: Dict[str, Any]) -
     confound = confound_line(run_meta)
     if confound:
         lines.append(confound)
-    lines.append(f"- Skills on the ballot: {run_meta.get('ballot_size') or 'unknown'}")
+    ballot = list(run_meta.get("ballot") or [])
+    builtins = list(run_meta.get("builtin_skill_baseline") or [])
+    lines.append(
+        f"- Skills on the ballot: {run_meta.get('ballot_size') or 'unknown'} repo skill(s)"
+        + (
+            f", plus the CLI's own built-ins ({len(builtins)} known by name at doctor time)"
+            if builtins
+            else ""
+        )
+    )
     lines.append(f"- Cost: ${float(run_meta.get('cost_usd_total') or 0.0):.4f}")
+    if aggregate.get("mode") == MODE_NATIVE:
+        lines.append(NATIVE_COST_NOTE)
     lines.append("")
 
     totals = aggregate.get("totals") or {}
@@ -736,6 +803,29 @@ def render_routing_report(aggregate: Dict[str, Any], run_meta: Dict[str, Any]) -
     else:
         lines.append("- none")
     lines.append("")
+
+    lines.append("## Failure split")
+    lines.append("")
+    lines.append(FAILURE_SPLIT_HELP)
+    lines.append("")
+    split = failure_split(aggregate, ballot, builtins)
+    for bucket, title in _SPLIT_TITLES:
+        rows = split[bucket]
+        lines.append(f"**{title}: {len(rows)}**")
+        lines.append("")
+        if rows:
+            for row in rows:
+                chosen = row.get("chosen") or "(none)"
+                suffix = ""
+                if bucket == "hijacked_by_builtin" and not row.get("known_builtin"):
+                    suffix = " (not in the doctor built-in baseline)"
+                lines.append(
+                    f"- {row['skill_file']}:{row['line_no']} {row['intent']!r} "
+                    f"-> {chosen}{suffix}"
+                )
+        else:
+            lines.append("- none")
+        lines.append("")
 
     lines.append("## Hijacks")
     lines.append("")

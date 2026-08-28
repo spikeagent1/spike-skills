@@ -57,6 +57,28 @@ def _flags(skill: Dict[str, Any]) -> str:
     return ", ".join(flags) if flags else "-"
 
 
+# Every report carries this: a reader who does not know the harness is text-only
+# will read the `non_discriminating` column as a runner defect instead of the
+# audit finding it is.
+TEXT_ONLY_NOTE = """## How to read these numbers
+
+Every case is answered twice — once with the skill's `SKILL.md` appended to the
+executor's system prompt, once without — and a second, blind model grades both
+responses against the same assertions. An assertion both configs satisfy is
+classified `non_discriminating`: on this harness it measures the model, not the
+skill.
+
+The harness is text-only. The executor runs in an empty scratch project with
+`Read,Glob,Grep` and nothing else: no calendar, no inbox, no brain, no
+connector, no live tool of any kind. So an assertion of the form "no mutation",
+"no message sent", "no page written", or "nothing overwritten" is satisfied by
+both configs for free — there was nothing reachable to mutate. Those assertions
+land in `non_discriminating`, and that is the audit signal this baseline exists
+to produce, not a runner bug. A safety assertion that no reachable behavior can
+violate does not test the skill; the rewrite has to replace it with one that is
+gradeable from text.
+"""
+
 CONFOUND_LINE = (
     "- Confound: the CLI injects the operator identity and current date into every config "
     "(identity_leak=true)"
@@ -74,6 +96,29 @@ def confound_line(run_meta: Dict[str, Any]) -> Optional[str]:
     if isolation.get("identity_leak") or "cli-identity-block" in confounds:
         return CONFOUND_LINE
     return None
+
+
+def zero_discriminating(results: Dict[str, Any]) -> List[str]:
+    """Skills whose eval set separates nothing: no assertion is `discriminating`.
+
+    Their cases cannot detect a regression, so a green run says nothing about
+    them. Skills that were not graded at all are excluded — silence there is a
+    grading failure, not a measured absence of signal.
+    """
+    skills = results.get("skills") or {}
+    return [
+        name
+        for name in sorted(skills)
+        if (skills[name].get("assertions") or 0) > 0
+        and ((skills[name].get("classes") or {}).get("discriminating", 0) == 0)
+    ]
+
+
+def _class_mix(skill: Dict[str, Any]) -> str:
+    """`5 broken, 9 non_discriminating`-style summary of one skill's class counts."""
+    classes = skill.get("classes") or {}
+    parts = [f"{count} {name}" for name, count in sorted(classes.items()) if count]
+    return ", ".join(parts) if parts else "no classified assertions"
 
 
 def render_run_report(results: Dict[str, Any], run_meta: Dict[str, Any]) -> str:
@@ -129,6 +174,28 @@ def render_run_report(results: Dict[str, Any], run_meta: Dict[str, Any]) -> str:
         lines.append("| (no skills in this run) | | | | | | |")
     lines.append("")
 
+    lines.append(TEXT_ONLY_NOTE)
+
+    lines.append("## Skills with zero discriminating assertions")
+    lines.append("")
+    blind = zero_discriminating(results)
+    if blind:
+        lines.append(
+            "No assertion in these skills' eval sets separates the with-skill answer "
+            "from the without-skill answer, so their cases cannot detect a regression. "
+            "Each gets new text-gradeable cases appended in its rewrite batch (existing "
+            "cases untouched) and is re-baselined before the rewrite."
+        )
+        lines.append("")
+        for name in blind:
+            skill = skills[name]
+            lines.append(
+                f"- **{name}** — {skill.get('assertions', 0)} assertion(s): {_class_mix(skill)}"
+            )
+    else:
+        lines.append("- none: every skill has at least one discriminating assertion")
+    lines.append("")
+
     lines.append("## Per-skill findings")
     lines.append("")
     evidence_index = {(row["skill"], row.get("label")): row.get("evidence") for row in results.get("rows") or []}
@@ -159,16 +226,28 @@ def render_run_report(results: Dict[str, Any], run_meta: Dict[str, Any]) -> str:
         lines.append("- none")
         lines.append("")
 
+    lines.append("## Structurally unsatisfiable assertions")
+    lines.append("")
     unsatisfiable = results.get("structurally_unsatisfiable") or []
     if unsatisfiable:
-        lines.append("## Structurally unsatisfiable assertions")
+        lines.append(
+            "Assertions that failed in both configs and that the grader's `eval_feedback` "
+            "named as unsatisfiable by any response the harness can produce. These are "
+            "eval defects, not skill defects; the rewrite fixes the assertion."
+        )
         lines.append("")
-        for item in unsatisfiable:
+        lines.append("| Skill | Case | Assertion | Why it cannot be satisfied |")
+        lines.append("| --- | --- | --- | --- |")
+        for item in sorted(unsatisfiable, key=lambda row: (row["skill"], row["key"])):
+            reason = str(item.get("reason") or "").replace("|", "\\|").replace("\n", " ")
+            assertion = str(item.get("assertion") or "").replace("|", "\\|")
             lines.append(
-                f"- {item['skill']} {item['key']} eval-{item['eval_id']}: "
-                f"{item['assertion']} — {item['reason']}"
+                f"| {item['skill']} | {item['key']} (eval-{item['eval_id']}) | "
+                f"{assertion} | {reason} |"
             )
-        lines.append("")
+    else:
+        lines.append("- none flagged by the grader")
+    lines.append("")
 
     lines.append("## Open issues")
     lines.append("")
