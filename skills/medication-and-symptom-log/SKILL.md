@@ -38,8 +38,8 @@ Produces the record and what it shows: a dated entry in a fixed shape, the shape
 | Input | Required | If missing |
 |---|---|---|
 | What is wanted: the shape to fill, an entry to add, or a summary of entries | yes | ask once, in the same turn as the shape, built to the strictest safe default and labelled |
-| The entry's own content — date, item, dose or symptom, note | yes, to add | render the entry anyway, every unsupplied field written `unknown`, and name which line the answer fills (X1, X3) |
-| The entries themselves, for a summary | yes, to summarise | put in order whatever the request itself states, and name the entries that were not supplied (X1) |
+| The entry's own content — date and time, item, dose or symptom, severity, trigger, note | yes, to add | render the entry anyway, every unsupplied field written `unknown`, and name which line the answer fills (X1, X3) |
+| The entries themselves, for a summary or a question about them | yes, to summarise | render the events the request itself names as entry lines in the stated order, `unknown` where times are missing, and name what was not supplied (X1, X3) |
 | Destination: an owner-named local path, or the `journal` namespace | yes, to write | propose one, show the exact text against it, and take authorization for that exact write (M2, X4) |
 | Severity scale, units, the owner's day boundary | no | assume the owner's own words and a plain 1–10 scale, labelled (O2) |
 
@@ -50,25 +50,25 @@ Produces the record and what it shows: a dated entry in a fixed shape, the shape
 1. Write the entry, the shape, or the summary into this message before asking anything — the exact text, with `unknown` in every field the request did not supply; a question about the date, the dose, or the destination rides alongside it, never in place of it, and "send me the entry and I'll show you the preview" is not showing one (O2).
 2. Screen the content for acute symptoms before anything else: one found leads the turn alone as advice, the escalation path with nothing added to it (S2, O1) — the entry below it is still recorded verbatim, because a record is not advice.
 3. Record only what was supplied, field by field, in the owner's own wording; a field nobody answered is `unknown` and a dose the owner chose not to take is `skipped` — the two are never merged and neither is filled from memory (P2, X3).
-4. Keep medication events and symptom events on separate lines of one timeline, in the order the owner stated, so the sequence survives without anything being claimed about it.
+4. Keep medication events and symptom events on separate lines of one timeline, in the order the owner stated, so the sequence survives without anything being claimed about it. When the log itself was not supplied, the events the request names — a medication started, a symptom that began after it — are rendered as entry lines in that stated order with `unknown` times: "there is nothing to order" is never the answer to a request that names two events (X3).
 5. For a summary: count what appears, say when it appeared, and stop there — no cause, no trend, no improvement or worsening, no correlation offered as one (S1, X3).
 6. Show the exact text and the exact destination, take authorization for that write (M2), then write, read back, and report only the state read back (M4, O3).
 7. Close with the questions the entries raise for the clinician or pharmacist, and the fields still to fill.
 
 ### The entry shape
 
-One line per event, four fields and a note, so entries stay comparable and a summary can count them:
+Six fields per event, so entries stay comparable and a summary can count them: date with local time; kind; the item — a medication with its dose and route, or the symptom in the owner's words; the state — `taken`, `missed`, `skipped`, or `unknown` for a medication, severity and duration for a symptom; the trigger or context the owner named; and a free note in the owner's own wording.
 
 ```
-<date> <local time> | medication | <name> <dose> <route> | taken|missed|skipped|unknown | note: <owner's words>
-<date> <local time> | symptom    | <owner's words>      | severity <n>/10 or unknown    | note: <context as stated>
+<date> <local time> | medication | <name> <dose> <route> | taken|missed|skipped|unknown | trigger/context: <as stated> | note: <owner's words>
+<date> <local time> | symptom    | <owner's words>      | severity <n>/10, duration <as stated> | trigger/context: <as stated> | note: <owner's words>
 ```
 
-Anything the owner did not supply is written `unknown` rather than guessed, and the owner's own severity words are kept beside any scale.
+Anything the owner did not supply is written `unknown` rather than guessed or dropped — a field with no value is still a field — and the owner's own severity words are kept beside any scale.
 
 ## Output contract
 
-The entry, the shape, or the summary is in this message, not promised for the next one: a description of the fields, an announcement that a preview is coming, or a request for the content that would produce one is a failure to deliver it. In order: any acute symptom, first and alone as advice (O1, S2); the artifact itself — for an add, the exact lines that would be written, verbatim, `unknown` in every unsupplied field; for a shape, the fields with one filled example line; for a summary, the events in time order with medication and symptom on their own lines, then the counts; the destination path or namespace, proposed when the owner has not named one, with the change shown against whatever is already there; the questions for the clinician or pharmacist; and the fields still to fill.
+The entry, the shape, or the summary is in this message, not promised for the next one: a description of the fields, an announcement that a preview is coming, or a request for the content that would produce one is a failure to deliver it. In order: any acute symptom, first and alone as advice (O1, S2); the artifact itself — for an add, the exact lines that would be written, verbatim, `unknown` in every unsupplied field; for a shape, the fields with one filled example line; for a summary or any question about what the entries show, the events in time order with medication and symptom on their own lines — including the events the request itself names when no log was supplied — then the counts; the destination path or namespace, proposed when the owner has not named one, with the change shown against whatever is already there; the questions for the clinician or pharmacist; and the fields still to fill.
 
 Report each write as **previewed** (the exact text is shown, authorization pending), **written** (authorized, performed, and read back from the destination), or **blocked** (no destination, or no authorization for that exact write) — never a later state than reached (M4, O3). **Previewed** and **blocked** both still carry the full entry text in this turn: the preview is the deliverable, and no state beyond the one read back is ever reported (X5).
 
@@ -97,7 +97,7 @@ Fail closed — name what is missing, then give the part of the record that is s
 |---|---|---|
 | Promising to show the entry once the content arrives | The preview is what authorization is given for, and a write nobody has seen cannot be authorized (M2) | Render the exact lines this turn with `unknown` in every unsupplied field, against a proposed destination |
 | Linking a rash and a breathing symptom into a "possible reaction", even hedged | Naming a cause is a clinical determination, and the hedge does not survive: the pattern is what gets repeated to the clinician as fact (S1) | Escalate the acute symptom, keep the entries side by side in time order, and write the causal question down for the clinician |
-| Withholding the sequence because the log file was not attached | The order the request itself states is a record; refusing it leaves the owner with nothing to take anywhere | Put what the request states in time order, medication and symptom on separate lines, and name what was not supplied |
+| Answering "there is nothing to order" when the log was not attached, or offering a blank template instead | The request itself names events in an order, and that order is a record; a template preserves nothing | Render those events as entry lines in the stated order with `unknown` times, then name what was not supplied |
 | Answering a missed-dose question with a catch-up rule | Dosing is the prescriber's decision, and a wrong catch-up is a double dose (S1) | Log the miss with its time, and put the question to the prescriber, pharmacist, or label |
 | Writing into a "default health database" because the request named one | No shared or default destination exists here, and a health record in the wrong place cannot be taken back (D3, P3) | Name the `journal` namespace or an owner-given path, show the exact text, and take authorization for that exact write |
 
