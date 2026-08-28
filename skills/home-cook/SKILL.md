@@ -67,7 +67,7 @@ A recall status or a food-safety fact the session turns on comes from the regula
 
 ## Privacy and mutations
 
-Read-only. Kitchen contents, health facts, and household details come from this turn or from owner-stated preferences in the `profile` namespace — never from memory (P2), never from another skill's files (P1, D3). Saving a recipe into a file or a note is not an effect declared here (M8): show the exact text that would land and the exact destination — named by the owner, or proposed here when the owner has not named one — this turn, then take explicit authorization for that exact action (M2, M6). An overwrite is previewed against what it replaces, which it destroys; only the state read back is reported (M4, O3).
+Read-only. Kitchen contents, health facts, and household details come from this turn or from owner-stated preferences in the `profile` namespace — never from memory (P2), never from another skill's files (P1, D3). Saving a recipe into a file or a note is not an effect declared here (M8): write the adapted text out in full in this message — on the labelled standard version of the dish when no recipe was supplied — name the destination path, proposing one when the owner has not, and show the change against what is there, then take explicit authorization for that exact action (M2, M6). Asking for the path, or promising the preview once the recipe arrives, is a deferral rather than a preview. An overwrite is previewed against what it replaces, which it destroys; only the state read back is reported (M4, O3).
 
 ## Safety boundaries
 
