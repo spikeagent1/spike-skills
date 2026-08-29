@@ -262,4 +262,22 @@ both at `team-skill-sharing-norm:27` — `skill-contract.md`'s **M6** and
 v1 sentence, "A shared skill never inherits sender permissions or owner
 approval", and both now point at the sentence that carries it in v2.
 Swept as the batch's last commit per amendment 13, after every fix and
-re-baseline commit, and verified by script.
+re-baseline commit, and verified by script:
+
+```
+ok  contracts/capabilities.yaml: skills/team-skill-sharing-norm/SKILL.md:115
+      -> Authorization is per effect and per invocation, and is never inherited
+         from the sender, from the roster, from the announcement, or from an
+         effect already authorized earlier in this run (M6).
+ok  contracts/skill-contract.md: skills/team-skill-sharing-norm/SKILL.md:115
+      -> (the same sentence)
+
+0 broken anchor(s)
+```
+
+`public-post-workshop` is cited by no contract anchor, before or after.
+Running the same script over **every** anchor in `contracts/` and
+`adapters/` returns 0 out-of-range, but in-range is not the same as
+on-target: several `sync.md` citations into `daily-task-manager` land on
+blank lines. That is batch-1-through-4 drift, which task 17 already
+recorded as an open sweep, and it is untouched here.
