@@ -582,6 +582,25 @@ class InstallSkillTest(unittest.TestCase):
         self.assertEqual(requires["config"], [])
         self.assertEqual(requires["env"], [])
 
+    def test_openclaw_requires_drops_a_python_package_marked_optional(self) -> None:
+        """T24: `jsonschema` in skill-library-ops's own Dependencies line is a
+        Python distribution the sentence marks optional, not a binary; a wrong
+        `requires.bins` entry stops the real skill loading on the OpenClaw box."""
+        body = (
+            "## Inputs\n\n**Dependencies:** a local `git` checkout of this repository; "
+            "`python3` for the unit tests; `jsonschema` optionally, because the "
+            "validator carries a stock-library fallback and the two paths must be "
+            "exercised separately; and the `gh` CLI only to open or read the state "
+            "of a pull request.\n"
+        )
+        requires = install_skill.openclaw_requires(
+            body,
+            install_skill.load_contract("vocabulary"),
+            install_skill.load_contract("datastore"),
+        )
+        self.assertEqual(requires["bins"], ["git", "python3", "gh"])
+        self.assertNotIn("jsonschema", requires["bins"])
+
     def test_openclaw_staging_writes_the_adapter_and_prints_the_copy_step(self) -> None:
         _, out = self._run("--runtime", "openclaw", "fixture-openclaw-only")
         self.assertTrue(

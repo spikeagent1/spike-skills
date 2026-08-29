@@ -80,6 +80,14 @@ CONNECTOR_CONTEXT_RE = re.compile(r"^[\s,]*(?:connector|MCP|server)\b", re.IGNOR
 NOT_A_BINARY_RE = re.compile(
     r"^\s*(?:package|library|module|records?|namespace|kind|field)\b", re.IGNORECASE
 )
+# A backtick the same clause calls a Python package/module/distribution, or
+# marks optional, names something pip installs or skips -- never a binary the
+# installed skill needs on PATH. Scoped to the clause up to the next `;` so an
+# "optional" elsewhere on the Dependencies line cannot excuse a different token.
+NOT_A_BINARY_CLAUSE_RE = re.compile(
+    r"\bpython (?:package|module|distribution|library)\b|\boptional(?:ly)?\b",
+    re.IGNORECASE,
+)
 TERM_SHAPED_RE = re.compile(r"^[a-z][a-z' ]*[a-z]$")
 
 
@@ -395,7 +403,9 @@ def openclaw_requires(
     server is a registry key, and a command word or an absolute path is a binary.
     A backtick that names something the library already defines -- a vocabulary
     term, a datastore namespace, a sibling skill, a repository path -- is none of
-    the three, so it is dropped rather than declared as a missing binary.
+    the three, so it is dropped rather than declared as a missing binary. So is
+    one the same clause calls a Python package/module/distribution or marks
+    optional: pip installs or skips it, but it never lands on PATH.
     """
     line = dependencies_line(body)
     known = library_tokens(vocabulary, datastore)
@@ -408,6 +418,8 @@ def openclaw_requires(
         elif CONNECTOR_CONTEXT_RE.match(after):
             bucket = "config"
         elif token in known or NOT_A_BINARY_RE.match(after):
+            continue
+        elif NOT_A_BINARY_CLAUSE_RE.search(after.split(";", 1)[0]):
             continue
         elif "/" in token and not token.startswith("/"):
             continue
