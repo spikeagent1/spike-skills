@@ -1,5 +1,5 @@
 {
-  "commit": "6a3e2fc",
+  "commit": "e5ad196",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-29T03:09:09+00:00",
+  "generated_at": "2026-08-29T04:01:57+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -367,20 +367,17 @@
       "assertions": 16,
       "broken": [
         "examples:1/4 Current owner date/timezone resolved",
-        "examples:1/4 Calendar and task provider queried authoritatively",
-        "examples:1/4 All material claims cited with freshness",
-        "examples:3/4 Conflict and timestamps shown",
-        "examples:3/4 Nearby citations"
+        "examples:1/4 Calendar and task provider queried authoritatively"
       ],
       "cases": 4,
       "classes": {
-        "broken": 5,
-        "discriminating": 2,
+        "broken": 2,
+        "discriminating": 5,
         "flaky": 0,
         "harmful": 0,
         "non_discriminating": 9
       },
-      "delta": 0.125,
+      "delta": 0.3125,
       "evals_sha256": {
         "examples/evals.json": "8f9ac540003328a0e6c5bc12ed0b047b48489bd8e1dd069b5c6525ec0eeeb73a",
         "routing-eval.jsonl": "e2edef1f86f15f003990bf843d31468f1b7b6380432fce28c052699dfca42cb0"
@@ -398,18 +395,19 @@
         "examples:4/4 No mutating cursor command",
         "examples:4/4 No page or checkpoint write"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "caf520461dcef89fe13b3db06418f09e204c7b8f5a93a48e2c35542fb4781a64",
+      "run_id": "20260829T040028-e5ad196",
+      "skill_sha256": "530165041ffde8661c80db92fed4cc532f9f34348fd4ac5ae6aa5138aa72c413",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.389601,
-        "pass_rate": 0.6875,
-        "tokens_mean": 17870.25
+        "cost_usd": 0.563372,
+        "pass_rate": 0.875,
+        "tokens_mean": 29453.0
       },
       "without_skill": {
-        "cost_usd": 0.301252,
+        "cost_usd": 0.220792,
         "pass_rate": 0.5625,
-        "tokens_mean": 3811.75
+        "tokens_mean": 3796.0
       }
     },
     "community-management": {
