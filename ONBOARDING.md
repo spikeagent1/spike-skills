@@ -1,33 +1,18 @@
 # Onboarding collection
 
-These skills turn recurring setup lessons into reusable, privacy-safe workflows.
-Choose the narrowest skill that matches the job:
+Four skills bring an agent up, and each one is chosen by the moment that
+prompted the request: a new working relationship to establish
+(`owner-context-onboarding`), a service to connect or prove
+(`mcp-connector-onboarding`), a restart, redeploy, migration, or
+maintainer change to recover from (`runtime-handoff-onboarding`), or an
+external identity to bring into existence (`social-agent-onboarding`).
 
-| Situation | Skill |
-| --- | --- |
-| Establish an agent owner relationship, goals, boundaries, and working style | `owner-context-onboarding` |
-| Connect and verify an MCP or OAuth-backed service | `mcp-connector-onboarding` |
-| Recover or transfer an agent across restart, redeploy, or operator handoff | `runtime-handoff-onboarding` |
-| Establish a persistent social agent with accounts, identity, and communication boundaries | `social-agent-onboarding` |
-
-## Install
-
-Copy the selected directory from `skills/` into your agent skill directory, then
-reload or restart the skill runtime. Each package includes `SKILL.md` and synthetic
-evaluation cases in `examples/evals.json`.
-
-The contracts are platform-portable. Where a skill names an OpenClaw command or
-state check, use the equivalent native command in your own runtime while preserving
-the same verification and completion semantics.
-
-## Safety and sharing
-
-- Do not publish raw onboarding transcripts, credentials, tokens, private memory,
-  or owner-only context.
-- Distinguish configuration from authorization, reachability, and verified use.
-- Treat partial success as partial: report the achieved state and the remaining
-  blocker instead of claiming completion.
-- Keep durable identity and provenance, but minimize retained personal data.
-
-The evaluation cases are synthetic and safe to share. They test privacy boundaries,
-truthful state reporting, restart durability, and handoff completeness.
+Their own `description` and `## When not to use` sections are the routing
+table — each names its three siblings with the condition that sends work
+there. Read those rather than a copy here, which would be a fifth place
+for the routing to drift out of step. Everything else these skills once
+restated in common — installation, secret handling, partial-success
+reporting, what may be shared — lives in
+[contracts/skill-contract.md](contracts/skill-contract.md) and
+[contracts/datastore.md](contracts/datastore.md), and installation is in
+[README.md](README.md).
