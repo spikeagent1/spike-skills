@@ -276,8 +276,8 @@ skills:
     status: approved
     cohort: health-and-home-lifestyle
     workshop_proposal: household-maintenance-20260824-2ecca40cc2
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: purchase-research
     classification: owned
