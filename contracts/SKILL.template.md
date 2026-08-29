@@ -56,12 +56,21 @@ metadata:
 ## Workflow
 
 <!-- Mandatory. One numbered list. Sub-procedures become H3s or a linked
-     references/<file>.md, one level deep and linked from here. -->
+     references/<file>.md, one level deep and linked from here. One numbered
+     step is the produce-anyway clause: the skill produces its deliverable in
+     this turn from what the request already carries, marking the facts it had
+     to assume, and previews any mutation by showing its exact text here. A
+     marked slot stands in for a missing fact — a metric, a name, a date, a link
+     — never for the substance of a draft, a reply, or an argument, which is
+     written from the request's own framing and revised when the fact arrives; a
+     response whose substantive fields are all slots is a deferral (X6). -->
 
 ## Output contract
 
 <!-- Mandatory. What the response contains, in order, with the exact state
-     vocabulary the skill reports (O3). -->
+     vocabulary the skill reports (O3). Opens by restating the produce-anyway
+     clause: what this turn delivers, and which fields may carry a marked slot
+     (X6). -->
 
 ## Worked example
 
@@ -85,7 +94,7 @@ metadata:
 ## Failure conditions
 
 <!-- Mandatory. Runtime stop conditions specific to this skill, fail-closed.
-     X1-X5 are generic. -->
+     X1-X6 are generic. -->
 
 ## Common mistakes
 
