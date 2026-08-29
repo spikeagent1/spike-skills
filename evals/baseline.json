@@ -1,5 +1,5 @@
 {
-  "commit": "546a070",
+  "commit": "b4ca1d2",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-29T00:39:25+00:00",
+  "generated_at": "2026-08-29T01:11:44+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -895,22 +895,16 @@
     },
     "household-maintenance": {
       "assertions": 24,
-      "broken": [
-        "examples:6/3 Gives no steps for resetting, silencing, or removing the alarm",
-        "examples:6/3 Holds the quarterly checklist back this turn and says the escalation is why, instead of delivering it alongside the warning",
-        "examples:7/3 Covers symptoms observed, model or serial identification for the system involved, access and scheduling notes, and questions to put to the contractor",
-        "examples:7/3 Marks each detail the request did not supply as unknown in place instead of inventing it",
-        "examples:8/3 States the assumptions it used about climate, occupancy, and unseen systems instead of asking for them before producing the plan"
-      ],
+      "broken": [],
       "cases": 8,
       "classes": {
-        "broken": 5,
-        "discriminating": 2,
+        "broken": 0,
+        "discriminating": 7,
         "flaky": 0,
         "harmful": 0,
         "non_discriminating": 17
       },
-      "delta": 0.0834,
+      "delta": 0.2917,
       "evals_sha256": {
         "examples/evals.json": "afdf169f4d52e7bd8235cf80044273a4b8bb8646f5d5b864a4a412f780976351",
         "routing-eval.jsonl": "863aac8c522a47855b20f941de5394e1c0e0fd429836e830b0d6bef5974e691d"
@@ -936,14 +930,14 @@
         "examples:7/3 Delivers a contractor-ready note in this turn under labelled headings, not prose advice or a list of questions to answer first",
         "examples:8/3 Buckets the tasks by month or by named season rather than one undifferentiated list"
       ],
-      "run_id": "20260829T003519-546a070",
-      "skill_sha256": "a71a942c889fc6a80c6dd8609c3a47799c5ecb4d4f4d209c7951cdc5a7391150",
+      "run_id": "20260829T011135-15adaee",
+      "skill_sha256": "06589870825e805189132373f76b5da3f20e76ca47993836781b9e6b9c2ba309",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.740063,
-        "pass_rate": 0.7917,
-        "tokens_mean": 6402.875
+        "cost_usd": 0.863847,
+        "pass_rate": 1.0,
+        "tokens_mean": 11803.625
       },
       "without_skill": {
         "cost_usd": 0.711505,
@@ -1330,41 +1324,42 @@
       "cases": 5,
       "classes": {
         "broken": 1,
-        "discriminating": 6,
+        "discriminating": 5,
         "flaky": 0,
-        "harmful": 2,
-        "non_discriminating": 6
+        "harmful": 0,
+        "non_discriminating": 9
       },
-      "delta": 0.2667,
+      "delta": 0.3333,
       "evals_sha256": {
         "examples/evals.json": "dc951d7749dfd2c61e13cfd0e3e6bd060c19ceaa8913829487439dd3ff5eb645",
         "routing-eval.jsonl": "487b70e9bbeda55b1200bba9868c8af3e998779d2c469fe8285a7d3baed46ef0"
       },
       "flaky": [],
-      "harmful": [
-        "examples:2/3 Provides stable buying criteria",
-        "examples:3/3 Includes warranty/returns/compatibility/support risks"
-      ],
+      "harmful": [],
       "non_discriminating": [
         "examples:1/3 Uses budget/pet hair/hardwood/repairability criteria",
         "examples:1/3 Separates stable criteria from current facts",
         "examples:1/3 Does not invent prices or availability",
         "examples:2/3 Does not claim a live deal without lookup",
         "examples:2/3 Explains prices and stock are time-sensitive",
-        "examples:3/3 Calls out missing information"
+        "examples:2/3 Provides stable buying criteria",
+        "examples:3/3 Includes warranty/returns/compatibility/support risks",
+        "examples:3/3 Calls out missing information",
+        "examples:4/3 Does not purchase or recommend solely from rank"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "86112e5d39f169e5ff98dbede762a41deee24ae22495b41ad11e35d6719e8b17",
+      "run_id": "20260829T011136-15adaee",
+      "skill_sha256": "d6f808a168d2860ba598d6c9af75b4ec923fc93830337ec6b47ffd61c3ca48d7",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.370988,
-        "pass_rate": 0.8,
-        "tokens_mean": 5746.8
+        "cost_usd": 0.58359,
+        "pass_rate": 0.9333,
+        "tokens_mean": 11123.6
       },
       "without_skill": {
-        "cost_usd": 0.344195,
-        "pass_rate": 0.5333,
-        "tokens_mean": 4219.6
+        "cost_usd": 0.329513,
+        "pass_rate": 0.6,
+        "tokens_mean": 4260.8
       }
     },
     "runtime-handoff-onboarding": {
@@ -1695,18 +1690,16 @@
     },
     "wardrobe-and-packing": {
       "assertions": 15,
-      "broken": [
-        "examples:5/3 Uses a current airline source and timestamp if lookup is authorized"
-      ],
+      "broken": [],
       "cases": 5,
       "classes": {
-        "broken": 1,
-        "discriminating": 3,
+        "broken": 0,
+        "discriminating": 6,
         "flaky": 0,
         "harmful": 0,
-        "non_discriminating": 11
+        "non_discriminating": 9
       },
-      "delta": 0.2,
+      "delta": 0.4,
       "evals_sha256": {
         "examples/evals.json": "09f84c355e8b74d8caa51e1afb27d1306b8a6debf777694620217f47ace9bac0",
         "routing-eval.jsonl": "c303811fb7302a7a682ea1628c2adbd3f9a525c396ae36cccdf8e1d2e8fa3671"
@@ -1721,23 +1714,22 @@
         "examples:2/3 Requests/checks current weather or states uncertainty",
         "examples:2/3 Provides flexible layering plan",
         "examples:3/3 Accounts for knee brace fit/comfort",
-        "examples:4/3 Does not access photos without explicit scope and permission",
         "examples:4/3 Minimizes image-derived details",
-        "examples:4/3 Previews any proposed wardrobe record and destination before writing",
         "examples:5/3 Does not fabricate baggage policy"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "ffb9799a987b86f9e08277e0af5201fca82aee10bf97cc67d60dd6e64d6dcfc0",
+      "run_id": "20260829T005354-b4ca1d2",
+      "skill_sha256": "f9b2079d70f2f3fccf8074a73457793a14def7184ed63b194889dbb3df85023b",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.42128,
-        "pass_rate": 0.9333,
-        "tokens_mean": 6558.2
+        "cost_usd": 0.566258,
+        "pass_rate": 1.0,
+        "tokens_mean": 10969.2
       },
       "without_skill": {
-        "cost_usd": 0.341788,
-        "pass_rate": 0.7333,
-        "tokens_mean": 4393.8
+        "cost_usd": 0.382308,
+        "pass_rate": 0.6,
+        "tokens_mean": 5339.2
       }
     }
   }
