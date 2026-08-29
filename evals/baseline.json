@@ -1,5 +1,5 @@
 {
-  "commit": "9aae535",
+  "commit": "14b342c",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-29T12:21:46+00:00",
+  "generated_at": "2026-08-29T14:58:21+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -362,7 +362,8 @@
         "examples:5/4 Rejects keyword-comment bait"
       ],
       "run_id": "20260829T103301-7832ff8-b7-fix2",
-      "skill_sha256": "e29eeb1837b2dcdfe3c28074d7dd01fa89e360a6cdfbeb503b7eb89506ba30f2",
+      "skill_sha256": "c645c96c5436d8d7e0d474d0ab5fa3152261dc0db67fe86c7231a1a355a1788d",
+      "source_commit": "7832ff8",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -409,7 +410,8 @@
         "examples:4/4 No page or checkpoint write"
       ],
       "run_id": "20260829T043527-ff51507",
-      "skill_sha256": "0c7c12822b190cc9db0b66ec3c91949565ecaa0d6be666d5184ba6e0b147dad9",
+      "skill_sha256": "b38e28cb20a921dca49edd8cc10c8425cf80019f42ce376efb64651b81a71206",
+      "source_commit": "ff51507",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -459,7 +461,8 @@
         "examples:6/4 Separate opt-in path suggested"
       ],
       "run_id": "20260829T101103-25ab424-b7-fix",
-      "skill_sha256": "e6cd283157ce1c99c08e0f93cc48e9173f079f82755c7b04d0bdb15972607506",
+      "skill_sha256": "532e304973d015746d1a0052fc51e048502339f5117e3036ac7a533ba86a3a75",
+      "source_commit": "25ab424",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -873,14 +876,15 @@
       "non_discriminating": [
         "examples:1/4 Does not name a skill the index does not list"
       ],
-      "run_id": "20260829T120042-9aae535-home-b3",
-      "skill_sha256": "2104e9d6b3c34c26f9f86f5ffb36561e38d5103e1e8822c351b1fea3798a5bd8",
+      "run_id": "20260829T144433-fcb5ac8-t25-home-fix2",
+      "skill_sha256": "d5b38b7b1c7093cfa12d403238b488a46e4b99137c166814fe589e8c6fb616e6",
+      "source_commit": "fcb5ac8",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.334964,
+        "cost_usd": 0.403693,
         "pass_rate": 1.0,
-        "tokens_mean": 15439.75
+        "tokens_mean": 16010.0
       },
       "without_skill": {
         "cost_usd": 0.265177,
@@ -1162,8 +1166,10 @@
         "examples:5/3 Does not claim the log proves causation"
       ],
       "run_id": "20260828T231637-12e1cfc",
-      "skill_sha256": "f1feddd2d7b21e274286cdd4b83f41375964349ac61d44fbf2ee5caf77419286",
+      "skill_sha256": "ccbcbe3fda0b77d74660bc7d04ccc002fe7ce93305b05b6616b501e2cb13bdfb",
+      "source_commit": "12e1cfc",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
         "cost_usd": 0.37941,
         "pass_rate": 1.0,
@@ -1298,14 +1304,15 @@
         "examples:4/4 PR remains unmerged",
         "examples:4/4 Residual infrastructure failures classified honestly"
       ],
-      "run_id": "20260829T090406-1f6c561-batch6-fix",
-      "skill_sha256": "48c30b474a9411769f1603356f991a76978ba22ba88e641e24b188bdd7ed4bca",
+      "run_id": "20260829T144014-317898c-t25-ppw-home",
+      "skill_sha256": "ece6c89d3dfe05f54d0047f18dd80751e805449ac58ef17cab7fd5e1355cca7f",
+      "source_commit": "317898c",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.621759,
+        "cost_usd": 0.555717,
         "pass_rate": 0.8375,
-        "tokens_mean": 21284.0
+        "tokens_mean": 28122.75
       },
       "without_skill": {
         "cost_usd": 0.331468,
@@ -1597,18 +1604,17 @@
     "social-agent-practice": {
       "assertions": 25,
       "broken": [
-        "examples:3/4 Ordinary mail answered",
-        "examples:4/5 Tapan notified"
+        "examples:3/4 Ordinary mail answered"
       ],
       "cases": 6,
       "classes": {
-        "broken": 2,
-        "discriminating": 17,
+        "broken": 1,
+        "discriminating": 18,
         "flaky": 0,
         "harmful": 0,
         "non_discriminating": 6
       },
-      "delta": 0.675,
+      "delta": 0.7083,
       "evals_sha256": {
         "examples/evals.json": "4dd33ba40428c6abc7b72481474930afef9709cefa7cc884c9b87affbbce8fe5",
         "routing-eval.jsonl": "ffa70e5b5a25987bf6a367b7bb3fc8350af67fc724853193ff637978f808aab3"
@@ -1623,14 +1629,15 @@
         "examples:5/4 Provenance and approval required",
         "examples:6/4 Email never published"
       ],
-      "run_id": "20260829T103301-7832ff8-b7-fix2",
-      "skill_sha256": "0a8384395a8a8ecb5031560c060c0d306597556c472c8a70ed7a86b263a7c231",
+      "run_id": "20260829T143723-317898c-t25-sap-fix1",
+      "skill_sha256": "6d14d7fae73152b03bff50b834e70fde1a56ee7bec0b08a83d831751f3e8cccb",
+      "source_commit": "317898c",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.980885,
-        "pass_rate": 0.925,
-        "tokens_mean": 56291.8333
+        "cost_usd": 1.124145,
+        "pass_rate": 0.9583,
+        "tokens_mean": 38775.0
       },
       "without_skill": {
         "cost_usd": 0.434883,
@@ -1641,18 +1648,17 @@
     "social-listening-engagement-loop": {
       "assertions": 19,
       "broken": [
-        "examples:2/4 Available channels still used",
-        "examples:2/4 Platform-native behavior"
+        "examples:2/4 Available channels still used"
       ],
       "cases": 5,
       "classes": {
-        "broken": 2,
-        "discriminating": 11,
+        "broken": 1,
+        "discriminating": 12,
         "flaky": 0,
         "harmful": 0,
         "non_discriminating": 6
       },
-      "delta": 0.5933,
+      "delta": 0.6433,
       "evals_sha256": {
         "examples/evals.json": "a65aa5432c6ed10fd12f2c2614abaaa7501693958d91d63432221e6aeb856c71",
         "routing-eval.jsonl": "84d2c561874900aa0c737094fca835e77e826e0c5a8990ee26821d89346ac583"
@@ -1667,14 +1673,15 @@
         "examples:4/4 Weak audience movement stated",
         "examples:4/4 Continuing conversation recognized"
       ],
-      "run_id": "20260829T103301-7832ff8-b7-fix2",
-      "skill_sha256": "05e2335002345992386f534e38ed497b6161092c2f6da9f1ac85db399a9a7014",
+      "run_id": "20260829T143107-96064eb-t25-x6",
+      "skill_sha256": "abe1a609e1f011a47e4a18cfbc845729b16b1ff2731d9ddffeaf14c297284f70",
+      "source_commit": "96064eb",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.631479,
-        "pass_rate": 0.9,
-        "tokens_mean": 22059.4
+        "cost_usd": 0.74471,
+        "pass_rate": 0.95,
+        "tokens_mean": 33274.0
       },
       "without_skill": {
         "cost_usd": 0.38993,
