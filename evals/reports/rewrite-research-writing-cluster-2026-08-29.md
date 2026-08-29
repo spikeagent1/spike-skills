@@ -145,3 +145,56 @@ See `.superpowers/sdd/lets-audit-this-skillbase-giggly-umbrella/reports/task-17-
 § Adjudication requests: `fact-check`'s routing target, `draft-in-voice`
 case 4's profile gate, and the 14 assertion instances the grader itself
 declared structurally unsatisfiable on `literature-review`.
+
+## Fix round 1 (2026-08-29)
+
+`2f6f7c1 fix(research-writing): repoint contract anchor, gate upstream_version, honest audit record`
+`537806c fix(fact-check): lift routing intent 5's verb phrase verbatim` — **measured flat and reverted in `1aff9a0`**
+
+1. **The citation loop was broken.** `contracts/datastore.md:46` cited
+   `skills/fact-check/SKILL.md:28` for the stored-note principle; the v2
+   rewrite moved that sentence to `:60`. Repointed — this batch's own
+   Workflow 7 cites the datastore contract, which cites the line back, so
+   a dangling anchor broke it in both directions.
+2. **`upstream_version` is ratified and now gated.** It is an error on a
+   non-adapted entry or when it is not `^\d+\.\d+\.\d+$`;
+   `validate_provenance_artifacts` keeps the `upstream_version`-then-
+   `version` fallback. `SOURCE_ENTRY_KEYS` is introduced as the
+   `catalog/sources.yaml` entry vocabulary and an unknown key is an
+   error. Three tests, each RED against the previous validator.
+3. **Report corrections** — escape counts to the validator-measured
+   truth, the cross-pair claim, and the `broken`-composition change; see
+   the task report for the itemised list.
+
+### The second bounded try, and what it actually showed
+
+`fact-check`'s description said "source-check the numbers in this post"
+where losing intent `:5` reads "run a source check on the numbers in this
+post". The verb phrase was lifted verbatim, paid for inside 300
+characters by shortening `:4`'s phrasing; `:1`'s and `:3`'s stayed
+untouched.
+
+Result at `--repeats 3` (`20260829T070411-537806c-batch4-fc-verbatim`,
+$0.229): **4 pass, 4 fail — the same rate, a different four.** `:5`
+flipped to pass unanimously; `:2` flipped to fail. Reverted: an intent
+sold to buy another is not a win, and the fact-check row of the routing
+table above is unchanged at 50%.
+
+**Counting ballots instead of cases is the finding.** Across
+`fact-check`'s five own positives:
+
+| Case | Gate run | Verbatim try |
+|---|---|---|
+| `:1` | 0/3 | 1/3 |
+| `:2` | **2/3 pass** | 1/3 fail |
+| `:3` | 0/3 | 1/3 |
+| `:4` | 3/3 pass | 3/3 pass |
+| `:5` | 1/3 fail | **3/3 pass** |
+| **Total** | **6 of 15** | **9 of 15** |
+
+The description moved half again as many ballots and the case score did
+not move at all, because four of the five sit on a one-ballot margin. The
+majority threshold is deciding this file's score, not the description —
+the same conclusion the first probe reached, now with the mechanism
+visible. **A third attempt on this file should be gated on ballot mass,
+not on the case pass rate**, which cannot resolve differences this small.
