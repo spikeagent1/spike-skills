@@ -1269,19 +1269,6 @@ def cmd_baseline_update(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    if results is not None and not args.allow_ungraded:
-        offending = _ungraded_skills(results)
-        if offending:
-            # A degraded entry (some assertions never actually graded) must
-            # not merge silently — the near-miss this task exists to close.
-            print(
-                "run_evals.py baseline update: refusing to merge a degraded baseline "
-                f"entry for {_ungraded_refusal_message(offending, run_root)}; pass "
-                "--allow-ungraded to merge it anyway (the entry will record the "
-                "ungraded count)",
-                file=sys.stderr,
-            )
-            return 2
     skills_subset: Optional[List[str]] = None
     if getattr(args, "skill", None):
         skills_subset = [name.strip() for name in args.skill.split(",") if name.strip()]
@@ -1298,6 +1285,25 @@ def cmd_baseline_update(args: argparse.Namespace) -> int:
             )
             return 2
 
+    if results is not None and not args.allow_ungraded:
+        # Scoped to what this merge would actually write: another skill's ungraded
+        # case in the same run says nothing about the entries being merged.
+        offending = [
+            row
+            for row in _ungraded_skills(results)
+            if skills_subset is None or row[0] in skills_subset
+        ]
+        if offending:
+            # A degraded entry (some assertions never actually graded) must
+            # not merge silently — the near-miss this task exists to close.
+            print(
+                "run_evals.py baseline update: refusing to merge a degraded baseline "
+                f"entry for {_ungraded_refusal_message(offending, run_root)}; pass "
+                "--allow-ungraded to merge it anyway (the entry will record the "
+                "ungraded count)",
+                file=sys.stderr,
+            )
+            return 2
     routing_block = None
     if args.routing_from:
         routing_block, routing_error = _load_routing_block(args.routing_from)

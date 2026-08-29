@@ -5330,6 +5330,25 @@ class BaselineUpdateFlagsTest(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("ghost", err.getvalue())
 
+    def test_the_ungraded_refusal_is_scoped_to_the_named_skills(self) -> None:
+        # A run covering two skills, one of them degraded: merging the healthy one
+        # by name must not be refused for the other skill's ungraded case.
+        grading = run_evals.workspace.WORKSPACE / "runs" / "r1" / "beta" / "eval-1"
+        _write_ungraded(grading / "with_skill" / "run-1", ["a", "b"])
+
+        code = self._main_quietly(["baseline", "update", "--from", "r1", "--skill", "alpha"])
+
+        self.assertEqual(code, 0)
+        self.assertEqual(sorted(self._baseline()["skills"]), ["alpha"])
+
+    def test_a_degraded_named_skill_is_still_refused(self) -> None:
+        grading = run_evals.workspace.WORKSPACE / "runs" / "r1" / "beta" / "eval-1"
+        _write_ungraded(grading / "with_skill" / "run-1", ["a", "b"])
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = run_evals.main(["baseline", "update", "--from", "r1", "--skill", "beta"])
+        self.assertEqual(code, 2)
+        self.assertIn("beta", err.getvalue())
+
     def test_routing_from_merges_per_file_and_keeps_the_others(self) -> None:
         self.assertEqual(self._main_quietly(["baseline", "update", "--from", "r1"]), 0)
         seeded = self._baseline()
