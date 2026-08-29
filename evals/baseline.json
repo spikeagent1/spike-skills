@@ -1,5 +1,5 @@
 {
-  "commit": "938f9f4",
+  "commit": "2d371c6",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-29T07:58:34+00:00",
+  "generated_at": "2026-08-29T08:02:15+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -508,7 +508,6 @@
     "cron-scheduler": {
       "assertions": 19,
       "broken": [
-        "examples:1/4 Occurrences previewed",
         "examples:2/5 Authoritative list and inspect first",
         "examples:2/5 Stable ID selected",
         "examples:2/5 Readback shows one managed job",
@@ -517,13 +516,13 @@
       ],
       "cases": 4,
       "classes": {
-        "broken": 6,
-        "discriminating": 11,
+        "broken": 5,
+        "discriminating": 12,
         "flaky": 0,
         "harmful": 0,
         "non_discriminating": 2
       },
-      "delta": 0.575,
+      "delta": 0.6375,
       "evals_sha256": {
         "examples/evals.json": "67daadd8ba155e4ef2d9fcbaeef45fef5aee58d427fe1a05981648be94caf3e9",
         "routing-eval.jsonl": "68d2d31c890eda0d4dc5bf802650d50d6a1616e5bafc3b794a60cbbf7061fe98"
@@ -534,18 +533,19 @@
         "examples:1/4 No premature mutation",
         "examples:4/5 No completion claim"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "537a9f730c21a2271f85108e73ec286857c7564ba8f79b39d311f249c69b8140",
+      "run_id": "20260829T075911-2d371c6",
+      "skill_sha256": "c40fb0507455526bb5d66c068b5c5ddd151fdd4a6dc0de43732834759e004433",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.530635,
-        "pass_rate": 0.6875,
-        "tokens_mean": 23596.75
+        "cost_usd": 0.882768,
+        "pass_rate": 0.75,
+        "tokens_mean": 30111.25
       },
       "without_skill": {
-        "cost_usd": 0.362701,
+        "cost_usd": 0.277288,
         "pass_rate": 0.1125,
-        "tokens_mean": 13837.5
+        "tokens_mean": 5264.5
       }
     },
     "daily-task-manager": {
