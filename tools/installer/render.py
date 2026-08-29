@@ -709,10 +709,22 @@ def annotate_index(text: str, statuses: dict[str, str]) -> str:
     reported as not installed rather than silently left blank.
     """
     lines: list[str] = []
+    inside = False
     for line in text.splitlines():
         row = line.rstrip()
         if INDEX_HEADER_RE.match(row) and row.endswith("|"):
+            # Only a table whose first column is `skill` gets the column. The
+            # index carries a reserved-namespace table too, and widening its
+            # rows past its own header would leave malformed Markdown.
+            inside = True
             cell = INSTALLED_HERE
+        elif not row.startswith("|"):
+            inside = False
+            lines.append(line)
+            continue
+        elif not inside:
+            lines.append(line)
+            continue
         elif INDEX_SEPARATOR_RE.match(row):
             cell = "---"
         elif INDEX_ROW_RE.match(row) and row.endswith("|"):

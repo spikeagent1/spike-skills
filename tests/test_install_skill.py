@@ -178,6 +178,12 @@ class InstallSkillTest(unittest.TestCase):
         "| `fixture-notes` | Use when notes are read. | 2.0.0 |\n"
         "| `fixture-tasks` | Use when one task is the ask. | 2.0.0 |\n"
         "| `fixture-background` | Use when background applies. | 2.0.0 |\n"
+        "\n"
+        "## Not yet available\n"
+        "\n"
+        "| namespace | status | system of record | authority |\n"
+        "| --- | --- | --- | --- |\n"
+        "| `calendar` | reserved | provider | none yet |\n"
     )
 
     def _write_adapters(
@@ -1061,6 +1067,17 @@ class InstallSkillTest(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("| `fixture-tasks` | Use when one task is the ask. | 2.0.0 | installed |", index)
+
+    def test_a_table_that_is_not_the_skill_table_is_left_alone(self) -> None:
+        # The index also carries a reserved-namespace table. Widening its rows
+        # past its own header would leave malformed Markdown in the launcher's
+        # one input.
+        self._run("--runtime", "claude-code", "fixture-launcher")
+        index = (self.dest / "fixture-launcher" / "references" / "index.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("| namespace | status | system of record | authority |\n", index)
+        self.assertIn("| `calendar` | reserved | provider | none yet |\n", index)
 
     def test_the_index_note_explains_the_column(self) -> None:
         self._run("--runtime", "claude-code", "fixture-launcher")
