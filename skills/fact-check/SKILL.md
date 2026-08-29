@@ -1,6 +1,6 @@
 ---
 name: fact-check
-description: "Use when a claim must be checked before it goes out: fact check this draft, verify the facts against live sources, is this accurate, check the claims one by one, run a source check on the numbers in this post, or re-derive a hallucinating output. Not for surveying a field (literature-review)."
+description: "Use when a claim must be checked before it goes out: fact check this draft, verify the facts against live sources, is this accurate, check the claims one by one, source-check the numbers in this post, or re-derive an output that may be hallucinating. Not for surveying a field (literature-review)."
 metadata:
   spike-os:
     version: 2.0.0
