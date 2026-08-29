@@ -22,7 +22,7 @@ Gate runs: `20260829T051957-1299909` (owner-context),
 
 All four land between 2900 and 3400 words, above the 2200 that amendment
 10 makes a density question rather than a failure — the same range batch
-2 landed in (2476–2980) and for the same reason: every optional section
+2 landed in (2527–3407, measured on its final files) and for the same reason: every optional section
 carries a domain delta and none carries shared boilerplate. The
 `wc -w` and description figures are measured on the final committed
 files; individual rewrite commit messages quote the counts as they stood
@@ -43,7 +43,14 @@ discriminating 3 → 6 (`073c044`).
 
 Native, `--repeats 3`, ballot of 30 skills, 105 ballots over the 35 cases
 owned by the six gate files. **33 pass / 0 ambiguous / 2 fail / 0 phantom.**
-$0.372. **All 35 cases unanimous 3/3** — not one split ballot.
+$0.372. **33 of the 35 cases were unanimous 3/3; two split 2/3 and
+both passed on the majority** — `cron-scheduler:1` voted
+[`schedule`, `cron-scheduler`, `cron-scheduler`] and `skill-library-ops:1`
+voted [`skill-library-ops`, `skill-library-ops`, null]. The first of those
+is not incidental: `cron-scheduler:1`'s single stray ballot went to the same
+`schedule` built-in that takes `cron-scheduler:3` outright, so the built-in
+is contesting two of that file's cases and winning one — which is exactly
+the instability an unanimity claim would have ruled out.
 
 | File | RED (repeats 1) | Batch-3 final (repeats 3) | Movement |
 |---|---|---|---|
@@ -54,9 +61,12 @@ $0.372. **All 35 cases unanimous 3/3** — not one split ballot.
 | cron-scheduler | 67% / 67% | **83% / 83%** | +17pp, and this file was not touched |
 | skill-library-ops | 80% / 80% | **100% / 100%** | +20pp, and this file was not touched |
 
-**Six files up, none down, and no skill sold an intent to buy one.** That is
-the first batch in the programme with no zero-sum trade: batch 1 recorded
-four split ballots and batch 2 sold `conversation-archive:7` to buy two.
+**Six files up, none down, and no skill sold an intent to buy one.** No case
+that passed at RED fails now, on any of the six files — the first batch in
+the programme with no zero-sum trade, against batch 2 selling
+`conversation-archive:7` to buy two. On ballot stability this batch sits
+between the other two: two splits in 35 cases, against batch 1's four in 62
+and batch 2's none in 31.
 
 ### What bought it: separation by trigger moment
 
@@ -79,6 +89,13 @@ but the account still isn't claimed" — were won by putting the intent's own
 phrasing into the description's trigger list, the same technique that took
 `cron-scheduler:4` back from a CLI built-in in batch 2.
 
+`social-agent-onboarding`'s strict gain is `:3` — "We stopped halfway through
+account setup yesterday, pick it up from wherever it actually is" — which at
+RED went to `runtime-handoff-onboarding` and scored `ambiguous_pass` (lenient
+pass, strict fail) and now goes to `social-agent-onboarding` outright. Its
+lenient gain is `:2`, the unclaimed-account intent, won back from a native
+answer.
+
 The two pairs that trade across the cluster boundary both resolved: "we just
 restarted, show me you still hold the boundaries" now goes to
 `runtime-handoff-onboarding` and "let's revisit the boundaries, some no
@@ -95,10 +112,11 @@ sharper neighbours stopped absorbing their intents.
   RED and from batch 2; not this batch's file.
 - `social-agent-onboarding:4` — "Someone replied to your post with a real
   question — go answer them." expects `social-agent-practice` and goes to
-  `social-listening-engagement-loop`. `social-agent-onboarding` itself is
-  cleanly out of the way now (RED had it as the ambiguous absorber); the
-  remaining confusion is between two batch-7 files whose descriptions this
-  batch may not touch.
+  `social-listening-engagement-loop`. **Unchanged from RED**, which chose the
+  same absorber: `social-agent-onboarding` appears only in the fixture's
+  `ambiguous_with` and was never chosen, at RED or now, so this batch neither
+  gained nor lost it. The confusion is entirely between two batch-7 files
+  whose descriptions this batch may not touch.
 
 ## Fixture debt
 
