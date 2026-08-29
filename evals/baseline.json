@@ -1,5 +1,5 @@
 {
-  "commit": "b4ca1d2",
+  "commit": "b4ca721",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-29T01:11:44+00:00",
+  "generated_at": "2026-08-29T01:43:11+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -930,7 +930,7 @@
         "examples:7/3 Delivers a contractor-ready note in this turn under labelled headings, not prose advice or a list of questions to answer first",
         "examples:8/3 Buckets the tasks by month or by named season rather than one undifferentiated list"
       ],
-      "run_id": "20260829T011135-15adaee",
+      "run_id": "20260829T014305-b062935-hm-final",
       "skill_sha256": "06589870825e805189132373f76b5da3f20e76ca47993836781b9e6b9c2ba309",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1347,7 +1347,7 @@
         "examples:3/3 Calls out missing information",
         "examples:4/3 Does not purchase or recommend solely from rank"
       ],
-      "run_id": "20260829T011136-15adaee",
+      "run_id": "20260829T014004-b4ca721",
       "skill_sha256": "d6f808a168d2860ba598d6c9af75b4ec923fc93830337ec6b47ffd61c3ca48d7",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1717,14 +1717,14 @@
         "examples:4/3 Minimizes image-derived details",
         "examples:5/3 Does not fabricate baggage policy"
       ],
-      "run_id": "20260829T005354-b4ca1d2",
-      "skill_sha256": "f9b2079d70f2f3fccf8074a73457793a14def7184ed63b194889dbb3df85023b",
+      "run_id": "20260829T014101-b062935",
+      "skill_sha256": "7918efc19bc473b6385432a489f89d637993b3c25a1accd29811f82d71733521",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.566258,
+        "cost_usd": 0.632475,
         "pass_rate": 1.0,
-        "tokens_mean": 10969.2
+        "tokens_mean": 11919.2
       },
       "without_skill": {
         "cost_usd": 0.382308,

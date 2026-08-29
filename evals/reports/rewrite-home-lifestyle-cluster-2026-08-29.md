@@ -389,3 +389,39 @@ definition was not linked from its `Workflow` —
 `purchase-research` step 6 links `the comparison shape`. Its step 3 now
 links `the packing list shape`, so all three name their artifact from
 the numbered list that produces it.
+
+## The re-run this round forced
+
+Linking the artifact from the Workflow is not a cosmetic change. With
+`the packing list shape` linked from Workflow 3, the model rendered the
+shape literally and the owned-only rule emptied the whole deliverable:
+`examples:2/3 Provides flexible layering plan` went **harmful** —
+"[gap: top], [gap: bottom], [gap: layer for lake wind] — all unnamed, so
+nothing can be assigned", "no item×count line can be written honestly",
+no base/mid/shell scheme, and no guidance on combining or shedding
+layers across the range the response itself cited.
+
+That is the owned-only fix over-corrected into a refusal. The rule
+constrains what may be **counted as owned or packed**; it says nothing
+about whether a plan exists. Both the shape and Workflow 4 now say so —
+a gap marks provenance and never withholds the plan; the layering scheme
+is named role by role, base through shell, with how the layers combine
+and shed, whether or not a garment has been supplied. Back to 15/15,
+0 regressions.
+
+**This is the third instance of the batch's recurring failure**, and it
+runs in both directions: a rule stated but not carried into the artifact
+(the alarm-silencing checklist row, the unowned garment count), and a
+rule carried into the artifact so hard it eats the deliverable. Both are
+fixed at the artifact definition, not by restating the rule.
+
+## Final numbers after the fix round
+
+| Skill | with / without | Discriminating | broken / harmful | Run |
+|---|---|---|---|---|
+| household-maintenance | 100% (24/24) / 71% | 7/24 | 0 / 0 | `20260829T014305-b062935-hm-final` |
+| wardrobe-and-packing | 100% (15/15) / 60% | 6/15 | 0 / 0 | `20260829T014101-b062935` |
+| purchase-research | 93% (14/15) / 60% | 5/15 | 1 / 0 | `20260829T014004-b4ca721` |
+
+Unchanged from the batch numbers. `make validate` exits 0 with **20
+warnings**, `baseline check` exits 0, 499 tests OK.
