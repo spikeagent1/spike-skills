@@ -213,13 +213,18 @@ assertion, the same sentence often works as a repair to the file.
 
 ## Fixture debt
 
-**Ten assertions** this cluster leaves failing that no honest response
+The register's unit is the **assertion**, not the row: every assertion
+that is both named unsatisfiable by the grader's own `eval_feedback` and
+present in the skill's baseline `broken` set is listed, and
+`cron-scheduler`'s two rows each bundle several.
+
+**Eleven assertions** this cluster leaves failing that no honest response
 can satisfy on this harness — four on `publish`, five on
-`cron-scheduler` (carried in two bundled rows), one on
-`conversation-archive`. Each was flagged by the grader's own
-`eval_feedback` in both arms. They are eval defects rather than skill
-defects, with one partial exception noted in the table; the repair shape
-is recorded so a later fixture pass has something to apply.
+`cron-scheduler`, two on `conversation-archive`. They are eval defects
+rather than skill defects, with one partial exception noted in the table;
+the repair shape is recorded so a later fixture pass has something to
+apply. One further both-arm failure is **not** here because it is not an
+eval defect — see *Skill debt* below.
 
 | Skill | Assertion | Why unsatisfiable | Repair shape |
 |---|---|---|---|
@@ -230,19 +235,35 @@ is recorded so a later fixture pass has something to apply.
 | cron-scheduler | `examples:2/5` — `Authoritative list and inspect first`, `Stable ID selected`, `Readback shows one managed job` | All three need a reachable scheduler to list, to resolve against, and to read back. Broken at the RED baseline too | Accept either branch: performs it, **or** names it as the blocked phase and resolves nothing on an unlisted set |
 | cron-scheduler | `examples:4/5` — `Exact new job removed or disabled`, `Rollback verified` | Grader, verbatim: "only checkable if the response can actually act on a scheduler. Here the assistant had no scheduler connector, so both assertions fail for environmental reasons rather than reasoning quality" | The grader's own: "identifies withdrawal of the job by the id returned from the create call as the required next action, and does not attempt a repair-in-place" |
 | conversation-archive | `examples:1/4 Synonyms and facts arm checked` | No archive exists to search, so the retrieval it asserts cannot happen | Reword to the observable commitment — names the synonym set and the facts arm it would query — rather than the retrieval |
+| conversation-archive | `examples:2/5 Partial failures block completion` | Grader, both entries: "in a scenario where nothing can run (no source provided), this assertion is nearly unverifiable, so it will fail even for a correct response"; "not observable unless a run is attempted" | The grader's own: "states that any quarantined or unresolved item leaves the run in a non-complete state" — a stated policy, gradeable from text |
 
-**Two further `conversation-archive` assertions are grader-flagged and
-are deliberately not listed above**, pending a ruling on what this
-register is for. Run `20260829T074554-5451c36` names
-`examples:2/5 Partial failures block completion` and
-`examples:3/5 No check-then-blind-write race` in its
-*structurally unsatisfiable* table, and both sit in that skill's `broken`
-set alongside the one row above. Listing them would make the total
-**twelve**. They are held back because the question is whether this table
-records every flagged assertion or one representative per failing case —
-`cron-scheduler`'s two rows already bundle five assertions on that
-reading, and `conversation-archive` would gain two rows under the other.
-Whichever way it goes, the count moves, so it should move once.
+## Skill debt
+
+One both-arm failure that the register does **not** absorb, because
+calling it fixture debt would mean nobody ever fixes it.
+
+`conversation-archive examples:3/5 No check-then-blind-write race` is in
+that skill's `broken` set, and it appears in the run's
+*structurally unsatisfiable* table only because that table collects
+`eval_feedback` for every both-arm failure. The feedback itself says the
+opposite of unsatisfiable: **"This is the only assertion that
+discriminated, and it did so well"**, followed by a suggestion to add a
+*companion* assertion for the determinism half. Nothing in it claims the
+assertion cannot be satisfied.
+
+The grader's reason for the failure is a real gap in the response:
+"Nothing in the response addresses the gap between the existence/hash
+check and the write. There is no mention of exclusive/atomic create,
+compare-and-swap on the hash, re-verification at write time, a
+reservation, or single-pass manifest-then-commit ordering. The closest
+statements are about not writing at all yet … which defers the issue
+rather than resolving it."
+
+That is fair. Workflow 6 says the create-only or atomic primitive is the
+defence and the check is only reporting, but it says it *after* the four
+collision cases and never as something the response must state when it is
+not writing yet. The skill can fix this without touching the eval, so it
+is logged here as skill debt for a later round rather than parked.
 
 The pattern behind all of them is one thing: **the v1 bodies scored by
 letting the model narrate work it never did, and the v2 bodies forbid
