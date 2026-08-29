@@ -1,6 +1,6 @@
 ---
 name: purchase-research
-description: "Use when a purchase needs working out: comparing options against requirements, what is likely to go wrong after buying — warranty, returns, compatibility, support, repairability — total cost over its life, or specs that disagree. Not for upkeep of what is already owned (household-maintenance)."
+description: "Use when something is being bought: which model or part to get, comparing options or links already in hand, working out the requirements first, what goes wrong after the sale — warranty, returns, compatibility, repairability — or total cost. Not for servicing what is owned (household-maintenance)."
 metadata:
   spike-os:
     version: 2.0.0

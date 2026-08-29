@@ -1,6 +1,6 @@
 ---
 name: household-maintenance
-description: "Use when the home needs upkeep: a quarterly or seasonal maintenance plan, what is safe to check on a leaking appliance or a cold room before paying for a call-out, a write-up for the contractor, or a gas, electrical, or carbon-monoxide hazard. Not for choosing what to buy (purchase-research)."
+description: "Use when a home or an appliance needs upkeep: a quarterly or seasonal maintenance plan, the servicing something will need, what is safe to check before paying a call-out, a write-up for the contractor, or a gas, electrical or carbon-monoxide hazard. Not for choosing what to buy (purchase-research)."
 metadata:
   spike-os:
     version: 2.0.0
