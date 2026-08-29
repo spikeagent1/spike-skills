@@ -103,7 +103,7 @@ sources:
     status: approved
     cohort: safety-and-mutation
     provenance: repo-owned
-    version: 1.0.0
+    version: 2.0.0
 
   daily-task-manager:
     classification: owned
