@@ -163,10 +163,25 @@ class InstallSkillTest(unittest.TestCase):
             "    kind: channel\n",
         )
         self._write_adapters()
-        self._write("catalog/index.md", "# Index\n\n| skill | use when |\n")
+        self._write("catalog/index.md", self.INDEX)
         self._write_skills()
 
-    def _write_adapters(self, *, claude_code_version: int = 1) -> None:
+    # A generated-index shape: header, separator, one backticked name per row.
+    INDEX = (
+        "# Index\n"
+        "\n"
+        "## fixtures\n"
+        "\n"
+        "| skill | use when | version |\n"
+        "| --- | --- | --- |\n"
+        "| `fixture-notes` | Use when notes are read. | 2.0.0 |\n"
+        "| `fixture-tasks` | Use when one task is the ask. | 2.0.0 |\n"
+        "| `fixture-background` | Use when background applies. | 2.0.0 |\n"
+    )
+
+    def _write_adapters(
+        self, *, claude_code_version: int = 1, task_provider_marker: str = "UNCONFIRMED"
+    ) -> None:
         self._write(
             "adapters/claude-code/adapter.yaml",
             "runtime: claude-code\n"
@@ -176,7 +191,7 @@ class InstallSkillTest(unittest.TestCase):
             "    value: the fixture vault at ${VAULT_ROOT}\n"
             "  task_provider:\n"
             "    value: mirror-only\n"
-            "    note: UNCONFIRMED - no task connector on this host.\n"
+            f"    note: {task_provider_marker} - no task connector on this host.\n"
             "  notification_channel:\n"
             "    value: an in-session reply, then the agent inbox\n"
             "  owner_channel:\n"
@@ -226,7 +241,7 @@ class InstallSkillTest(unittest.TestCase):
             "| Term | Value |\n"
             "|---|---|\n"
             "| `owner datastore` | the fixture vault at ${VAULT_ROOT} |\n"
-            "| `task provider` | mirror-only — **UNCONFIRMED** |\n"
+            f"| `task provider` | mirror-only — **{task_provider_marker}** |\n"
             "| `notification channel` | an in-session reply, then the agent inbox |\n"
             "| `owner channel` | the interactive session |\n"
             "| `agent inbox` | ${AGENT_INBOX} — **UNCONFIRMED** |\n"
@@ -591,12 +606,14 @@ class InstallSkillTest(unittest.TestCase):
 
     def test_a_declared_repo_input_is_bundled_and_its_links_rewritten(self) -> None:
         self._run("--runtime", "claude-code", "fixture-launcher", "fixture-notes")
-        self.assertEqual(
-            (self.dest / "fixture-launcher" / "references" / "index.md").read_text(
-                encoding="utf-8"
-            ),
-            (self.root / "catalog" / "index.md").read_text(encoding="utf-8"),
+        bundled = (self.dest / "fixture-launcher" / "references" / "index.md").read_text(
+            encoding="utf-8"
         )
+        source = (self.root / "catalog" / "index.md").read_text(encoding="utf-8")
+        # The index is the one bundle the installer annotates rather than copies;
+        # every row of the source still has to survive that.
+        for line in source.splitlines():
+            self.assertIn(line.rstrip("|").rstrip(), bundled)
         body = self._installed("fixture-launcher")
         self.assertIn("(references/index.md)", body)
         self.assertNotIn("../../catalog/index.md", body)
@@ -951,6 +968,87 @@ class InstallSkillTest(unittest.TestCase):
     ) -> None:
         code, _ = self._run("--runtime", "openclaw", "fixture-tasks")
         self.assertEqual(code, 0)
+
+    # -- DEGRADED install ----------------------------------------------
+
+    def test_a_degraded_term_installs_with_a_printed_note(self) -> None:
+        """DEGRADED is a known absence the skill's contract already covers.
+
+        contracts/sync.md's `tasks/` row: where no provider connector is
+        authorized the system of record flips to the datastore and the skill
+        discloses that the object is mirror-only. That is a disclosed fallback,
+        so the skill installs; only an UNCONFIRMED binding is a refusal.
+        """
+        self._write_adapters(task_provider_marker="DEGRADED")
+        code, out = self._run("--runtime", "claude-code", "fixture-tasks")
+
+        self.assertEqual(code, 0, out)
+        self.assertIn("degraded:", out)
+        self.assertIn("task provider", out)
+        self.assertTrue((self.dest / "fixture-tasks" / "SKILL.md").is_file())
+
+    def test_an_unconfirmed_term_still_refuses_after_the_degraded_split(self) -> None:
+        code, out = self._run("--runtime", "claude-code", "fixture-tasks")
+        self.assertEqual(code, 1)
+        self.assertIn("UNCONFIRMED", out)
+        self.assertNotIn("degraded:", out)
+        self.assertFalse((self.dest / "fixture-tasks").exists())
+
+    def test_check_reports_a_degraded_term_as_a_note_not_drift(self) -> None:
+        self._write_adapters(task_provider_marker="DEGRADED")
+        self._run("--runtime", "claude-code", "fixture-tasks")
+        code, out = self._run("--runtime", "claude-code", "--check")
+
+        self.assertEqual(code, 0, out)
+        self.assertIn("no drift.", out)
+        self.assertIn("degraded:", out)
+        self.assertIn("task provider", out)
+
+    # -- the launcher's installed-here column ---------------------------
+
+    def test_the_bundled_index_marks_what_this_destination_carries(self) -> None:
+        """A launcher must never route to a skill that is not installed here."""
+        code, out = self._run(
+            "--runtime", "claude-code", "fixture-launcher", "fixture-notes"
+        )
+        self.assertEqual(code, 0, out)
+        index = (self.dest / "fixture-launcher" / "references" / "index.md").read_text(
+            encoding="utf-8"
+        )
+        rows = {
+            line.split("|")[1].strip().strip("`"): line.rsplit("|", 2)[1].strip()
+            for line in index.splitlines()
+            if line.startswith("| `")
+        }
+        self.assertEqual(rows["fixture-notes"], "installed")
+        self.assertEqual(rows["fixture-tasks"], "refused: task provider")
+        self.assertEqual(rows["fixture-background"], "not installed")
+        self.assertIn("| skill | use when | version | installed here |", index)
+        self.assertIn("| --- | --- | --- | --- |", index)
+
+    def test_an_already_stamped_skill_counts_as_installed_in_the_index(self) -> None:
+        self._run("--runtime", "claude-code", "fixture-background")
+        self._run("--runtime", "claude-code", "fixture-launcher")
+        index = (self.dest / "fixture-launcher" / "references" / "index.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("| `fixture-background` | Use when background applies. | 2.0.0 | installed |", index)
+
+    def test_a_degraded_target_reads_as_installed_in_the_index(self) -> None:
+        self._write_adapters(task_provider_marker="DEGRADED")
+        self._run("--runtime", "claude-code", "fixture-launcher", "fixture-tasks")
+        index = (self.dest / "fixture-launcher" / "references" / "index.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("| `fixture-tasks` | Use when one task is the ask. | 2.0.0 | installed |", index)
+
+    def test_the_index_note_explains_the_column(self) -> None:
+        self._run("--runtime", "claude-code", "fixture-launcher")
+        index = (self.dest / "fixture-launcher" / "references" / "index.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("installed here", index)
+        self.assertIn("reported as unavailable", index)
 
     # -- check ---------------------------------------------------------
 

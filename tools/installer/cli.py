@@ -18,9 +18,10 @@ except ImportError:  # pragma: no cover - one of the two branches always runs.
 
 from .render import (
     COMMIT_DISPLAY_CHARS, COPY_DIRS, InstallError, OS_NAME, RUNTIMES, Rendered, Report,
-    STAMP_NAME, TERM_SHAPED_RE, adapter_for, declared, display_path, expand,
-    fallback_warnings, load_contract, read_skill, render_skill, repo_root, sha256_text,
-    unconfirmed_refusals
+    STAMP_NAME, STATUS_INSTALLED, STATUS_NOT_INSTALLED, TERM_SHAPED_RE, adapter_for,
+    declared, degraded_notes, display_path, expand, fallback_warnings, load_contract,
+    read_skill, render_skill, repo_root, sha256_text, unconfirmed_refusals,
+    unconfirmed_term
 )
 from .io import (
     check_adapter_template, default_dest, install_adapter, local_overrides_path,
@@ -70,6 +71,40 @@ def runtime_skills(runtime: str) -> list[str]:
     return names
 
 
+def install_statuses(context: Context, rendering: Sequence[str]) -> dict[str, str]:
+    """Every repository skill's state in this destination, for the launcher's index.
+
+    A term this adapter cannot attest is reported first and by name: the skill
+    is one the runtime refuses, whatever a stale directory in the destination
+    still holds. Otherwise a skill is `installed` when this run renders it or
+    the destination already carries it stamped, and `not installed` when neither
+    is true -- which is what stops the launcher routing to a skill that is not
+    there.
+    """
+    statuses: dict[str, str] = {}
+    stamped = {path.name for path in stamped_installs(context.dest)}
+    rendering_set = set(rendering)
+    skills = repo_root() / "skills"
+    if not skills.is_dir():
+        return statuses
+    for directory in sorted(path for path in skills.iterdir() if path.is_dir()):
+        name = directory.name
+        try:
+            meta, body, _ = read_skill(name)
+        except InstallError:
+            continue
+        term = unconfirmed_term(
+            name, meta, body, context.adapter, context.datastore, context.vocabulary
+        )
+        if term is not None:
+            statuses[name] = f"refused: {term}"
+        elif name in rendering_set or name in stamped:
+            statuses[name] = STATUS_INSTALLED
+        else:
+            statuses[name] = STATUS_NOT_INSTALLED
+    return statuses
+
+
 def do_install(context: Context, names: Sequence[str], args: argparse.Namespace) -> int:
     report = Report()
     overrides = local_overrides_path(context.adapter, args.local_overrides)
@@ -92,6 +127,12 @@ def do_install(context: Context, names: Sequence[str], args: argparse.Namespace)
         if refusals:
             report.refused.extend(refusals)
             continue
+        report.notes.extend(
+            f"degraded: {note}"
+            for note in degraded_notes(
+                name, meta, body, context.adapter, context.datastore, context.vocabulary
+            )
+        )
         target = context.dest / name
         if target.is_symlink():
             report.refused.append(
@@ -138,6 +179,7 @@ def do_install(context: Context, names: Sequence[str], args: argparse.Namespace)
     for path in written:
         print(f"  {'would write' if args.dry_run else 'wrote'} {path}")
 
+    statuses = install_statuses(context, [rendered.name for rendered in renders])
     for rendered in renders:
         print(f"\n--- {rendered.name} ---")
         print(rendered.frontmatter.rstrip("\n"))
@@ -149,7 +191,7 @@ def do_install(context: Context, names: Sequence[str], args: argparse.Namespace)
         else:
             skipped: list[str] = []
             for path in write_skill(rendered, context.dest, context.runtime, context.adapter,
-                                    context.commit, skipped):
+                                    context.commit, skipped, statuses):
                 print(f"  wrote {path}")
             for name in skipped:
                 report.notes.append(
@@ -241,6 +283,12 @@ def do_check(context: Context, names: Sequence[str]) -> int:
             name, meta, body, context.adapter, context.datastore, context.vocabulary
         ):
             report.drift.append(message)
+        report.notes.extend(
+            f"degraded: {note}"
+            for note in degraded_notes(
+                name, meta, body, context.adapter, context.datastore, context.vocabulary
+            )
+        )
 
         try:
             rendered = render_skill(
@@ -262,6 +310,8 @@ def do_check(context: Context, names: Sequence[str]) -> int:
             )
         report.drift.extend(undefined_terms(name, actual, context))
 
+    for note in report.notes:
+        print(f"note: {note}")
     for drift in report.drift:
         print(f"drift: {drift}")
     if not report.drift:

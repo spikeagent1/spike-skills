@@ -1,7 +1,7 @@
 # ADAPTER — claude-code
 
 Rendered from `adapters/claude-code/adapter.yaml`; `${...}` is filled at install from `${HOME}/.config/spike-os/claude-code.local.yaml`.
-A value marked **UNCONFIRMED** is not attested on this host today: verify it before relying on it, never assume it (F2).
+A value marked **UNCONFIRMED** is not attested on this host today: verify it before relying on it, never assume it (F2). A value marked **DEGRADED** is one whose absence is known and whose skill contract already states what it does without it — the skill runs and discloses the reduced state.
 
 ## Vocabulary
 | Term | Value |
@@ -10,9 +10,9 @@ A value marked **UNCONFIRMED** is not attested on this host today: verify it bef
 | `agent` | the Claude Code session, operating under ~/.claude/CLAUDE.md |
 | `owner datastore` | the Tapan-Brain vault at ~/Tapan-Brain, indexed by _system/shared-context.pglite |
 | `durable memory` | the same vault; ~/.claude/CLAUDE.md is its always-loaded summary |
-| `task provider` | the Todoist MCP server when the connector registry lists one, otherwise mirror-only — **UNCONFIRMED** |
+| `task provider` | the Todoist MCP server when the connector registry lists one, otherwise mirror-only — **DEGRADED** |
 | `calendar provider` | the Google Calendar MCP server |
-| `mail provider` | the agentmail MCP server for the agent, the Gmail MCP server for the owner — **UNCONFIRMED** |
+| `mail provider` | the agentmail MCP server for the agent, the Gmail MCP server for the owner — **DEGRADED** (owner half only) |
 | `contacts provider` | none configured |
 | `owner timezone` | ${OWNER_TZ} |
 | `scheduler` | Claude Code /schedule routines, with launchd for host-local jobs |

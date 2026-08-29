@@ -25,8 +25,9 @@ except ImportError:  # pragma: no cover - one of the two branches always runs.
     import validate_repo  # type: ignore[no-redef]
 
 from .render import (
-    COPY_DIRS, EXCLUDED_NAMES, InstallError, OS_NAME, PLACEHOLDER_RE, Rendered, Report,
-    STAMP_NAME, declared, display_path, expand, repo_root, sha256_text
+    COPY_DIRS, EXCLUDED_NAMES, InstallError, LAUNCHER_INDEX, OS_NAME, PLACEHOLDER_RE,
+    Rendered, Report, STAMP_NAME, annotate_index, declared, display_path, expand,
+    repo_root, sha256_text
 )
 
 
@@ -169,12 +170,15 @@ def stamped_installs(dest: Path) -> list[Path]:
 
 
 def write_skill(rendered: Rendered, dest: Path, runtime: str, adapter: dict[str, Any],
-                commit: str, skipped: list[str] | None = None) -> list[Path]:
+                commit: str, skipped: list[str] | None = None,
+                statuses: dict[str, str] | None = None) -> list[Path]:
     """Replace the stamped directory with this render; report every path written.
 
     `skipped` collects any entry the skill carries that is neither rendered,
     copied, nor excluded by name, so an unexpected file is reported rather than
-    dropped in silence.
+    dropped in silence. `statuses` maps a skill name to its state in this
+    destination; where it is given, the bundled catalog index is written with
+    that extra column rather than copied byte for byte.
     """
     skipped = [] if skipped is None else skipped
     target = dest / rendered.name
@@ -199,7 +203,13 @@ def write_skill(rendered: Rendered, dest: Path, runtime: str, adapter: dict[str,
     for bundle in rendered.bundles:
         destination = target / bundle.installed_rel
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(bundle.source, destination)
+        if statuses is not None and bundle.repo_rel == LAUNCHER_INDEX:
+            destination.write_text(
+                annotate_index(bundle.source.read_text(encoding="utf-8"), statuses),
+                encoding="utf-8",
+            )
+        else:
+            shutil.copyfile(bundle.source, destination)
         if destination not in written:
             written.append(destination)
 

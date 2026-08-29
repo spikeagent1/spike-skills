@@ -3,7 +3,9 @@
 
 The adapter decides which frontmatter keys exist, what the `## Runtime binding`
 trailer says, and which skills are refused because a term they depend on is
-UNCONFIRMED. Nothing here touches the filesystem outside the repository.
+UNCONFIRMED -- as against DEGRADED, a binding known absent whose contract already
+says what the skill does without it, which installs with a note. Nothing here
+touches the filesystem outside the repository.
 """
 
 from __future__ import annotations
@@ -57,6 +59,53 @@ NOTIFY_EFFECT = "notify:owner"
 
 
 NOTIFICATION_TERM = "notification channel"
+
+
+# Two ways an adapter can mark a binding it cannot fully honour. UNCONFIRMED is
+# ignorance -- nobody knows whether the binding works, so a skill that depends on
+# it is refused rather than installed on a guess. DEGRADED is knowledge: the
+# binding is absent or partial, and the skill's own contract already states what
+# it does in that case, so the install proceeds and says so. The authority for
+# the distinction is contracts/sync.md's `tasks/` row: "Where no provider
+# connector is authorized, `system_of_record` flips to `datastore` and the skill
+# discloses that the object is mirror-only" -- a disclosed fallback, not an
+# unknown, which is exactly what DEGRADED marks.
+UNCONFIRMED = "UNCONFIRMED"
+
+
+DEGRADED = "DEGRADED"
+
+
+# The launcher's declared input. Its installed copy carries one extra column, so
+# a launcher reading it can see which targets this destination actually holds.
+LAUNCHER_INDEX = "catalog/index.md"
+
+
+INSTALLED_HERE = "installed here"
+
+
+STATUS_INSTALLED = "installed"
+
+
+STATUS_NOT_INSTALLED = "not installed"
+
+
+INDEX_NOTE = (
+    "The `{column}` column is written at install time by `tools/install_skill.py`: "
+    "`{installed}` means this destination carries the skill, `refused: <term>` means "
+    "the runtime adapter cannot attest a term the skill depends on, and "
+    "`{absent}` means it was never installed here. A target that is not "
+    "`{installed}` is reported as unavailable rather than routed to."
+)
+
+
+INDEX_HEADER_RE = re.compile(r"^\|\s*skill\s*\|")
+
+
+INDEX_SEPARATOR_RE = re.compile(r"^\|(?:\s*:?-{2,}:?\s*\|)+\s*$")
+
+
+INDEX_ROW_RE = re.compile(r"^\|\s*`([a-z0-9][a-z0-9-]*)`\s*\|")
 
 
 COMMIT_DISPLAY_CHARS = 8
@@ -488,14 +537,31 @@ def render_skill(
     )
 
 
+def marked_bindings(adapter: dict[str, Any], marker: str) -> dict[str, str]:
+    """Adapter key -> the note, for every binding whose note begins with `marker`."""
+    marked: dict[str, str] = {}
+    for key, binding in (adapter.get("vocabulary") or {}).items():
+        note = str((binding or {}).get("note") or "").strip()
+        if note.upper().startswith(marker):
+            marked[key] = note
+    return marked
+
+
 def unconfirmed_bindings(adapter: dict[str, Any]) -> dict[str, str]:
     """Adapter key -> the note, for every value this runtime cannot attest."""
-    unconfirmed: dict[str, str] = {}
-    for key, binding in (adapter.get("vocabulary") or {}).items():
-        note = str((binding or {}).get("note") or "")
-        if note.strip().upper().startswith("UNCONFIRMED"):
-            unconfirmed[key] = note.strip()
-    return unconfirmed
+    return marked_bindings(adapter, UNCONFIRMED)
+
+
+def degraded_bindings(adapter: dict[str, Any]) -> dict[str, str]:
+    """Adapter key -> the note, for every binding known absent or partial.
+
+    Unlike an UNCONFIRMED one, this is a fact the runtime knows and the skill's
+    own contract already covers -- contracts/sync.md's `tasks/` row: "Where no
+    provider connector is authorized, `system_of_record` flips to `datastore`
+    and the skill discloses that the object is mirror-only". So the install
+    proceeds, and the run prints the note instead of a refusal.
+    """
+    return marked_bindings(adapter, DEGRADED)
 
 
 def namespace_entries(datastore: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -557,6 +623,31 @@ def channel_terms(channels: Sequence[str], terms: dict[str, Any]) -> list[str]:
     return found
 
 
+def marked_terms(
+    name: str,
+    meta: dict[str, Any],
+    body: str,
+    adapter: dict[str, Any],
+    datastore: dict[str, Any],
+    vocabulary: dict[str, Any],
+    marker: str,
+) -> list[tuple[str, str]]:
+    """`(term, message)` per term this skill needs whose binding carries `marker`."""
+    marked = marked_bindings(adapter, marker)
+    found: list[tuple[str, str]] = []
+    for term, why in sorted(required_terms(meta, body, adapter, datastore, vocabulary).items()):
+        key = contracts_check.term_key(term)
+        if key in marked:
+            found.append(
+                (
+                    term,
+                    f"{name}: `{term}` is {marker} for {adapter['runtime']} "
+                    f"({why}) -- {marked[key]}",
+                )
+            )
+    return found
+
+
 def unconfirmed_refusals(
     name: str,
     meta: dict[str, Any],
@@ -566,16 +657,75 @@ def unconfirmed_refusals(
     vocabulary: dict[str, Any],
 ) -> list[str]:
     """One message per term this skill needs and this adapter cannot attest."""
-    unconfirmed = unconfirmed_bindings(adapter)
-    messages: list[str] = []
-    for term, why in sorted(required_terms(meta, body, adapter, datastore, vocabulary).items()):
-        key = contracts_check.term_key(term)
-        if key in unconfirmed:
-            messages.append(
-                f"{name}: `{term}` is UNCONFIRMED for {adapter['runtime']} "
-                f"({why}) -- {unconfirmed[key]}"
-            )
-    return messages
+    return [
+        message
+        for _, message in marked_terms(
+            name, meta, body, adapter, datastore, vocabulary, UNCONFIRMED
+        )
+    ]
+
+
+def unconfirmed_term(
+    name: str,
+    meta: dict[str, Any],
+    body: str,
+    adapter: dict[str, Any],
+    datastore: dict[str, Any],
+    vocabulary: dict[str, Any],
+) -> str | None:
+    """The first term this skill would be refused over, for the launcher's index."""
+    found = marked_terms(name, meta, body, adapter, datastore, vocabulary, UNCONFIRMED)
+    return found[0][0] if found else None
+
+
+def degraded_notes(
+    name: str,
+    meta: dict[str, Any],
+    body: str,
+    adapter: dict[str, Any],
+    datastore: dict[str, Any],
+    vocabulary: dict[str, Any],
+) -> list[str]:
+    """One message per term this skill needs that is bound but known degraded.
+
+    The skill installs: its contract already states what it does without the
+    binding, and the note says which term is in that state.
+    """
+    return [
+        message
+        for _, message in marked_terms(
+            name, meta, body, adapter, datastore, vocabulary, DEGRADED
+        )
+    ]
+
+
+def annotate_index(text: str, statuses: dict[str, str]) -> str:
+    """The generated index with one `installed here` column added to every table.
+
+    A launcher routes from this file, so a target the destination does not carry
+    -- refused over an UNCONFIRMED term, or never installed -- has to be visible
+    in the same table the route is read from. Rows are matched on the backticked
+    skill name the index's first column carries; a skill the map does not name is
+    reported as not installed rather than silently left blank.
+    """
+    lines: list[str] = []
+    for line in text.splitlines():
+        row = line.rstrip()
+        if INDEX_HEADER_RE.match(row) and row.endswith("|"):
+            cell = INSTALLED_HERE
+        elif INDEX_SEPARATOR_RE.match(row):
+            cell = "---"
+        elif INDEX_ROW_RE.match(row) and row.endswith("|"):
+            name = INDEX_ROW_RE.match(row).group(1)  # type: ignore[union-attr]
+            cell = statuses.get(name, STATUS_NOT_INSTALLED)
+        else:
+            lines.append(line)
+            continue
+        lines.append(f"{row} {cell} |")
+    note = INDEX_NOTE.format(
+        column=INSTALLED_HERE, installed=STATUS_INSTALLED, absent=STATUS_NOT_INSTALLED
+    )
+    return "\n".join(lines).rstrip("\n") + f"\n\n{note}\n"
 
 
 def fallback_warnings(adapter: dict[str, Any], vocabulary: dict[str, Any]) -> list[str]:

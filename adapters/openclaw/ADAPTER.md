@@ -3,6 +3,8 @@
 Rendered from `adapters/openclaw/adapter.yaml`; `${...}` is filled at install
 from `${HOME}/.config/spike-os/openclaw.local.yaml`. **UNCONFIRMED** marks a value
 no git-owned runtime file states: verify it, never treat it as evidence (F2).
+**DEGRADED** would mark one whose absence is known and whose skill contract
+states what it does without it; no binding here carries that today.
 
 ## Vocabulary
 | Term | Value |

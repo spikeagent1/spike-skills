@@ -193,14 +193,28 @@ def glossary_terms(root: Path | None = None) -> list[str]:
     return ordered
 
 
-def adapter_markdown_terms(runtime: str, root: Path | None = None) -> dict[str, bool]:
-    """The `## Vocabulary` rows of one `ADAPTER.md`: term -> is it marked UNCONFIRMED.
+# The two markers a binding note may open with. UNCONFIRMED is an unknown
+# binding; DEGRADED is one known absent or partial whose skill contract already
+# discloses the fallback. The render and adapter.yaml must agree on which.
+BINDING_MARKERS = ("UNCONFIRMED", "DEGRADED")
 
-    The render and `adapter.yaml` must agree, so a value flagged in one is flagged
-    in the other.
+
+def binding_marker(text: str) -> str:
+    """`UNCONFIRMED`, `DEGRADED`, or an empty string, from a note or a rendered cell."""
+    for marker in BINDING_MARKERS:
+        if marker in str(text).upper():
+            return marker
+    return ""
+
+
+def adapter_markdown_terms(runtime: str, root: Path | None = None) -> dict[str, str]:
+    """The `## Vocabulary` rows of one `ADAPTER.md`: term -> its binding marker.
+
+    The render and `adapter.yaml` must agree, so a value flagged in one is
+    flagged the same way in the other; an unflagged value maps to `""`.
     """
     path = (root or ROOT) / "adapters" / runtime / "ADAPTER.md"
-    rendered: dict[str, bool] = {}
+    rendered: dict[str, str] = {}
     inside = False
     for line in path.read_text(encoding="utf-8").splitlines():
         if line.startswith("## "):
@@ -210,7 +224,7 @@ def adapter_markdown_terms(runtime: str, root: Path | None = None) -> dict[str, 
             continue
         match = VOCABULARY_ROW_RE.match(line)
         if match is not None:
-            rendered[match.group(1)] = "UNCONFIRMED" in match.group(2)
+            rendered[match.group(1)] = binding_marker(match.group(2))
     return rendered
 
 

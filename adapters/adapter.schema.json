@@ -152,7 +152,7 @@
       "properties": {
         "value": {"type": "string", "minLength": 1},
         "note": {
-          "description": "Caveats; a value this runtime could not confirm starts with UNCONFIRMED.",
+          "description": "Caveats. A note may open with one of two markers. UNCONFIRMED: the binding is unknown on this runtime, and the installer REFUSES a skill that depends on the term. DEGRADED: the binding is known absent or partial and the skill's own contract discloses what it does without it (mirror-only, read-only), so the installer INSTALLS and prints a degraded note naming the term. Anything else is ordinary prose.",
           "type": "string",
           "minLength": 1
         }

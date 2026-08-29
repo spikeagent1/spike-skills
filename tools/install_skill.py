@@ -20,6 +20,16 @@ The refusals are the point of the tool, not its edge cases:
   adapter is what the runtime can honestly do today, so installing past that
   would put a skill on the host that will claim a capability the host lacks.
 
+A DEGRADED binding is the other half of that rule and not a refusal. UNCONFIRMED
+is ignorance -- nobody knows whether the binding works, so a skill depending on
+it cannot be installed honestly. DEGRADED is knowledge: the binding is absent or
+partial, and the skill's own contract already says what it does in that state.
+`contracts/sync.md`'s `tasks/` row is the authority -- "Where no provider
+connector is authorized, `system_of_record` flips to `datastore` and the skill
+discloses that the object is mirror-only" -- so such a skill installs, and the
+run prints a `degraded:` note naming the term. `--check` reports it the same
+way: a note, never drift.
+
 Usage:
   python3 tools/install_skill.py --runtime {claude-code,openclaw} [options] [NAME...]
     --all                 every skill the runtime carries

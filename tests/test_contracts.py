@@ -286,16 +286,29 @@ class AdapterTest(unittest.TestCase):
 
 
 class AdapterMarkdownTest(unittest.TestCase):
-    def test_unconfirmed_markers_match_the_yaml_notes(self) -> None:
+    def test_binding_markers_match_the_yaml_notes(self) -> None:
         for runtime, adapter in ADAPTERS.items():
             rendered = contracts_check.adapter_markdown_terms(runtime)
             self.assertEqual(sorted(rendered), sorted(entry["term"] for entry in TERMS))
             for entry in TERMS:
-                declared = "UNCONFIRMED" in str(
-                    adapter["vocabulary"][entry["key"]].get("note") or ""
+                note = str(adapter["vocabulary"][entry["key"]].get("note") or "").strip()
+                # Only a note that *opens* with the marker declares the state; a
+                # note that merely mentions one is prose.
+                declared = next(
+                    (
+                        marker
+                        for marker in contracts_check.BINDING_MARKERS
+                        if note.upper().startswith(marker)
+                    ),
+                    "",
                 )
                 with self.subTest(runtime=runtime, term=entry["term"]):
                     self.assertEqual(rendered[entry["term"]], declared)
+
+    def test_a_degraded_note_is_not_read_as_unconfirmed(self) -> None:
+        self.assertEqual(contracts_check.binding_marker("DEGRADED - mirror-only"), "DEGRADED")
+        self.assertEqual(contracts_check.binding_marker("UNCONFIRMED - unknown"), "UNCONFIRMED")
+        self.assertEqual(contracts_check.binding_marker("a plain caveat"), "")
 
 
 class CoverageGapTest(unittest.TestCase):

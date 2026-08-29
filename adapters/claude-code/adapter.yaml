@@ -4,7 +4,10 @@
 # MCP server is not always up. Repo-side values only: every personal value is a
 # ${PLACEHOLDER} the installer resolves from local_overrides_file. Shape:
 # adapters/adapter.schema.json. A note beginning UNCONFIRMED marks a value this
-# host does not currently support.
+# host cannot attest at all, and the installer refuses a skill that depends on
+# it; a note beginning DEGRADED marks one known absent or partial whose skill
+# contract already discloses the fallback, and the installer installs it with a
+# printed note.
 runtime: claude-code
 version: 1
 
@@ -20,12 +23,12 @@ vocabulary:
     value: the same vault; ~/.claude/CLAUDE.md is its always-loaded summary
   task_provider:
     value: the Todoist MCP server when the connector registry lists one, otherwise mirror-only
-    note: UNCONFIRMED - claude mcp list names no Todoist server on this host, so tasks are mirror-only and the skill must disclose that.
+    note: DEGRADED - claude mcp list names no Todoist server on this host. The absence is known, not unknown, and contracts/sync.md already states the fallback for it - system_of_record flips to datastore and the skill discloses that the object is mirror-only - so a task skill installs here and says so.
   calendar_provider:
     value: the Google Calendar MCP server
   mail_provider:
     value: the agentmail MCP server for the agent, the Gmail MCP server for the owner
-    note: UNCONFIRMED - claude mcp list shows no agentmail server on this host, so the agent half is unavailable here; Gmail and Google Calendar are connected. agentmail may be present in other Claude Code sessions.
+    note: DEGRADED - claude mcp list shows no agentmail server on this host, so the agent half is absent; the owner half is present, Gmail and Google Calendar are both connected. A mail read is therefore the owner's mailbox only, which the reading skill discloses as a partial source rather than a missing one.
   contacts_provider:
     value: none configured
   owner_timezone:

@@ -2,7 +2,12 @@
 # chughtapan/vibe-blogging, built from runtime/, with one volume at /data.
 # Repo-side values only: every personal value is a ${PLACEHOLDER} the installer
 # resolves from local_overrides_file. Shape: adapters/adapter.schema.json.
-# A note beginning UNCONFIRMED marks a value no git-owned runtime file states.
+# A note beginning UNCONFIRMED marks a value no git-owned runtime file states,
+# and the installer refuses a skill that depends on the term; a note beginning
+# DEGRADED marks one known absent or partial whose skill contract already
+# discloses the fallback, and the installer installs it with a printed note.
+# `task_provider` here stays UNCONFIRMED: whether the runtime registers a
+# Todoist connector is Spike's open question, not a known absence.
 runtime: openclaw
 version: 1
 
