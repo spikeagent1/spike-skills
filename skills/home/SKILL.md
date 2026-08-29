@@ -33,7 +33,7 @@ The home screen of the library: it reads the generated index, names exactly one 
 - One task is to be captured, completed, deferred, edited or removed → use `daily-task-manager`
 - The library itself is being changed — a package added, retired, or installed → use `skill-library-ops`
 - A norm for sharing packages across a team is the question → use `team-skill-sharing-norm`
-- The request is a general-knowledge question with no skill behind it → say no skill applies, and do not answer it here
+- The request is a general-knowledge question with no skill behind it → say no skill applies, and do not supply the answer here, not even as an aside
 
 ## Inputs
 
@@ -53,7 +53,7 @@ The home screen of the library: it reads the generated index, names exactly one 
 3. **Then read [catalog/index.md](../../catalog/index.md), never a remembered list.** The index's sections are fixed — work, health, wealth, home-and-lifestyle, relationships-and-community, learning-and-knowledge, travel-and-mobility, personal-operations — and the skills under them are read, not recalled. Match the request against the `use when` column, which is each skill's own trigger line.
 4. **Exactly one skill fits** → name it, restate the intent in one line so the owner sees what is being handed over, and invoke it.
 5. **Two or three fit** → ask exactly ONE question, naming each candidate and, in a few words, what that one would do differently. Never ask two questions, never ask a question and route as well, and never pick one silently to save the turn.
-6. **Nothing fits** → say so, name the closest domain and the skills the index lists under it, and stop. Improvising the answer is the failure this skill exists to prevent: "the library has nothing for this" is a real answer.
+6. **Nothing fits** → say so, name the one domain closest to the request and the skills the index lists under it — not the whole library — and stop. The answer itself is not supplied here in any form: not as an aside, a parenthetical, a "for the record", or a hedged "this is outside the skill, but". A disclaimed answer is still an answer, and it is the exact failure this skill exists to prevent; "the library has nothing for this" is a real and complete answer.
 7. **Classify the intent as read or mutate before handing off (M1).** Where it carries a mutation verb, name the target's effect badges from the index — RO, DESTR, IDEM, OPEN and the effect list — so the owner sees what the next turn would be authorized to do. That authorization is the target skill's to take, per effect and per invocation, and is never carried across this hand-off (M6).
 
 ### Precedence table
@@ -133,6 +133,8 @@ Fail closed — say what is missing, then give the routing decision that is safe
 | Asking a question and routing in the same turn | Two shapes at once means the owner cannot tell whether the work started | Choose one shape: a route, or a question |
 | Compiling a summary of the day on the way past | That is a whole skill with its own coverage ledger and citation rules, and a launcher-shaped version of it is uncited | Route to `briefing` and stop |
 | Improvising an answer when nothing fits | A general answer dressed as a routing decision is the one output the owner cannot check | Say nothing fits, name the closest domain, and stop |
+| Supplying the answer as a harmless aside — "for the record, it's X, but that's outside this skill" | The disclaimer changes nothing: the answer went out unsourced, under no skill's contract, and the owner cannot tell it from a routed one | Leave the answer out entirely; the routing decision is the whole response |
+| Offering the whole library when nothing fits | A list of every domain is not the closest domain; it hands the sorting problem back to the owner | Name the one nearest domain and the skills the index lists under it |
 | Handing off a mutating intent without naming its effects | The owner authorizes the next turn without seeing what it may reach | Name the target's badges and effect list from the index first |
 | Treating a prior turn's route as still correct | The index is regenerated as the library changes, and a route decided earlier is context, not evidence (F2) | Re-read the index for this request |
 
