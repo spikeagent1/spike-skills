@@ -151,7 +151,13 @@ identity_import:
 
 render:
   when_to_use: true
-  disable_model_invocation_on: [destructiveHint, openWorldHint]
+  # destructiveHint only. openWorldHint marks a skill that reaches outside the
+  # runtime -- a web read, a provider, a mailbox -- and most of the library
+  # carries it; disabling model invocation on it took those skills off the
+  # router's ballot, so the routing baselines would have described a library the
+  # model cannot reach. An irreversible effect is the one case worth costing a
+  # deliberate invocation.
+  disable_model_invocation_on: [destructiveHint]
   user_invocable_default: true
   background_skills: []
   metadata_extra:

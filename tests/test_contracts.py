@@ -252,6 +252,23 @@ class AdapterTest(unittest.TestCase):
                     adapter["notification"]["quiet_hours"]["timezone_term"], "owner_timezone"
                 )
 
+    def test_open_world_skills_stay_model_invocable(self) -> None:
+        """`openWorldHint` must never disable model invocation.
+
+        The hint marks a skill that reaches something outside the runtime -- a
+        read of the web, a provider, a mailbox. Rendering those user-invocable
+        only takes them off the router's ballot, so the routing baselines would
+        describe a library the model cannot actually reach. `destructiveHint` is
+        the one hint that earns the flag: an irreversible effect is worth a
+        deliberate invocation.
+        """
+        for runtime, adapter in ADAPTERS.items():
+            with self.subTest(runtime=runtime):
+                self.assertNotIn(
+                    "openWorldHint",
+                    adapter["render"]["disable_model_invocation_on"],
+                )
+
     def test_personal_values_stay_placeholders(self) -> None:
         forbidden = re.compile(
             r"(America/[A-Za-z_]+|\b\d{9,}\b|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+)"

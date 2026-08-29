@@ -63,6 +63,13 @@ What is open, and where it is tracked:
   and no fixture has been edited.
 - **Routing overlap.** Measured per cluster in the rewrite reports; the
   residual null-case hijacks are in the pruning report's routing section.
+- **Rendered-frontmatter routing mode.** Every routing baseline puts the
+  portable `skills/*/SKILL.md` frontmatter on the ballot. The installed
+  form differs -- claude-code renders `disable-model-invocation: true` from
+  `destructiveHint`, which removes a skill from the native router's ballot
+  -- so no measurement yet describes routing over an installed library.
+  `run_evals.py routing` needs a mode that renders each ballot entry
+  through the adapter first.
 - **New domains.** Wealth and travel/mobility have no packages. They are
   the next cohorts, not unfinished work in these eight.
 
