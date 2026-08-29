@@ -1,6 +1,6 @@
 ---
 name: home
-description: "Use when a request is vague, spans more than one life domain, asks what the agent can do or which skills exist, names no specific skill, or when two skills could plausibly apply. Not when the owner named a skill or the intent is unambiguous."
+description: "Use when the request names no skill and two or more could each own it, spans several life domains, asks what the agent can do or which skills exist, or would be answered directly although a skill here covers it. Not for the day compiled (briefing) or one task (daily-task-manager)."
 metadata:
   spike-os:
     version: 1.0.0
@@ -18,10 +18,10 @@ The home screen of the library: it reads the generated index, names exactly one 
 
 ## When to use
 
-- The request is vague or open: "help me sort this out", "I don't know where to start"
+- The request is open and names no skill: "help me sort this out", "I don't know where to start"
 - It spans more than one life domain at once — a plan and a shopping list, a draft and where it goes, an appointment and the record behind it
 - "What can you do", "which skills do I have", "what are my options here" — the ask is the library itself
-- No skill is named and the phrasing does not obviously belong to one
+- No skill is named, and the request would otherwise be answered directly although a skill in the index covers it
 - Two or three skills could each plausibly own it, and picking one silently throws the choice away
 - The phrasing is one the router historically loses — an evidence check, a survey of a field, a question about the agent's own beliefs — which is why the precedence table below carries a row for each
 

@@ -788,7 +788,7 @@
         },
         {
           "name": "home",
-          "description": "Use when a request is vague, spans more than one life domain, asks what the agent can do or which skills exist, names no specific skill, or when two skills could plausibly apply. Not when the owner named a skill or the intent is unambiguous.",
+          "description": "Use when the request names no skill and two or more could each own it, spans several life domains, asks what the agent can do or which skills exist, or would be answered directly although a skill here covers it. Not for the day compiled (briefing) or one task (daily-task-manager).",
           "version": "1.0.0",
           "runtime": [
             "openclaw",
