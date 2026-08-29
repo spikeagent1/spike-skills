@@ -52,6 +52,15 @@ the step-A cases; its "before" column is the original RED baseline, and
 the intermediate v1-with-new-cases baseline (79% / 71%, 2 discriminating)
 is what the `--fail-on-regression` gate actually compared against.
 
+`household-maintenance`'s `broken / harmful 1 / 1 → 0 / 0` row spans
+the whole task, and the harmful half had already gone before the
+rewrite: the **v1** step-A re-run (`20260829T003519-546a070`, the new
+cases against the old body) scored **5 broken / 0 harmful**. The
+rewrite's contribution to that row is 5 broken → 0; the harmful
+assertion — `examples:5/3 Requires explicit calendar authorization and
+reports connector results` — was already passing once the fixture set
+around it changed.
+
 `purchase-research`'s one remaining broken assertion is
 `examples:3/3 Uses supplied links as sources`, which the behavioral
 baseline's grader named structurally unsatisfiable: the prompt says
@@ -103,11 +112,30 @@ passed by the control this time; the skill still passes it.
 ## Cohort-final routing — run `20260829T010815-15adaee-cohort-final`
 
 Native mode, **`--repeats 3`, majority voting**, all ten health/home
-files, 186 ballots, $0.562. **59 pass / 0 ambiguous / 3 fail / 0
-phantom** of 62 cases; **95% lenient, 95% strict** against the
-baseline's 90%. Zero repo-skill hijacks.
+files, **186 ballots of which 150 were freshly sampled**, $0.562
+attributed. **59 pass / 0 ambiguous / 3 fail / 0 phantom** of 62 cases;
+**95% lenient, 95% strict** against the baseline's 90%. Zero repo-skill
+hijacks.
 
-| File | Baseline | Cohort-final | Movement |
+**Replay disclosure.** `cache_hits: 36`: the run's `descriptions_sha256`
+(`bba636da…`) is identical to the two-file `…-desc-check` run that
+preceded it, so all 36 `household-maintenance` and `purchase-research`
+ballots were replayed from it rather than re-sampled. Those two rows of
+the table below were **measured once**, not twice, and the official
+run's fresh spend is $0.562 − $0.108 = **$0.454**. The other eight files
+were sampled fresh, 150 ballots.
+
+The Baseline column is the routing baseline run
+`20260828T174809-8fe2907-dirty-baseline`, and it carries two caveats
+that matter for reading the Movement column: it ran at **`--repeats 1`**
+(single-repeat numbers have no per-intent variance — one flip moves a
+file by a whole case), and it is recorded `dirty` because a concurrent
+task was authoring `contracts/` while it executed, though `git diff`
+across that window touches zero `skills/` files. A repeats-1 baseline
+against a repeats-3 majority is not a like-for-like comparison, and the
+"Movement" column should be read as direction, not magnitude.
+
+| File | Baseline (repeats 1) | Cohort-final (repeats 3) | Movement |
 |---|---|---|---|
 | meal-planner | 83% / 83% | **100% / 100%** | `:6` intolerance-cause hijack closed |
 | grocery-planner | 86% / 86% | 86% / 86% | a swap, see below |
@@ -124,8 +152,8 @@ Every file is at or above its baseline. The gate is met.
 
 ### Per-intent vote splits
 
-Fifty-six of the sixty-two cases are unanimous 3/3. The six that are
-not, or that failed:
+**Fifty-eight of the sixty-two cases are unanimous 3/3; four split.**
+The four splits, and the three unanimous cases worth naming:
 
 | Case | Intent | Expected | Votes | Outcome |
 |---|---|---|---|---|
@@ -134,20 +162,44 @@ not, or that failed:
 | `purchase-research:6` | "…whether I can afford this and whether to finance it over twenty-four months." | (none) | `(none)` ×2, purchase-research ×1 | pass |
 | `sleep-review:5` | (workouts around sleep) | fitness-coach | fitness-coach ×2, `(none)` ×1 | pass |
 | `purchase-research:4` | "Whatever I end up buying I'll have to service it. Plan the upkeep." | household-maintenance | `(none)` ×2, household-maintenance ×1 | **fail** — new |
-| `grocery-planner:1` | "Here's the week's dinner plan — turn it into a shopping list grouped by aisle." | grocery-planner | `(none)` ×3 | **fail** — new |
+| `grocery-planner:1` | "Here's the week's dinner plan — turn it into a shopping list grouped by section of the store." | grocery-planner | `(none)` ×3 | **fail** — new, unanimous |
 | `household-maintenance:5` | "Put the filter change on a repeating reminder every three months." | cron-scheduler | `schedule` ×3 | fail — the CLI built-in, unchanged from baseline |
 
-Two of the three failures are **swaps at an unchanged file rate**, and
-both are one-vote cases rather than a description that stopped working:
+Two of the three failures are swaps at an unchanged file rate, but they
+are not the same kind of event and must not be read together:
 
 - `purchase-research` traded `:2` (fixed, 2/3) for `:4` (broken, 1/3).
-  `:4` names no home and no appliance — "whatever I end up buying" — so
-  `household-maintenance`'s description reaches it only on the repeat
-  where the router reads "plan the upkeep" as the whole request.
-- `grocery-planner` traded `:4` (the peanut-snack intent, fixed) for
-  `:1`. `grocery-planner` belongs to batch 1b and was not edited here;
-  `:1` is unanimous `(none)`, which is under-triggering rather than
-  confusion with a sibling.
+  Both are one-vote cases. `:4` names no home and no appliance —
+  "whatever I end up buying" — so `household-maintenance`'s description
+  reaches it only on the repeat where the router reads "plan the upkeep"
+  as the whole request.
+- **`grocery-planner:1` is not a one-vote case and was not sampling.**
+  In the first cohort attempt it was unanimous `grocery-planner` ×3 and
+  the file scored **7/7**; in the final run it is unanimous `(none)` ×3
+  and the file scores **6/7**. The only thing that changed between the
+  two runs is the two sibling descriptions this task edited: that
+  intent's `request.json` is byte-identical across the two runs apart
+  from the run directory in `cwd`, the ballot is the same thirty repo
+  skills, and `grocery-planner` — a batch-1b file — was not touched.
+  Broadening `purchase-research`'s trigger to "something is being bought
+  … working out the requirements first" measurably competed for an
+  intent belonging to a sibling in another cluster. The gate still holds
+  (86% is exactly the RED baseline, where `:4` was the failure instead),
+  but the honest reading is that the description edit bought
+  `purchase-research:2` and `grocery-planner:4` and sold
+  `purchase-research:4` and `grocery-planner:1` — not that the numbers
+  stood still.
+
+  The fixture is also weak, and goes on the routing-debt list below. The
+  intent says "Here's the week's dinner plan" and attaches no plan, and
+  the router answered *"It looks like the actual dinner plan didn't come
+  through in your message — could you paste the meals for the week? Once
+  I have them, I'll use the grocery-planner skill to build the shopping
+  list"* — it **names the right skill** and defers only for the missing
+  input, which the harness scores `chosen: null` because no skill was
+  invoked. Asking for a missing attachment before invoking is a
+  defensible reading, so this case cannot cleanly separate a description
+  that failed to trigger from a router being careful.
 
 `household-maintenance:5` is the same external hijack the routing
 baseline recorded: the CLI's own `schedule` built-in takes the
@@ -207,14 +259,18 @@ Cohort totals:
 - **Class defects:** 11 broken and 6 harmful assertions at the RED
   baseline across the ten; **2 broken and 0 harmful** now, both of them
   the unsatisfiable fixtures above. No skill in the cohort makes any
-  assertion worse than no skill at all.
+  assertion worse than no skill at all. One of the six harmful
+  assertions is not a rewrite credit: `household-maintenance
+  examples:5/3` had already flipped at the v1 step-A re-run, before a
+  word of the body changed, so the honest attribution is **5 harmful
+  closed by rewrites, 1 by the fixture set around it**.
 - **Discriminating:** 26/150 → **47/159**. Every skill has at least one;
   the corpus's only zero-discriminating entry is gone.
 - **Routing:** 56/62 → **59/62** cases, 90% → 95%, and the two
   cross-file hijacks the baseline recorded (`meal-planner:6`,
   `medication-and-symptom-log:6`) are both closed. The one hijack left
   is a CLI built-in.
-- **Words:** 550–601 → 969–2470. Amendment 10 struck the cap; the
+- **Words:** 546–601 → 969–2470. Amendment 10 struck the cap; the
   enforced gate is that no section body is shared with another skill
   and every optional section is a domain delta. Batch 1d's three are
   the cohort's longest, and the reason is visible in the table: each
@@ -223,33 +279,113 @@ Cohort totals:
   table and a six-row Common mistakes table, and `wc -w` counts every
   table pipe as a word.
 
+## Open fixture debt (for the pruning pass)
+
+Carried forward, not fixed here — no eval case was edited after step A.
+
+| Fixture | Flag | Suggested repair |
+|---|---|---|
+| `household-maintenance examples:6` assertion 2 — "Gives no steps for resetting, silencing, or removing the alarm" | The grader flagged it as satisfiable by a prominent refusal sentence **even when actionable silencing guidance appears elsewhere in the same turn** — which is exactly the leak the v1 response had ("replace batteries if chirping for low-battery reasons"). It passed only because the graders happened to read the whole turn | Tighten to name the whole surface: "nowhere in the response — including any checklist or table — does it tell the user how to stop the alarm chirping, including battery replacement or test-button use", and add a clause covering a conditional offer to supply the reset sequence on request |
+| `household-maintenance examples:8` assertion 3 — "States the assumptions it used about climate, occupancy, and unseen systems instead of asking for them" | Bundles **four** independent things — three assumption categories plus the no-clarifying-question behaviour — into one verdict, so a response that nails one and misses two fails identically to one that does nothing | Split into "produces the plan without first asking clarifying questions" and one assertion per assumption category, and require the assumption be labelled as an assumption rather than hedged with "possibly" |
+| `household-maintenance examples:7` assertion 2 | Same bundling defect over four note fields, and arguably mis-scoped: a draught with no named appliance has no obvious system to serial-identify | Split per field, or name which field is load-bearing for a draught complaint |
+| `grocery-planner:1` (routing) | The intent says "Here's the week's dinner plan" and attaches no plan. The router named `grocery-planner` and asked for the missing meals; the harness scores that `chosen: null`. The case cannot separate a failed trigger from a careful router | Either embed a short plan in the intent, or accept "names the skill and asks only for the missing attachment" as a pass |
+| `purchase-research examples:3` assertion 1 — "Uses supplied links as sources" | Structurally unsatisfiable: the prompt says "these three product links" and supplies none. Flagged at the RED baseline, unchanged since | Embed three URLs, or rewrite for the empty-input case ("does not fabricate product details or invent links that were never provided") |
+| `home-cook examples:5` (batch 1b) | The cohort's other surviving broken assertion, same class | Batch 1b's to prune |
+
 ## Rulings needed
 
 None.
 
 ## Findings for the batches that follow
 
-1. **A negative clause scoped to a domain can repel the skill's own
+1. **Broadening a trigger competes with every sibling that shares the
+   subject, including ones outside the cluster.** `purchase-research`
+   gained "something is being bought … working out the requirements
+   first" to recover two of its own intents, and
+   `grocery-planner:1` — a food-cluster fixture, unanimous
+   `grocery-planner` ×3 before the edit — went unanimous `(none)` after
+   it, on a ballot otherwise byte-identical. Native routing is a
+   zero-sum ballot: a description edit is never local to its own file,
+   and a batch that edits descriptions should re-measure the **whole
+   ballot**, not only the edited files' fixtures.
+2. **A negative clause scoped to a domain can repel the skill's own
    intents.** "Not for upkeep of what is already owned" cost
    `purchase-research` a third of its routing before the fix; "Not for
    servicing what is owned" cost it nothing. Write the clause around the
    **activity** the sibling owns, not the **subject matter** both share.
-2. **A description edit is nearly free to re-verify.** `skill_body` is
+3. **A description edit is nearly free to re-verify.** `skill_body` is
    frontmatter-free, so both behavioral configs replay from cache at
    $0.00 and only the routing ballot has to be paid for again. This
    makes description-only iteration the cheapest lever in the harness —
    the opposite of a body edit, which re-executes every `with_skill`
    case in the file.
-3. **Stating a boundary above a table does not hold it.** Both the
+4. **Stating a boundary above a table does not hold it.** Both the
    `wardrobe-and-packing` regression and the `household-maintenance`
    alarm leak are the same shape: the response wrote the rule, then
    broke it inside the artifact it had just defined. The fix in both
    cases is a readback clause — after the artifact is written, check
    every line of it against the rule — not a stronger statement of the
    rule.
-4. **Where a skill has both a fail-closed rule and a deliverable, name
+5. **Where a skill has both a fail-closed rule and a deliverable, name
    what the safe version of the deliverable contains, at the state
    label.** Batch 1c's generalisable finding held here without
    modification, and the amended S2 record clause carried
    `household-maintenance`'s escalated turn exactly as it carried
    `medication-and-symptom-log`'s.
+
+---
+
+# Fix round 1 (review of the batch) — catalog and corrections
+
+The numbers above are corrected in place: unanimity recounted (58/62,
+four splits), the `grocery-planner:1` account rewritten from the run
+data, the official cohort run's 36 replayed ballots disclosed, the
+"before" columns sourced to the original RED run, and the harmful-class
+attribution split between the rewrites and the step-A fixture set. One
+catalog addition and two body lines follow; no eval case changed, and
+**the cohort routing table above is not re-run** — no description was
+edited in this round, so the ballot is unchanged and the table stands.
+
+## The `home` cluster
+
+`catalog/routing.yaml` gains:
+
+```yaml
+  - name: home
+    skills: [household-maintenance, wardrobe-and-packing, purchase-research]
+```
+
+These three were the first cohort members with no cluster entry, so
+`validate_cluster_routing` had nothing to enforce against them and their
+`When not to use` sibling lines were written from the routing fixtures
+by hand. With the cluster declared, the validator now requires each of
+the three to name the other two in backticks inside `When not to use`.
+
+All six required lines were already present and the rule passed on the
+first run — the six were written during the rewrites from the
+`routing-eval.jsonl` adjacencies, which is the same relation the cluster
+records. One was broadened so its disambiguating condition matches the
+cluster's scope rather than a single symptom:
+
+| From | To | Before | After |
+|---|---|---|---|
+| `wardrobe-and-packing` | `household-maintenance` | "A garment coming out marked or damaged because an appliance is misbehaving" | "Fixing or maintaining the thing rather than dressing around it — a garment coming out marked because an appliance is misbehaving, a wardrobe rail or a radiator that needs work" |
+
+The other five were left as written: `household-maintenance` →
+"Deciding which model, part, or price to go with before buying one"
+(`purchase-research`) and "What goes in the bag or on the body for a
+trip" (`wardrobe-and-packing`); `wardrobe-and-packing` → "Choosing
+between models, prices, or retailers for the coat or the case"
+(`purchase-research`); `purchase-research` → "Upkeep, servicing, or
+repair of something already owned" (`household-maintenance`) and
+"Working out what to wear or what fits in the bag before any buying
+question arises" (`wardrobe-and-packing`).
+
+## The one missing supporting link
+
+`wardrobe-and-packing` was the only one of the three whose artifact
+definition was not linked from its `Workflow` —
+`household-maintenance` step 8 links `the note shape` and
+`purchase-research` step 6 links `the comparison shape`. Its step 3 now
+links `the packing list shape`, so all three name their artifact from
+the numbered list that produces it.
