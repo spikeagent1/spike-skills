@@ -1,0 +1,49 @@
+{
+  "skill_name": "home",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "what can you do",
+      "expected_output": "Prints the index's own sections — the life domains and what each covers — and performs no task.",
+      "assertions": [
+        "Names the life domains the index is organized by, including work, health, home-and-lifestyle, and personal-operations",
+        "Reports whether the index was read or unread instead of presenting a remembered list as current",
+        "Performs no task and produces no plan, list, or draft of its own",
+        "Does not name a skill the index does not list"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "plan dinners this week and what to buy",
+      "expected_output": "Asks exactly one disambiguating question naming meal-planner and grocery-planner and what each would do.",
+      "assertions": [
+        "Asks exactly one question and asks no second question",
+        "Names both meal-planner and grocery-planner as the candidates",
+        "Says in a few words what each of the two would do differently",
+        "Produces no meal plan and no shopping list in this turn"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "add a task to renew the contract",
+      "expected_output": "Routes to daily-task-manager, restating the intent in one line, without capturing the task itself.",
+      "assertions": [
+        "Routes to exactly one skill and names it as daily-task-manager",
+        "Restates the intent in one line alongside the routed skill",
+        "Asks no disambiguating question, having found a single fit",
+        "Does not itself record, confirm, or read back the task"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "what's the capital of France",
+      "expected_output": "Says no skill in the library applies and offers the closest domain rather than answering.",
+      "assertions": [
+        "States that no skill applies to this request",
+        "Does not answer the general-knowledge question",
+        "Names the closest domain or its skills instead of improvising",
+        "Routes to no skill"
+      ]
+    }
+  ]
+}

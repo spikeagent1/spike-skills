@@ -62,6 +62,23 @@ cohorts:
       - produce an explicit completion state and remaining blockers
       - include synthetic regression cases suitable for reuse
 
+  - name: launcher
+    status: completed
+    rationale: >-
+      The routing baseline measured the native router answering many owner intents
+      with no skill at all, and dropping specific phrasings even where the owning
+      skill's description named them. A dispatcher that consults a rule table and
+      the generated index is the architectural answer: it belongs to no life
+      domain's cohort because it routes to all of them.
+    skills:
+      - home
+    acceptance:
+      - a precedence table carrying every intent the routing baseline measured as lost
+      - the index read from disk at run time, never a remembered list of skills
+      - exactly one skill routed with the intent restated, or exactly one question
+      - no task performed and no answer improvised in the launcher's own turn
+      - a routing fixture that fails when the launcher absorbs an unambiguous intent
+
   - name: routing-overlap-and-long-tail
     status: queued
     skills: []

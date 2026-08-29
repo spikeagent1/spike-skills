@@ -785,6 +785,24 @@
           "cluster": [
             "governance"
           ]
+        },
+        {
+          "name": "home",
+          "description": "Use when a request is vague, spans more than one life domain, asks what the agent can do or which skills exist, names no specific skill, or when two skills could plausibly apply. Not when the owner named a skill or the intent is unambiguous.",
+          "version": "1.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [],
+          "hints": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "contract_version": "2",
+          "cluster": []
         }
       ],
       "next": [

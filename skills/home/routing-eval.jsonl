@@ -1,0 +1,16 @@
+{"intent":"what can you do","expected_skill":"home"}
+{"intent":"I don't know where to start — which skills do I have for this?","expected_skill":"home"}
+{"intent":"help me with my day","expected_skill":"briefing"}
+{"intent":"add a task to renew the contract","expected_skill":"daily-task-manager"}
+{"intent":"connect gmail","expected_skill":"mcp-connector-onboarding"}
+{"intent":"what's the capital of France","expected_skill":null}
+{"intent":"plan dinners this week and what to buy","expected_skill":null,"ambiguous_with":["home"],"expect_question":true,"note":"meal-planner and grocery-planner both fit; asking is the only right answer, and the launcher absorbing it to ask in its own turn is the weaker pass"}
+{"intent":"sort out my meds before Thursday's appointment","expected_skill":null,"ambiguous_with":["home"],"expect_question":true,"note":"health-appointment-prep and medication-and-symptom-log both fit; asking is the only right answer"}
+{"intent":"fact check this draft before I post it","expected_skill":"fact-check","ambiguous_with":["home"],"note":"batch 4 measured this answered natively with no skill"}
+{"intent":"is this accurate? check the claims one by one","expected_skill":"fact-check","ambiguous_with":["home"],"note":"batch 4 measured this answered natively with no skill"}
+{"intent":"run a source check on the numbers in this post","expected_skill":"fact-check","ambiguous_with":["home"],"note":"batch 4 measured this answered natively with no skill"}
+{"intent":"check this study — is the 40% reduction number real, did it ever replicate","expected_skill":"fact-check","ambiguous_with":["home","literature-review"],"note":"batch 4 residual"}
+{"intent":"Map the disagreements in this area: who argues what, and where is the evidence thinnest?","expected_skill":"literature-review","ambiguous_with":["home"],"note":"batch 4 residual"}
+{"intent":"You wrote that entry because I asked you to — did writing it change what you think?","expected_skill":"social-agent-practice","ambiguous_with":["home"],"note":"batch 7 residual: the belief-review trigger reads as introspection"}
+{"intent":"This one mention touches something private. Reply to it carefully.","expected_skill":"social-agent-practice","ambiguous_with":["social-listening-engagement-loop","home"],"note":"batch 7 residual"}
+{"intent":"What did I get done across the brain last week?","expected_skill":null,"note":"batch 5 over-trigger; the launcher must not amplify it"}

@@ -334,3 +334,12 @@ sources:
     cohort: health-and-home-lifestyle
     provenance: repo-owned
     version: 2.0.0
+
+  home:
+    classification: owned
+    runtime_path: skills/home
+    repository_path: skills/home
+    status: approved
+    cohort: launcher
+    provenance: repo-owned
+    version: 1.0.0
