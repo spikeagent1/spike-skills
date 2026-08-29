@@ -146,8 +146,8 @@ skills:
     status: approved
     cohort: portfolio-governance
     workshop_proposal: team-skill-sharing-norm-20260821-5c97091641
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: public-post-workshop
     classification: owned
