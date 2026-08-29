@@ -45,6 +45,28 @@ def repo_commit() -> str:
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
+def inside_git_work_tree(path: Path) -> bool:
+    """True when `path` (or the nearest existing parent) sits in a git work tree.
+
+    The nearest existing parent, because the directory the adapter renders into
+    may not exist until this run creates it -- and a dry run has to reach the
+    same verdict as the real one.
+    """
+    probe = Path(path)
+    while not probe.is_dir() and probe != probe.parent:
+        probe = probe.parent
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(probe), "rev-parse", "--is-inside-work-tree"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return False
+    return result.returncode == 0 and result.stdout.strip() == "true"
+
+
 def run_validator() -> int:
     """`tools/validate_repo.py`, run in-process; the install refuses on failure."""
     return validate_repo.main([])
@@ -373,6 +395,15 @@ def install_adapter(
         adapter_md.write_text(rendered, encoding="utf-8")
         resolved.write_text(rendered_yaml, encoding="utf-8")
     written.extend([adapter_md, resolved])
+
+    if inside_git_work_tree(adapter_md.parent):
+        # The repository's own adapter carries only ${PLACEHOLDER}s; this render
+        # is the one file where the owner's values are written out, and it lands
+        # in a directory git is watching.
+        report.notes.append(
+            f"{display_path(str(resolved))} is inside a git work tree and holds the "
+            "personal values from the overrides file; keep it out of a commit"
+        )
 
     written.extend(bind_identity_file(adapter, dry_run, report))
     return written

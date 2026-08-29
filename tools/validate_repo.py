@@ -63,7 +63,8 @@ from tools.validators.contracts import (
     _load_contract, capability_entries, contracts_check_module, declared_effects,
     delegated_effects, derived_hints, effect_enum, load_adapters, load_capabilities,
     load_contracts, load_datastore_contract, load_vocabulary, namespace_statuses,
-    runtime_specific_hits, split_sentences, validate_adapter_files, validate_effect_ledgers,
+    personal_value_hits, runtime_specific_hits, split_sentences, validate_adapter_files,
+    validate_effect_ledgers,
     validate_effects, validate_namespaces, validate_runtime_binding, vocabulary_view
 )
 from tools.validators.evals import (

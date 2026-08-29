@@ -1,5 +1,5 @@
 # Runtime adapter: Claude Code on the owner's Mac. The datastore is the
-# Tapan-Brain vault; the gbrain MCP server, the local CLI, and plain Markdown
+# owner's vault; the gbrain MCP server, the local CLI, and plain Markdown
 # are three ordered ways into it, and the fallbacks are first-class because the
 # MCP server is not always up. Repo-side values only: every personal value is a
 # ${PLACEHOLDER} the installer resolves from local_overrides_file. Shape:
@@ -17,7 +17,7 @@ vocabulary:
   agent:
     value: the Claude Code session, operating under ~/.claude/CLAUDE.md
   owner_datastore:
-    value: the Tapan-Brain vault at ~/Tapan-Brain, indexed by _system/shared-context.pglite
+    value: the owner's vault at ${VAULT_ROOT}, indexed by _system/shared-context.pglite
     note: The Markdown files are canonical and the index is rebuilt from them, which is why the direct-Markdown fallback is safe.
   durable_memory:
     value: the same vault; ~/.claude/CLAUDE.md is its always-loaded summary
@@ -52,8 +52,8 @@ vocabulary:
     value: ${AGENT_INBOX}
     note: UNCONFIRMED - reached through the agentmail MCP server, which claude mcp list does not show on this host.
   durable_tool_paths:
-    value: ~/.bun/bin, ~/.local/bin, and ~/dev/tapan-agent/bin
-    note: UNCONFIRMED - ~/dev/tapan-agent/bin does not exist on this host; the first two do.
+    value: ~/.bun/bin, ~/.local/bin, and ${AGENT_BIN}
+    note: UNCONFIRMED - ${AGENT_BIN} does not exist on this host; the first two do.
   credential_store:
     value: the macOS keychain, plus per-server env in ~/.claude.json
     note: Read a credential where it lives; never copy a value into a record, a log, or a reply.
@@ -66,18 +66,18 @@ vocabulary:
   runtime_reload:
     value: restart the session, or reconnect one server with /mcp
   identity_files:
-    value: ~/.claude/CLAUDE.md and the profile pages under ~/Tapan-Brain/profile/
+    value: ~/.claude/CLAUDE.md and the profile pages under ${VAULT_ROOT}/profile/
     note: ~/.claude is a git repo; the installer prints the commit command and does not run it.
   skills_dir:
     value: ~/.claude/skills
     note: About a hundred unrelated skills already live here; install only into directories carrying a spike-os stamp.
   effects_ledger:
-    value: ~/Tapan-Brain/ops/effects/
+    value: ${VAULT_ROOT}/ops/effects/
     note: The vault has no ops/ tree yet; the installer creates it.
   checkpoint_store:
-    value: ~/Tapan-Brain/ops/checkpoints/
+    value: ${VAULT_ROOT}/ops/checkpoints/
   repo_identity:
-    value: chughtapan, through the gh CLI
+    value: ${REPO_IDENTITY}, through the gh CLI
   proposal_workflow:
     value: pull-request review on the repository in hand
   journal_build_toolchain:
@@ -121,7 +121,7 @@ datastore:
     provenance.source_ids: source_ids
     id: the page slug, which is the filename without .md
     kind: no vault equivalent; written through as frontmatter
-  note: Paths are relative to ~/Tapan-Brain except conversations, a separate root defaulting to ~/Tapan-Brain-imports/conversations/. Only profile/, people/, projects/, and decisions/ exist in the vault today; agents/, every ops/ path, and ${CONVERSATIONS_ROOT} are chosen layouts the installer creates on first write, not directories already there. The vault's own inbox/ is a different thing - user-approved source captures, cited from index.md - so the inbox namespace deliberately maps to ops/inbox/ and never to it. Fallback order for every verb is the gbrain MCP server, then ~/Tapan-Brain/bin/gbrain-local with the same subcommands, then reading or writing the Markdown file directly. The MCP tool names above are attested by gbrain --tools-json on this host, which enumerates all 41 tools including get_timeline and get_health; the configured server binary ~/.bun/bin/gbrain is missing, so no live round-trip confirmed them. Embeddings are off, so search is keyword-only; prefer exact slugs.
+  note: Paths are relative to ${VAULT_ROOT} except conversations, a separate root defaulting to the ${CONVERSATIONS_ROOT} the overrides file names. Only profile/, people/, projects/, and decisions/ exist in the vault today; agents/, every ops/ path, and ${CONVERSATIONS_ROOT} are chosen layouts the installer creates on first write, not directories already there. The vault's own inbox/ is a different thing - user-approved source captures, cited from index.md - so the inbox namespace deliberately maps to ops/inbox/ and never to it. Fallback order for every verb is the gbrain MCP server, then ${VAULT_ROOT}/bin/gbrain-local with the same subcommands, then reading or writing the Markdown file directly. The MCP tool names above are attested by gbrain --tools-json on this host, which enumerates all 41 tools including get_timeline and get_health; the configured server binary ~/.bun/bin/gbrain is missing, so no live round-trip confirmed them. Embeddings are off, so search is keyword-only; prefer exact slugs.
 
 notification:
   channels:
@@ -137,7 +137,7 @@ scheduler: Claude Code /schedule routines, with launchd for host-local jobs
 
 identity_files:
   - ~/.claude/CLAUDE.md
-  - ~/Tapan-Brain/profile/
+  - ${VAULT_ROOT}/profile/
 
 skills_dir: ~/.claude/skills
 

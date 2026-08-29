@@ -8,7 +8,7 @@ A value marked **UNCONFIRMED** is not attested on this host today: verify it bef
 |---|---|
 | `owner` | ${OWNER_NAME}, described in ~/.claude/CLAUDE.md and the profile namespace |
 | `agent` | the Claude Code session, operating under ~/.claude/CLAUDE.md |
-| `owner datastore` | the Tapan-Brain vault at ~/Tapan-Brain, indexed by _system/shared-context.pglite |
+| `owner datastore` | the owner's vault at ${VAULT_ROOT}, indexed by _system/shared-context.pglite |
 | `durable memory` | the same vault; ~/.claude/CLAUDE.md is its always-loaded summary |
 | `task provider` | the Todoist MCP server when the connector registry lists one, otherwise mirror-only — **DEGRADED** |
 | `calendar provider` | the Google Calendar MCP server |
@@ -22,16 +22,16 @@ A value marked **UNCONFIRMED** is not attested on this host today: verify it bef
 | `agent's public journal` | none in this runtime |
 | `agent community network` | none in this runtime |
 | `agent inbox` | ${AGENT_INBOX} — **UNCONFIRMED** |
-| `durable tool paths` | ~/.bun/bin, ~/.local/bin, and ~/dev/tapan-agent/bin — **UNCONFIRMED** |
+| `durable tool paths` | ~/.bun/bin, ~/.local/bin, and ${AGENT_BIN} — **UNCONFIRMED** |
 | `credential store` | the macOS keychain, plus per-server env in ~/.claude.json |
 | `connector registry` | the union of `claude mcp list` (account-level connectors) and the `mcpServers` blocks of ~/.claude.json (top-level and per-project) |
 | `runtime health check` | mcp__gbrain__get_health, or claude mcp list for the registry as a whole |
 | `runtime reload` | restart the session, or reconnect one server with /mcp |
-| `identity files` | ~/.claude/CLAUDE.md and the profile pages under ~/Tapan-Brain/profile/ |
+| `identity files` | ~/.claude/CLAUDE.md and the profile pages under ${VAULT_ROOT}/profile/ |
 | `skills dir` | ~/.claude/skills |
-| `effects ledger` | ~/Tapan-Brain/ops/effects/ |
-| `checkpoint store` | ~/Tapan-Brain/ops/checkpoints/ |
-| `repo identity` | chughtapan, through the gh CLI |
+| `effects ledger` | ${VAULT_ROOT}/ops/effects/ |
+| `checkpoint store` | ${VAULT_ROOT}/ops/checkpoints/ |
+| `repo identity` | ${REPO_IDENTITY}, through the gh CLI |
 | `proposal workflow` | pull-request review on the repository in hand |
 | `journal build toolchain` | none in this runtime |
 | `entry schema` | none in this runtime |
@@ -39,7 +39,7 @@ A value marked **UNCONFIRMED** is not attested on this host today: verify it bef
 | `norms directory` | .agents/behaviors/<name>/BEHAVIOR.md, relative to the repo in hand — **UNCONFIRMED** |
 
 ## Datastore
-Vault root `~/Tapan-Brain/`: `profile` `people` `agents` `decisions`, `projects/<name>/`.
+Vault root `${VAULT_ROOT}/`: `profile` `people` `agents` `decisions`, `projects/<name>/`.
 Under `ops/`: `journal` `tasks` `calendar` `inbox` `jobs` `effects` `checkpoints`
 `notifications`. `conversations` is `${CONVERSATIONS_ROOT}`, a separate root.
 Only `profile/` `people/` `projects/` `decisions/` exist in the vault today; `agents/`,
@@ -68,7 +68,7 @@ An in-session reply, then the `agent inbox`, then a routine notification. Quiet 
 are `${QUIET_START}`–`${QUIET_END}` in the `owner timezone`: delivery, not execution.
 
 ## Identity files
-`~/.claude/CLAUDE.md` and `~/Tapan-Brain/profile/`, outside the datastore, changed only
+`~/.claude/CLAUDE.md` and `${VAULT_ROOT}/profile/`, outside the datastore, changed only
 through `identity:propose` then `identity:write`. The installer keeps the line
 `@~/.claude/spike-os/ADAPTER.md` between `<!-- spike-os:begin -->` and `<!-- spike-os:end -->`
 in `CLAUDE.md`, printing the `git -C ~/.claude commit` command rather than running it.
@@ -78,7 +78,7 @@ in `CLAUDE.md`, printing the `git -C ~/.claude commit` command rather than runni
 
 ## Notes on fallbacks
 Every verb has three ordered paths: the gbrain MCP server, then
-`~/Tapan-Brain/bin/gbrain-local` (same subcommands), then the Markdown file directly.
+`${VAULT_ROOT}/bin/gbrain-local` (same subcommands), then the Markdown file directly.
 Markdown is canonical and the index is rebuilt from it, so the last path is safe — name
 the one that answered. Embeddings are off, so search is keyword-only: prefer exact slugs.
 The MCP tool names above come from `gbrain --tools-json` on this host (41 tools, including

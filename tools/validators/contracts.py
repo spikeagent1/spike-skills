@@ -151,7 +151,9 @@ CAPABILITY_HINT_RULES = tuple(
 
 # Values one runtime supplies. A portable skill names the adapters/vocabulary.yaml
 # term instead and lets the adapter resolve it. Applies to skills/ only:
-# adapters/ is where these values legitimately live.
+# adapters/ is where these values legitimately live -- with one exception, the
+# owner's own tokens below, which are personal rather than runtime values and
+# are checked in adapters/ too.
 RUNTIME_SPECIFIC_TOKENS = (
     "Todoist",
     "America/Los_Angeles",
@@ -173,6 +175,23 @@ RUNTIME_SPECIFIC_TOKENS = (
     "IDENTITY.md",
     "USER.md",
     "MEMORY.md",
+)
+
+
+# The owner's own tokens. A runtime's product name ("Todoist", "OpenClaw") is
+# what an adapter exists to bind, but a personal path or handle in a git-tracked
+# adapter is a personal value published to everyone who clones the repository.
+# It belongs in the gitignored local_overrides_file, behind a ${PLACEHOLDER} the
+# installer fills, so adapters/ gets no exemption for these.
+PERSONAL_TOKENS = ("Tapan",)
+
+
+PERSONAL_RE = re.compile(
+    "|".join(
+        rf"(?<![0-9A-Za-z_]){re.escape(token)}(?![0-9A-Za-z_])"
+        for token in sorted(PERSONAL_TOKENS, key=len, reverse=True)
+    ),
+    re.IGNORECASE,
 )
 
 
@@ -419,6 +438,11 @@ def runtime_specific_hits(body: str) -> list[str]:
     return [match.group(0) for match in RUNTIME_SPECIFIC_RE.finditer(body)]
 
 
+def personal_value_hits(text: str) -> list[str]:
+    """The owner's own tokens in a tracked file, deduplicated in file order."""
+    return list(dict.fromkeys(match.group(0) for match in PERSONAL_RE.finditer(text)))
+
+
 def validate_namespaces(
     rel: Path,
     meta: dict[str, Any],
@@ -648,6 +672,18 @@ def validate_adapter_files(contracts: Contracts, errors: list[str]) -> None:
                 f"{ADAPTERS_DIR}/{present}/adapter.yaml: {present!r} is not a "
                 f"declared runtime",
             )
+
+    for runtime in sorted(contracts.adapters):
+        for name in ("adapter.yaml", "ADAPTER.md"):
+            path = directory / runtime / name
+            if not path.is_file():
+                continue
+            for hit in personal_value_hits(path.read_text(encoding="utf-8")):
+                add_error(
+                    errors,
+                    f"{ADAPTERS_DIR}/{runtime}/{name}: personal value {hit!r}; put it "
+                    f"in the local_overrides_file behind a ${{PLACEHOLDER}}",
+                )
 
     for runtime, adapter in sorted(contracts.adapters.items()):
         rel = f"{ADAPTERS_DIR}/{runtime}/adapter.yaml"

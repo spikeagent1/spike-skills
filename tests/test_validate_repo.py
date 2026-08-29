@@ -2230,6 +2230,42 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("runtime-specific value 'Todoist'", output)
 
+    def test_a_personal_value_in_a_tracked_adapter_fails(self) -> None:
+        """adapters/ may name a runtime's products; it may not name the owner.
+
+        A personal path in a git-tracked adapter is a personal value published
+        to everyone who clones the repository. It belongs in the gitignored
+        overrides file, behind a ${PLACEHOLDER} the installer fills.
+        """
+        adapter = (self.root / "adapters/claude-code/adapter.yaml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("${VAULT_ROOT}", adapter)
+        self._write(
+            "adapters/claude-code/adapter.yaml",
+            adapter.replace("${VAULT_ROOT}", "~/Tapan-Brain"),
+        )
+        self._promote_to_v2("approved-skill", "pending-skill")
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("adapters/claude-code/adapter.yaml", output)
+        self.assertIn("personal value 'Tapan'", output)
+
+    def test_the_committed_adapters_carry_no_personal_value(self) -> None:
+        for runtime in ("claude-code", "openclaw"):
+            for name in ("adapter.yaml", "ADAPTER.md"):
+                path = REPO / "adapters" / runtime / name
+                with self.subTest(file=f"{runtime}/{name}"):
+                    self.assertEqual(
+                        validate_repo.personal_value_hits(
+                            path.read_text(encoding="utf-8")
+                        ),
+                        [],
+                    )
+
     def test_version_semver_and_catalog_parity(self) -> None:
         self._promote_to_v2(
             "approved-skill",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import importlib
+import subprocess
 import io
 import json
 import os
@@ -968,6 +969,25 @@ class InstallSkillTest(unittest.TestCase):
     ) -> None:
         code, _ = self._run("--runtime", "openclaw", "fixture-tasks")
         self.assertEqual(code, 0)
+
+    # -- personal values in a watched directory -------------------------
+
+    def test_a_resolved_adapter_in_a_git_work_tree_is_called_out(self) -> None:
+        """The render is the one file that holds the owner's actual values."""
+        watched = self.home / ".claude"
+        watched.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["git", "init", "-q", str(watched)], check=True)
+        code, out = self._run("--runtime", "claude-code", "fixture-notes")
+
+        self.assertEqual(code, 0, out)
+        self.assertIn("adapter.resolved.yaml", out)
+        self.assertIn("git work tree", out)
+        self.assertIn("personal values", out)
+
+    def test_no_such_note_where_nothing_is_watching(self) -> None:
+        code, out = self._run("--runtime", "claude-code", "fixture-notes")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("git work tree", out)
 
     # -- DEGRADED install ----------------------------------------------
 
