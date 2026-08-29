@@ -286,8 +286,8 @@ skills:
     status: approved
     cohort: health-and-home-lifestyle
     workshop_proposal: purchase-research-20260824-d30002d939
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: wardrobe-and-packing
     classification: owned
