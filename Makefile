@@ -8,7 +8,7 @@ validate: test
 	python3 tools/validate_repo.py
 
 test:
-	python3 -m py_compile tools/validate_repo.py tools/run_evals.py tools/contracts_check.py tools/build_index.py tools/evalrunner/*.py tests/test_validate_repo.py tests/test_run_evals.py tests/test_contracts.py tests/test_build_index.py
+	python3 -m py_compile tools/validate_repo.py tools/run_evals.py tools/contracts_check.py tools/build_index.py tools/install_skill.py tools/evalrunner/*.py tests/test_validate_repo.py tests/test_run_evals.py tests/test_contracts.py tests/test_build_index.py tests/test_install_skill.py
 	python3 -m unittest discover -s tests
 
 index:

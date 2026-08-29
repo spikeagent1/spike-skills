@@ -13,3 +13,4 @@ __pycache__/
 local-state/
 runtime-state/
 caches/
+dist/
