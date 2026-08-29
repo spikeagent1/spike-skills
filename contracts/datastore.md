@@ -54,6 +54,17 @@ and occurrence is `<job-key>@<scheduled-instant>`
 `effects/` effect carries `operation_key`, `target`, `effect_state`, `readback`,
 and `rollback_handle` (`skills/publish/SKILL.md:62`).
 
+`effect_state` is a closed enum, listed in `contracts/datastore.yaml`. It is the
+deduplicated union of what the skills that append to `effects/` report, and a
+skill reports only the subset its own declared effects can reach — which is what
+each of them means by saying its state vocabulary is "extended by nothing here".
+`publish` is the origin of the core six — `PREVIEWED`, `RENDERED`,
+`UPLOADED_UNVERIFIED`, `PUBLISHED_VERIFIED`, `LINK_DELIVERED`, `ORIGIN_REMOVED`
+(`skills/publish/SKILL.md:87`) — and `PREVIEWED` is the one name shared across
+skills, because previewing a mutation is the one state every mutating skill can
+reach. Adding a state is a change to this enum, never a local extension
+(`skills/cron-scheduler/SKILL.md:100`, `skills/conversation-archive/SKILL.md:86`).
+
 ## Not in the datastore
 
 Identity and authority files — the runtime's `identity files` term — are outside

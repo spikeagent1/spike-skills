@@ -122,11 +122,36 @@ class DatastoreTest(unittest.TestCase):
         enums = DATASTORE["enums"]
         self.assertEqual(
             set(enums),
-            {"claim_class", "visibility", "confidence", "status", "origin", "session_kind"},
+            {
+                "claim_class",
+                "visibility",
+                "confidence",
+                "status",
+                "origin",
+                "session_kind",
+                "effect_state",
+            },
         )
         for name, values in enums.items():
             with self.subTest(enum=name):
                 self.assertTrue(values)
+
+    def test_effect_state_is_the_union_of_the_reporting_skills(self) -> None:
+        """Every state a batch-5 skill reports is in the enum, and vice versa."""
+        declared = DATASTORE["enums"]["effect_state"]
+        self.assertEqual(len(declared), len(set(declared)), "effect_state has duplicates")
+        reported: set[str] = set()
+        for skill in ("publish", "cron-scheduler", "conversation-archive"):
+            path = contracts_check.ROOT / "skills" / skill / "SKILL.md"
+            body = path.read_text(encoding="utf-8")
+            section = body.split("## Output contract", 1)[1].split("\n## ", 1)[0]
+            names = set(re.findall(r"^- `([A-Z][A-Z_]+)`", section, re.MULTILINE))
+            self.assertTrue(names, f"{skill} declares no effect_state names")
+            self.assertLessEqual(
+                names, set(declared), f"{skill} reports a state the enum omits"
+            )
+            reported |= names
+        self.assertEqual(reported, set(declared))
 
     def test_envelope_fields_do_not_overlap(self) -> None:
         envelope = DATASTORE["envelope"]

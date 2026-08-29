@@ -16,6 +16,14 @@ enums:
   status: [active, superseded, historical, hypothesis, contested]
   origin: [owner, agent, untrusted, system]
   session_kind: [interactive, cron, heartbeat, sub-agent]
+  # The effects/ ledger's effect_state field: the deduplicated union of what the
+  # skills appending to that ledger report. Each reports only the subset its own
+  # effects can reach and none extends the list, which is what their "extended by
+  # nothing here" sentences mean. publish is the origin of the first six
+  # (skills/publish/SKILL.md:87); the next six are cron-scheduler's, which shares
+  # PREVIEWED with it (skills/cron-scheduler/SKILL.md:100); the last seven are
+  # conversation-archive's (skills/conversation-archive/SKILL.md:86).
+  effect_state: [PREVIEWED, RENDERED, UPLOADED_UNVERIFIED, PUBLISHED_VERIFIED, LINK_DELIVERED, ORIGIN_REMOVED, INSPECTED, APPLIED_UNVERIFIED, VERIFIED, NO_OP, ROLLED_BACK, RESIDUAL, PLANNED, TRIAL_VERIFIED, WRITTEN_UNVERIFIED, ARCHIVED_VERIFIED, QUARANTINED, PARTIAL, EXTRACTION_NOT_RUN]
 
 verbs:
   - name: read

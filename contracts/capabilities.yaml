@@ -114,7 +114,7 @@ effects:
     openWorldHint: false
     approval: preview_then_explicit
     resource_class: exec
-    derived_from: [skills/cron-scheduler/SKILL.md:52, skills/cron-scheduler/SKILL.md:130]
+    derived_from: [skills/cron-scheduler/SKILL.md:52, skills/cron-scheduler/SKILL.md:132]
     summary: Create, update, pause, resume, or remove a scheduled job.
   - name: notify:owner
     readOnlyHint: false
@@ -123,7 +123,7 @@ effects:
     openWorldHint: true
     approval: never_require
     resource_class: network
-    derived_from: [skills/cron-scheduler/SKILL.md:90]
+    derived_from: [skills/cron-scheduler/SKILL.md:92]
     summary: Deliver an owner notification under contracts/notifications.md, quiet hours applying.
   - name: message:send
     readOnlyHint: false

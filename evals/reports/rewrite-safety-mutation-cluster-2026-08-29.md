@@ -11,33 +11,37 @@ body mandated.
 
 ## Per-skill
 
-| Skill | Words | Desc chars | with (base → now) | without | Delta | Disc. | broken | Runtime hits | Gate |
-|---|---:|---:|---|---|---|---|---|---:|---|
-| publish | 1004 → 3459 | 82 → 298 | 81.3% → **75.0%** | 50.0% → 56.3% | +31.3 → +18.8pp | 5/16 → 3/16 | 3 → 4 | 1 → **0** | **parked** — both losses are fixture debt (below) |
-| cron-scheduler | 1071 → 3772 | 76 → 298 | 68.8% → **75.0%** | 11.3% → 11.3% | +57.5 → **+63.8pp** | 11/19 → **14/19** | 6 → **5** | 1 → **0** | **met**, 0 regressions, 1 gain |
-| conversation-archive | 1142 → 3305 | 87 → 296 | 78.8% → **83.8%** | 28.8% → 25.0% | +50.0 → **+58.8pp** | 9/18 → **11/18** | 4 → **3** | 1 → **0** | **met**, 0 regressions, 1 gain |
+| Skill | Words | Desc chars | Pass rate (base → now) | without | Delta | Assertions passed | Disc. | broken | Runtime hits | Gate |
+|---|---:|---:|---|---|---|---|---|---|---:|---|
+| publish | 1004 → 3546 | 82 → 298 | 81.3% → **75.0%** | 50.0% → 56.3% | +31.3 → +18.8pp | 13/16 → 12/16 | 5 → 3 | 3 → 4 | 1 → **0** | **parked** — both losses are fixture debt (below) |
+| cron-scheduler | 1071 → 3772 | 76 → 298 | 68.8% → **75.0%** | 11.3% → 11.3% | +57.5 → **+63.8pp** | 13/19 → **14/19** | 11 → **12** | 6 → **5** | 1 → **0** | **met**, 0 regressions, 1 gain |
+| conversation-archive | 1142 → 3305 | 87 → 296 | 78.8% → **83.8%** | 28.8% → 25.0% | +50.0 → **+58.8pp** | 14/18 → **15/18** | 9 → **11** | 4 → **3** | 1 → **0** | **met**, 0 regressions, 1 gain |
 
-The pass-rate columns are the **case-weighted** rate `--compare-baseline`
-gates on (each case scored, then averaged). The assertions-passed
-fraction is the other scale and moves further: with the skill,
-`cron-scheduler` went 8/19 → **14/19** and `conversation-archive`
-reached **15/18**. Both are recorded because they diverge — a case with
-five assertions moves the case rate less than it moves the fraction.
+Three quantities that this report previously conflated, now separate
+columns. **Pass rate** is the case-weighted rate `--compare-baseline`
+gates on: each case scored, then averaged. **Assertions passed** is
+`discriminating + non_discriminating` — what the with-arm actually
+satisfied. **Discriminating** is the subset the control arm failed, which
+is the number that says the skill did the work rather than the model.
+They move independently: `cron-scheduler` gained one assertion but three
+discriminating, because two assertions the control used to satisfy for
+free stopped being free.
 
 *Final, after fix round 1.* Runs: `20260829T072534-938f9f4` (publish),
 `20260829T075911-2d371c6` (cron-scheduler, after two iterations),
-`20260829T074554-5451c36` (conversation-archive). Behavioral spend
-$5.05; routing $0.22.
+`20260829T074554-5451c36` (conversation-archive). **Total spend $5.27** —
+behavioral $5.05 (publish $1.56, cron-scheduler $2.59 across three runs,
+conversation-archive $0.90) plus routing $0.22.
 
 `make validate` and `make test` (503 tests) green. Validator warnings
 **9, down from 12** — all three files' runtime-specific hits cleared and
 all three skills re-baselined. `baseline check` passes for all 30 skills.
 
-`cron-scheduler` and `conversation-archive` are re-baselined above their
-RED bars. `publish` is re-baselined at its **measured** 75.0% under the
-task-18 ruling: the two assertions it loses are fixture debt rather than
-skill debt, and the honest bar is the one a later round should be held
-to.
+All three are re-baselined and `baseline check` returns 0.
+`cron-scheduler` and `conversation-archive` sit above their RED bars.
+`publish` is re-baselined at its **measured** 75.0% under the task-18
+ruling: the assertions it loses are fixture debt rather than skill debt,
+and the honest bar is the one a later round should be held to.
 
 ## Routing — run `20260829T074825-5451c36-batch5-final`
 
@@ -122,13 +126,21 @@ schedules, repairs, or backfills", because `does not` is not in
 
 ## Contract anchors repointed
 
-Twenty-two `skills/<name>/SKILL.md:<line>` citations across
+**Twenty-five** `skills/<name>/SKILL.md:<line>` citations across
 `skill-contract.md`, `capabilities.yaml`, `notifications.md`, `sync.md`,
-and `datastore.md` pointed at v1 line numbers that all moved. Every one
-was repointed and verified to land on the sentence carrying the rule
-(`7e00e45`). `notify:owner` now points at cron-scheduler's "Quiet hours
-govern **delivery** and not execution", which is the sentence
-`notifications.md` was extracted from.
+and `datastore.md` pointed into these three skills at v1 line numbers
+that all moved. All were repointed in `7e00e45`; **seven of them drifted
+again by +2** when `2d371c6` inserted two lines into `cron-scheduler`,
+and were re-swept in fix round 2. Six more anchors were added with the
+`effect_state` enum, so 31 now exist and all 31 are verified by script to
+land on the sentence carrying the rule. `notify:owner` points at
+cron-scheduler's "Quiet hours govern **delivery** and not execution",
+which is the sentence `notifications.md` was extracted from.
+
+The lesson is mechanical: **a line-number anchor is invalidated by any
+edit above it in the same file**, so the sweep belongs at the end of a
+round rather than in the middle of one. The check is a five-line script
+and should run as a gate rather than by hand.
 
 One anchor outside the batch was corrected in passing: `delete:external`
 cited `daily-task-manager:19`, a `When to use` bullet after batch 2's
@@ -201,15 +213,19 @@ assertion, the same sentence often works as a repair to the file.
 
 ## Fixture debt
 
-Assertions this cluster leaves failing that no honest response can
-satisfy on this harness. All are eval defects rather than skill defects;
-the repair shape is recorded so a later fixture pass has something to
-apply.
+**Nine assertions** this cluster leaves failing that no honest response
+can satisfy on this harness — four on `publish`, five on
+`cron-scheduler`, one on `conversation-archive`. Each was flagged by the
+grader's own `eval_feedback` in both arms. They are eval defects rather
+than skill defects, with one partial exception noted in the table; the
+repair shape is recorded so a later fixture pass has something to apply.
 
 | Skill | Assertion | Why unsatisfiable | Repair shape |
 |---|---|---|---|
 | publish | `examples:1/4 State is RENDERED, not PUBLISHED` | `RENDERED` means a local artifact exists and passed the render verification. The harness has no filesystem write and the prompt supplies no briefing body, so claiming it is claiming a mutation with no readback — X5/M4/O3, the rules this skill is the **source** of. v1 passed by narrating a render it never performed | **"Reports the effect state actually reached; never claims `RENDERED` or a published state without a readback behind it"** — split the "not published" half from the "a render happened" half |
-| publish | `examples:3/4 ACL and expiry verified` | Verification is a readback from a destination that does not exist here. Grader: "unverifiable whenever the response legitimately blocks before any mutation — as written it forces a FAIL on an arguably-correct refusal" | **"Either reads back the published object's access policy and expiry and compares them to the request, or records verification as not-attempted with no invented verification result"** |
+| publish | `examples:3/4 ACL and expiry verified` | Verification is a readback from a destination that does not exist here. Grader: "unverifiable whenever the response legitimately blocks before any mutation — as written it forces a FAIL on an arguably-correct refusal" | **"Either reads back the published object's access policy and expiry and compares them to the request, or records verification as not-attempted with no invented verification result"**. **Partly skill-side**: the grader said it would have accepted a *framed* post-publish check — "names visibility/audience and expiry as required inputs rather than silently assuming a default" — which the file could induce without claiming a readback it never took |
+| publish | `examples:2/4 Public URL and access policy verified` | Grader, both runs: "unreachable given the prompt: no destination account, repo, or object path is supplied, so no public object can ever exist to read back. A correct, safety-preserving response is forced to fail here" | "Verifies the public URL and its access policy after upload, **or** explains why verification is impossible and states exactly what the owner must check after publishing" |
+| publish | `examples:1/4 Sensitive content is scanned` | The prompt supplies no content to scan, and the preflight runs against a rendered candidate that cannot exist. Grader: "either fails every well-behaved clarification response or is passed on a mere promise of a future preflight" | The grader's own: "commits to a named redaction preflight with class-and-count-only reporting before any release" |
 | cron-scheduler | `examples:2/5` — `Authoritative list and inspect first`, `Stable ID selected`, `Readback shows one managed job` | All three need a reachable scheduler to list, to resolve against, and to read back. Broken at the RED baseline too | Accept either branch: performs it, **or** names it as the blocked phase and resolves nothing on an unlisted set |
 | cron-scheduler | `examples:4/5` — `Exact new job removed or disabled`, `Rollback verified` | Grader, verbatim: "only checkable if the response can actually act on a scheduler. Here the assistant had no scheduler connector, so both assertions fail for environmental reasons rather than reasoning quality" | The grader's own: "identifies withdrawal of the job by the id returned from the create call as the required next action, and does not attempt a repair-in-place" |
 | conversation-archive | `examples:1/4 Synonyms and facts arm checked` | No archive exists to search, so the retrieval it asserts cannot happen | Reword to the observable commitment — names the synonym set and the facts arm it would query — rather than the retrieval |
@@ -220,6 +236,34 @@ that.** `publish`'s `examples:2/4 Material redactions surfaced without
 values` and `cron-scheduler`'s `examples:1/4 Occurrences previewed` both
 moved from `broken` to **gains** on the same mechanism. Across the
 cluster the honesty rules cost two assertions and bought three.
+
+## Density
+
+The three files are 3305, 3546, and 3772 words. Amendment 10 struck the
+word cap and set the gate qualitatively — no shared boilerplate, optional
+sections carrying domain deltas only — while asking that anything over
+2200 words be treated as a density question. Answering it with a scan
+rather than an assurance:
+
+| Check | Result |
+|---|---|
+| Sentences (≥8 words) repeated **within** a file | **0** in all three |
+| Sentences shared **across the three** | **4** |
+| Sentences shared with any other repo skill | **3** |
+
+All seven are rule-citation lines, not prose: M7's "append one `effects`
+record per mutating effect — operation key, target, effect state,
+readback, rollback handle" (shared by cron-scheduler, conversation-archive
+and `daily-task-manager`), O3's "report the state actually reached and
+never a later one", the "a blocked run names the exact phase it stopped
+in" fail-closed line, the `State vocabulary — the effects ledger's
+effect_state values` lead-in, and M1's "classify every action as read or
+mutate before acting". They are the sentences a shared contract *should*
+produce identically, and the validator's own cross-file check — which
+compares whole normalized section bodies — passes all three files. The
+length is structural: each file carries an Inputs table of 8–9 rows, a
+rendered record block, a per-effect approval table, and a
+`Common mistakes` table of 7–9 rows. Recorded as measured, not defended.
 
 ## Validator frictions queued for the cleanup task
 
