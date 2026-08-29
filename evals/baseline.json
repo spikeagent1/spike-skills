@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-29T12:07:21+00:00",
+  "generated_at": "2026-08-29T12:21:46+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -874,7 +874,7 @@
         "examples:1/4 Does not name a skill the index does not list"
       ],
       "run_id": "20260829T120042-9aae535-home-b3",
-      "skill_sha256": "e5ff0d607294e687b39104bcccb2a2e6f1ebc7b46905ff35c3bfddca61a5ca9c",
+      "skill_sha256": "2104e9d6b3c34c26f9f86f5ffb36561e38d5103e1e8822c351b1fea3798a5bd8",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {

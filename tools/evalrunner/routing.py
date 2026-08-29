@@ -424,10 +424,11 @@ def score_case(
     phantom only asks that the owning skill not absorb the intent.
 
     An `expect_question` case is scored on `replies` (one per repeat, when the
-    caller has them) instead: the router passes by routing nothing and asking
-    back, and a repeat that routed somewhere the fixture lists as an alternative
-    is the weaker `ambiguous_pass` — the launcher took the intent and asks in its
-    own turn. Silently committing to one plausible skill is the failure.
+    caller has them) instead: the router passes when a majority of the voting
+    repeats routed nothing and asked back, and a repeat that routed somewhere the
+    fixture lists as an alternative is the weaker `ambiguous_pass` — the launcher
+    took the intent and asks in its own turn. Silently committing to one
+    plausible skill is the failure.
 
     `statuses` (one per repeat, when the caller has them) keeps a failed call from
     voting: a call that errored before answering says nothing about the router,
@@ -437,18 +438,22 @@ def score_case(
     named — the case is `unanswered` and the matrix is not applied: "we did not
     measure this" must never be recorded as pass or fail.
     """
-    votes = [
-        chosen
-        for chosen, status in zip_longest(chosen_by_repeat, statuses, fillvalue="ok")
-        if status == "ok" or chosen is not None
+    rows = [
+        (chosen, status, replies[index] if index < len(replies) else "")
+        for index, (chosen, status) in enumerate(
+            zip_longest(chosen_by_repeat, statuses, fillvalue="ok")
+        )
     ]
+    voting = [row for row in rows if row[1] == "ok" or row[0] is not None]
+    votes = [chosen for chosen, _, _ in voting]
     chosen = majority(votes)
-    # Only a repeat that routed nothing can have asked; one that invoked a skill
-    # was killed at the tool_use and never produced a reply to read.
-    questioned = any(
-        picked is None and asked_question(reply)
-        for picked, reply in zip(chosen_by_repeat, replies)
-    )
+    # Asking is decided the same way every other rule is: by majority of the
+    # repeats that actually voted. Only a repeat that routed nothing can have
+    # asked — one that invoked a skill was killed at the tool_use and never
+    # produced a reply — and a repeat that errored is not in `voting` at all, so
+    # a partial stream that happens to end mid-question cannot cast a vote.
+    asking = sum(1 for picked, _, reply in voting if picked is None and asked_question(reply))
+    questioned = bool(voting) and asking * 2 >= len(voting)
     warnings = [
         f"{case.skill_file}:{case.line_no}: ambiguous_with entry {name!r} names no skill "
         "in this repo; dropped"

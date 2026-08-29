@@ -3923,6 +3923,45 @@ class RoutingScoringTest(unittest.TestCase):
         score = routing.score_case(asking, ["beta"], replies=[""])
         self.assertEqual(score["outcome"], "ambiguous_pass")
 
+    def test_expect_question_needs_a_majority_of_asking_repeats(self) -> None:
+        # One repeat out of three asking is not the router's behaviour, it is noise;
+        # every other rule in the matrix is decided by majority and this one is too.
+        asking = _routing_case(expected_skill=None, expect_question=True)
+        score = routing.score_case(
+            asking,
+            [None, None, None],
+            statuses=["ok", "ok", "ok"],
+            replies=["Which one?", "No skill applies.", "Nothing in the library fits."],
+        )
+        self.assertEqual(score["outcome"], "fail")
+        self.assertFalse(score["asked_question"])
+
+    def test_expect_question_passes_on_a_majority_of_asking_repeats(self) -> None:
+        asking = _routing_case(expected_skill=None, expect_question=True)
+        score = routing.score_case(
+            asking,
+            [None, None, "meal-planner"],
+            statuses=["ok", "ok", "ok"],
+            replies=["Which one?", "Meals or the list?", ""],
+        )
+        self.assertEqual(score["outcome"], "pass")
+        self.assertTrue(score["asked_question"])
+
+    def test_an_errored_repeats_reply_does_not_count_as_asking(self) -> None:
+        # A call that died mid-stream can leave a partial sentence with a question
+        # mark in it; counting that as "the router asked" turns a broken run into a
+        # passing one.
+        asking = _routing_case(expected_skill=None, expect_question=True)
+        score = routing.score_case(
+            asking,
+            [None, None, None],
+            statuses=["error", "ok", "ok"],
+            replies=["Which one of these did you...?", "No skill applies.", "No skill applies."],
+        )
+        self.assertEqual(score["answered"], 2)
+        self.assertFalse(score["asked_question"])
+        self.assertEqual(score["outcome"], "fail")
+
     def test_expect_question_with_no_answer_stays_unanswered(self) -> None:
         asking = _routing_case(expected_skill=None, expect_question=True)
         score = routing.score_case(asking, [None], statuses=["error"], replies=["?"])
