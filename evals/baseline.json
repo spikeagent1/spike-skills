@@ -1,5 +1,5 @@
 {
-  "commit": "bac43ee",
+  "commit": "d8d3278",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-29T05:42:51+00:00",
+  "generated_at": "2026-08-29T06:40:21+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -601,25 +601,23 @@
     "draft-in-voice": {
       "assertions": 17,
       "broken": [
-        "examples:3/4 Audience, purpose, destination, and byline requested",
         "examples:4/5 Privacy and length checks"
       ],
       "cases": 4,
       "classes": {
-        "broken": 2,
+        "broken": 1,
         "discriminating": 4,
         "flaky": 0,
-        "harmful": 2,
-        "non_discriminating": 9
+        "harmful": 1,
+        "non_discriminating": 11
       },
-      "delta": 0.15,
+      "delta": 0.2,
       "evals_sha256": {
         "examples/evals.json": "6f467ef1785f99e8bcc4b9f623dea373ee802186ff326b29ce20787cfd4657ff",
         "routing-eval.jsonl": "ed08b8484be52175da70c1ca5fdc94f8816f7fba5bb958c595bb1ec3dae51052"
       },
       "flaky": [],
       "harmful": [
-        "examples:4/5 24 percent cited internally or metric omitted",
         "examples:4/5 Same casual register across variants"
       ],
       "non_discriminating": [
@@ -630,21 +628,24 @@
         "examples:2/4 No distinctive phrase leakage",
         "examples:2/4 Drafting remains unsent",
         "examples:3/4 Absence not treated as never",
+        "examples:3/4 No fabricated traits",
         "examples:4/5 Unsupported 42 percent rejected",
+        "examples:4/5 24 percent cited internally or metric omitted",
         "examples:4/5 Never posts"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "efc212bdbd95aa54f9faa01b362d4ce32a05aa248b45afebf41f1f8301874da8",
+      "run_id": "20260829T063249-d8d3278",
+      "skill_sha256": "4a69a9b7d9d0225b89359693abf470c5f93e2fdac4db9ac754727328a443c823",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.331788,
-        "pass_rate": 0.7875,
-        "tokens_mean": 6876.5
+        "cost_usd": 0.422337,
+        "pass_rate": 0.9,
+        "tokens_mean": 11550.0
       },
       "without_skill": {
-        "cost_usd": 0.313802,
-        "pass_rate": 0.6375,
-        "tokens_mean": 5483.25
+        "cost_usd": 0.304889,
+        "pass_rate": 0.7,
+        "tokens_mean": 6611.75
       }
     },
     "fact-check": {
@@ -655,18 +656,17 @@
         "examples:3/5 CRM independently re-derived",
         "examples:3/5 External evidence checked",
         "examples:5/5 Original clinical evidence and corrections checked",
-        "examples:5/5 Proposed replacement text returned",
         "examples:6/5 Official text locator cited"
       ],
       "cases": 6,
       "classes": {
-        "broken": 7,
-        "discriminating": 5,
+        "broken": 6,
+        "discriminating": 7,
         "flaky": 0,
         "harmful": 0,
-        "non_discriminating": 17
+        "non_discriminating": 16
       },
-      "delta": 0.1667,
+      "delta": 0.2333,
       "evals_sha256": {
         "examples/evals.json": "5449d8dd95f5f45f7d99314964ef6ce31958cc64bb9d00c0f7d2dee4013394ee",
         "routing-eval.jsonl": "06203e188a35d7df7fb3643d9fa7fd9137cacce96592dd605813a42283207104"
@@ -675,6 +675,7 @@
       "harmful": [],
       "non_discriminating": [
         "examples:1/5 At least three atomic claims",
+        "examples:1/5 Largest measure defined",
         "examples:2/4 Syndication not treated as independence",
         "examples:2/4 Official record assessed",
         "examples:2/4 Announcement/submission/effective dates distinguished",
@@ -688,22 +689,21 @@
         "examples:4/5 No mutation without authority",
         "examples:5/5 Artifact not mutated",
         "examples:5/5 Wikipedia only discovery",
-        "examples:5/5 Press release labeled first-party",
-        "examples:6/5 Common provenance traced",
-        "examples:6/5 Five copies count once"
+        "examples:5/5 Press release labeled first-party"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "6f7a236d7f315cf8cd07e8ba4de8d18444ffcb939e68de9d8ec4384fc6c5e942",
+      "run_id": "20260829T062438-483cefb",
+      "skill_sha256": "8d50be4896d5fad910fecfd1ded56201f9b40d6be4666452940319d0982ac968",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.919852,
-        "pass_rate": 0.7667,
-        "tokens_mean": 20782.5
+        "cost_usd": 1.060695,
+        "pass_rate": 0.8,
+        "tokens_mean": 23961.5
       },
       "without_skill": {
-        "cost_usd": 0.545832,
-        "pass_rate": 0.6,
-        "tokens_mean": 4894.6667
+        "cost_usd": 0.530502,
+        "pass_rate": 0.5667,
+        "tokens_mean": 5520.6667
       }
     },
     "fitness-coach": {
@@ -952,48 +952,46 @@
         "examples:1/5 Study designs and evidence access distinguished",
         "examples:1/5 Claim-linked DOI or PMID citations",
         "examples:2/5 Successful databases and exact queries recorded",
+        "examples:2/5 Contradictions and sparse evidence surfaced",
         "examples:3/4 DOI/PMID metadata verified",
         "examples:3/4 Metadata, abstract, and full-text support distinguished",
-        "examples:4/5 Screening/stopping rules",
         "examples:4/5 Version-aware dedupe"
       ],
       "cases": 4,
       "classes": {
         "broken": 10,
-        "discriminating": 2,
+        "discriminating": 4,
         "flaky": 0,
-        "harmful": 1,
-        "non_discriminating": 6
+        "harmful": 0,
+        "non_discriminating": 5
       },
-      "delta": 0.05,
+      "delta": 0.2,
       "evals_sha256": {
         "examples/evals.json": "3f017ffaf6c38b28c1e199f1aea08f8cb5b272f5804287a817183a97fd2b07f3",
         "routing-eval.jsonl": "2afb2cbcb2630671b76df4bfd4aa7e5f0d5985c9ccec266248c04d79ac71bb0c"
       },
       "flaky": [],
-      "harmful": [
-        "examples:2/5 Contradictions and sparse evidence surfaced"
-      ],
+      "harmful": [],
       "non_discriminating": [
         "examples:2/5 Failure disclosed",
         "examples:2/5 No comprehensive claim",
         "examples:2/5 No fabricated records",
         "examples:3/4 No invented papers",
-        "examples:3/4 Unsupported claims omitted or labeled",
-        "examples:4/5 Query variants and multiple databases"
+        "examples:3/4 Unsupported claims omitted or labeled"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "d69120d0773f937718b9e213a53a975fe15636f57068ada151c36ebface1fa93",
+      "run_id": "20260829T061555-395e72f",
+      "skill_sha256": "7f1612754eba67d8e80e6dfd6976f88345807e6c2d09153708d655e00916974a",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.421776,
-        "pass_rate": 0.425,
-        "tokens_mean": 14005.25
+        "cost_usd": 0.818944,
+        "pass_rate": 0.475,
+        "tokens_mean": 26902.75
       },
       "without_skill": {
-        "cost_usd": 0.386125,
-        "pass_rate": 0.375,
-        "tokens_mean": 4185.75
+        "cost_usd": 0.303563,
+        "pass_rate": 0.275,
+        "tokens_mean": 4237.5
       }
     },
     "mcp-connector-onboarding": {
