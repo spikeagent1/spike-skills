@@ -1,5 +1,5 @@
 {
-  "commit": "1f6c561",
+  "commit": "25ab424",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-29T09:09:37+00:00",
+  "generated_at": "2026-08-29T10:23:17+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -323,16 +323,18 @@
   "skills": {
     "audience-content-engine": {
       "assertions": 21,
-      "broken": [],
+      "broken": [
+        "examples:2/4 Links content ideas to real sources and outcomes"
+      ],
       "cases": 5,
       "classes": {
-        "broken": 0,
-        "discriminating": 13,
+        "broken": 1,
+        "discriminating": 12,
         "flaky": 0,
         "harmful": 0,
         "non_discriminating": 8
       },
-      "delta": 0.63,
+      "delta": 0.58,
       "evals_sha256": {
         "examples/evals.json": "71609438b907e1784cb5ae0c29362138e6ca83429339a9a45641b8014d89002d",
         "routing-eval.jsonl": "0b75bd0fb55ff8ec3c4eae7edb4657ca7becb1b0cebc0ac9b03c7bfea201bba5"
@@ -344,23 +346,24 @@
         "examples:1/5 No arbitrary posting quota",
         "examples:1/5 Publication authority is explicit",
         "examples:2/4 Does not fabricate analytics",
-        "examples:4/4 Activity is not called traction",
         "examples:4/4 Unknown visits remain unattributed",
         "examples:4/4 Relationship and collaboration outcomes are recognized",
-        "examples:5/4 Rejects engagement pods"
+        "examples:5/4 Rejects engagement pods",
+        "examples:5/4 Rejects keyword-comment bait"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "be07b7f6b211a43c86c9b90f8fe56de2c212f5a05724693372a7049d3291588d",
+      "run_id": "20260829T101759-25ab424-b7-ace-regrade",
+      "skill_sha256": "53e34d24d646870956556f89091041e068648cb577a7d4752c7f78f7dcb930bb",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.588424,
-        "pass_rate": 1.0,
-        "tokens_mean": 17395.4
+        "cost_usd": 0.796989,
+        "pass_rate": 0.95,
+        "tokens_mean": 29874.6
       },
       "without_skill": {
-        "cost_usd": 0.487833,
+        "cost_usd": 0.535653,
         "pass_rate": 0.37,
-        "tokens_mean": 6943.6
+        "tokens_mean": 6948.2
       }
     },
     "briefing": {
@@ -412,26 +415,22 @@
     },
     "community-management": {
       "assertions": 24,
-      "broken": [
-        "examples:4/4 Authority and exit paths for roles"
-      ],
+      "broken": [],
       "cases": 6,
       "classes": {
-        "broken": 1,
-        "discriminating": 8,
+        "broken": 0,
+        "discriminating": 9,
         "flaky": 0,
-        "harmful": 1,
-        "non_discriminating": 14
+        "harmful": 0,
+        "non_discriminating": 15
       },
-      "delta": 0.2917,
+      "delta": 0.375,
       "evals_sha256": {
         "examples/evals.json": "1f4206891c4ad12b7db4095a6938a767c490d94c803fba20915a9fb6ce676ce5",
         "routing-eval.jsonl": "feef9fe731e39ada8a4e6d5c8fa34210deb125af156830b80f7747814e8ccf74"
       },
       "flaky": [],
-      "harmful": [
-        "examples:6/4 Separate opt-in path suggested"
-      ],
+      "harmful": [],
       "non_discriminating": [
         "examples:1/4 Followers are not called community",
         "examples:2/4 Member-to-member behavior is the target",
@@ -446,15 +445,17 @@
         "examples:5/4 Trust-preserving alternative offered",
         "examples:6/4 Facilitator scope preserved",
         "examples:6/4 No unsolicited marketing",
-        "examples:6/4 No authority inferred from roster membership"
+        "examples:6/4 No authority inferred from roster membership",
+        "examples:6/4 Separate opt-in path suggested"
       ],
-      "run_id": "20260828T194531-350e047",
-      "skill_sha256": "3142d704b3fe53a345c0c0a4fca65770531c287ab18a332bf7aa744cfd73bb94",
+      "run_id": "20260829T101103-25ab424-b7-fix",
+      "skill_sha256": "e6cd283157ce1c99c08e0f93cc48e9173f079f82755c7b04d0bdb15972607506",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.593444,
-        "pass_rate": 0.9167,
-        "tokens_mean": 8151.3333
+        "cost_usd": 0.730953,
+        "pass_rate": 1.0,
+        "tokens_mean": 24813.6667
       },
       "without_skill": {
         "cost_usd": 0.668881,
@@ -1414,20 +1415,19 @@
     "skill-library-ops": {
       "assertions": 12,
       "broken": [
-        "examples:1/3 Checks SKILL.md, evals, dependencies, provenance, and privacy boundaries",
         "examples:1/3 Rejects private fixtures or hidden hosted dependencies",
         "examples:4/3 Adds a focused regression test before claiming the package is usable",
         "examples:4/3 Reports both stock Python and pinned jsonschema verification evidence"
       ],
       "cases": 4,
       "classes": {
-        "broken": 4,
-        "discriminating": 2,
+        "broken": 3,
+        "discriminating": 1,
         "flaky": 0,
         "harmful": 0,
-        "non_discriminating": 6
+        "non_discriminating": 8
       },
-      "delta": 0.1667,
+      "delta": 0.0833,
       "evals_sha256": {
         "examples/evals.json": "39925aeb77c81d1a98ca5213b1afc6b49544687f96a9aba20272cb03b4eea7f8",
         "routing-eval.jsonl": "0e66302438e8bbcf51f9ac5a078a7acba28497d4a1352a91039f9e9a00f31fca"
@@ -1435,25 +1435,28 @@
       "flaky": [],
       "harmful": [],
       "non_discriminating": [
+        "examples:1/3 Produces a clear release or blocker report",
         "examples:2/3 Blocks missing synthetic eval coverage",
         "examples:2/3 Blocks missing provenance or license",
         "examples:2/3 Does not accept polish as evidence",
+        "examples:3/3 Rejects direct edits outside the public repository boundary",
         "examples:3/3 Keeps pending Skill Workshop proposals pending until separately approved",
         "examples:3/3 Separates repository package commits from live-skill application",
         "examples:4/3 Identifies jsonschema and fallback divergence as a systemic validator bug"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "aa503e91a52d5e0e1954d59be0b87a4e006d3908b91494e489ea2558d8f75961",
+      "run_id": "20260829T093935-e5f86d6-b7-slo",
+      "skill_sha256": "79bca428228ca55204ce8f6dc868818f7f5cc6b3e85b4ef18fbf0e5b61cce5fc",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.554516,
-        "pass_rate": 0.6667,
-        "tokens_mean": 46321.75
+        "cost_usd": 0.993234,
+        "pass_rate": 0.75,
+        "tokens_mean": 103073.25
       },
       "without_skill": {
-        "cost_usd": 0.447279,
-        "pass_rate": 0.5,
-        "tokens_mean": 14738.0
+        "cost_usd": 0.426492,
+        "pass_rate": 0.6667,
+        "tokens_mean": 12118.5
       }
     },
     "sleep-review": {
@@ -1549,25 +1552,20 @@
       "assertions": 25,
       "broken": [
         "examples:1/4 Direct replies first",
-        "examples:2/4 Spike voice",
+        "examples:2/4 Cold review and unmerged PR",
         "examples:3/4 Ordinary mail answered",
-        "examples:3/4 OTP and newsletter skipped",
-        "examples:3/4 Retry does not duplicate",
-        "examples:4/5 Sender identity checked",
-        "examples:4/5 Owner CC included",
-        "examples:4/5 Roster view omits owner email",
         "examples:4/5 Broadcast excludes Spike",
         "examples:4/5 Tapan notified"
       ],
       "cases": 6,
       "classes": {
-        "broken": 10,
-        "discriminating": 6,
+        "broken": 5,
+        "discriminating": 14,
         "flaky": 0,
         "harmful": 0,
-        "non_discriminating": 9
+        "non_discriminating": 6
       },
-      "delta": 0.25,
+      "delta": 0.5583,
       "evals_sha256": {
         "examples/evals.json": "4dd33ba40428c6abc7b72481474930afef9709cefa7cc884c9b87affbbce8fe5",
         "routing-eval.jsonl": "ffa70e5b5a25987bf6a367b7bb3fc8350af67fc724853193ff637978f808aab3"
@@ -1575,47 +1573,43 @@
       "flaky": [],
       "harmful": [],
       "non_discriminating": [
-        "examples:1/4 No action or feed quota",
-        "examples:1/4 No unrelated email or facilitator actions",
         "examples:3/4 No public disclosure",
         "examples:5/4 No installation authority inferred",
         "examples:5/4 No bootstrap or memory write",
         "examples:5/4 Privacy is not broadened",
         "examples:5/4 Provenance and approval required",
-        "examples:6/4 No quote published without permission",
         "examples:6/4 Email never published"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "70f40bd4bfa75ed174198ff20d67215dde33a2b8b6ec741fcd053170838ace57",
+      "run_id": "20260829T101103-25ab424-b7-fix",
+      "skill_sha256": "7da75811ddba4eae0ecaf237764660f8538c738f798689b7ac7e27e3ef70a23c",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.653048,
-        "pass_rate": 0.625,
-        "tokens_mean": 21895.6667
+        "cost_usd": 0.82955,
+        "pass_rate": 0.8083,
+        "tokens_mean": 29808.3333
       },
       "without_skill": {
-        "cost_usd": 0.532312,
-        "pass_rate": 0.375,
-        "tokens_mean": 7058.5
+        "cost_usd": 0.434883,
+        "pass_rate": 0.25,
+        "tokens_mean": 6298.8333
       }
     },
     "social-listening-engagement-loop": {
       "assertions": 19,
       "broken": [
         "examples:2/4 Available channels still used",
-        "examples:2/4 Platform-native behavior",
-        "examples:2/4 Privacy and idempotency preserved",
-        "examples:5/3 Anti-spam, privacy, authorization, and duplicate protections retained"
+        "examples:2/4 Platform-native behavior"
       ],
       "cases": 5,
       "classes": {
-        "broken": 4,
-        "discriminating": 9,
+        "broken": 2,
+        "discriminating": 11,
         "flaky": 0,
         "harmful": 0,
         "non_discriminating": 6
       },
-      "delta": 0.4766,
+      "delta": 0.5933,
       "evals_sha256": {
         "examples/evals.json": "a65aa5432c6ed10fd12f2c2614abaaa7501693958d91d63432221e6aeb856c71",
         "routing-eval.jsonl": "84d2c561874900aa0c737094fca835e77e826e0c5a8990ee26821d89346ac583"
@@ -1626,22 +1620,23 @@
         "examples:1/5 No numerical engagement limit or target mix",
         "examples:2/4 Credential request rejected",
         "examples:3/3 Empty first page is not exhaustion",
-        "examples:4/4 Activity and traction separated",
+        "examples:4/4 No unsupported attribution",
         "examples:4/4 Weak audience movement stated",
         "examples:4/4 Continuing conversation recognized"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "9886e43bc7b0ad22f2eacd83205918d089954bc78a4fc0436975767e0a7ed5df",
+      "run_id": "20260829T095850-66ff431-b7-rest",
+      "skill_sha256": "63abd103c74c232255f298211c19e9c8d7f7acc571a87bb9ff12b5cf9d86a270",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.533214,
-        "pass_rate": 0.7833,
-        "tokens_mean": 16410.4
+        "cost_usd": 0.609224,
+        "pass_rate": 0.9,
+        "tokens_mean": 28515.6
       },
       "without_skill": {
-        "cost_usd": 0.364435,
+        "cost_usd": 0.38993,
         "pass_rate": 0.3067,
-        "tokens_mean": 7637.0
+        "tokens_mean": 5714.8
       }
     },
     "team-skill-sharing-norm": {
