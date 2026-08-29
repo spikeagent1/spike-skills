@@ -156,8 +156,8 @@ skills:
     status: approved
     cohort: portfolio-governance
     workshop_proposal: public-post-workshop-20260815-81ae9d1b08
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: owner-context-onboarding
     classification: owned
