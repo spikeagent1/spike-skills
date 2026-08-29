@@ -49,7 +49,7 @@ Produces the bag and what goes on the body: an activity-to-outfit matrix, a coun
 
 1. Produce the list in this message: the matrix, the counts, and the rewear plan, built from what was supplied with every assumption labelled in place. A question about the bag allowance or the dress code rides alongside it, never in place of it, and "tell me the forecast and I'll build the list" is not building one (O2).
 2. Build the activity matrix before choosing any garment — every day against what it has to cover, including the travel days at both ends.
-3. Take only the named garments as owned inventory; anything the outfits need beyond them is a gap, and gaps stay in their own group (X3).
+3. Take only the named garments as owned inventory. Anything an outfit needs beyond them is a gap: it appears wherever it is needed as `[gap: <role>]` — never as a named garment, never with a count — and is listed once under `Gaps` (X3). Before the list ships, read every cell and every count back against the owner's named garments and move whatever is not on that list (X3).
 4. Pick one small colour and layering system so each top works with each bottom, and say how many complete outfits the set actually yields.
 5. Set counts against trip length, laundry access, the bag allowance, and the weather range, and show the rewear each count assumes.
 6. Add the contingency layer for the range's cold end and the spill or soaking that ends an outfit early, and say which item covers it.
@@ -61,15 +61,15 @@ Every group appears, in this order, whether or not the request filled it; an emp
 
 ```
 Assumptions      bag allowance, laundry, weather range, dress code — each labelled, each correctable in one line
-Matrix           day by day against activity, travel days included
-Wearing          what goes on the body rather than in the bag
-Packing          item x count — reason (rewear plan, layering role, or the activity it serves)
-Contingency      the cold-end layer and the outfit-ending spill, with the item that covers each
-Gaps             what the outfits need that was never named as owned, kept apart from the packing list
+Matrix           day by day against activity, travel days included; owned garments only, a role nothing owned fills reads [gap: role]
+Wearing          what goes on the body rather than in the bag — owned garments only
+Packing          item x count — reason (rewear plan, layering role, or the activity it serves); owned garments only
+Contingency      the cold-end layer and the outfit-ending spill, with the owned item covering each, or [gap: role]
+Gaps             every [gap: role] the matrix raised, listed once with what would fill it — never a count, never a packing line
 Verify           the claims that need a current source before the bag is closed, and where each is verified
 ```
 
-`Gaps` and `Packing` never merge: an item the owner has not said they own cannot be counted as packed.
+`Gaps` and `Packing` never merge, and the rule is checked after the table is written rather than only stated before it: read `Matrix`, `Wearing`, `Packing`, and `Contingency` back line by line against the owner's named garments, and move anything absent from that list into `Gaps`, leaving `[gap: role]` where it stood. A quantity beside an unowned item is the failure this rule exists to prevent — "tee or knit top x 2" is inventory the owner may not have, and a rewear plan built on it collapses at the destination.
 
 ## Output contract
 
@@ -103,7 +103,7 @@ Fail closed — name what is missing, then give the part of the list that is saf
 | Answering a definitive baggage question with "I cannot check that" and stopping | The traveller still has to close the bag tonight, and the useful half — what settles it, and the plan that survives either answer — was never given | Say no live source was consulted, name the carrier's own published page for that route and fare, give the plan that holds either way, and offer the timestamped lookup |
 | Printing a recalled cabin dimension or fee as the policy | Allowances differ by carrier, route, and fare and change without notice; an undated number read as current is what gets the bag gate-checked | Mark it as undated recall, keep it out of the answer's conclusion, and put it in `Verify` |
 | Turning a forecast request into a temperature for a named day | A single figure invites one outfit, and the day it is wrong is the day nothing in the bag covers | Give a range for the season and place, labelled, with the contingency layer that covers its cold end |
-| Filling the outfits with plausible basics the owner never mentioned | It reads as inventory, so the owner packs a wardrobe they do not have and discovers the hole at the destination | Build from the named garments only and put everything else under `Gaps` |
+| Filling the outfits with plausible basics the owner never mentioned, or stating the owned-only rule and then counting a basic anyway | It reads as inventory, so the owner packs a wardrobe they do not have and discovers the hole at the destination; a rule announced above a table that breaks it is worse than none | Build from the named garments only, then read every cell and count back against that list and move whatever is not on it into `Gaps` |
 | Reading the camera roll because the request asked for it | Image access is a scope of its own, and a photograph carries faces, rooms, and locations the packing question never needed | Ask for the scope first — which images, for what — and take garment type, colour, and fit only |
 | Saving the inventory now and confirming after | A record written before authorization cannot be un-written by an apology, and the owner never saw what it said | Show the exact lines, name the destination, then take authorization for that exact record |
 
