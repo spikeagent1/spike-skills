@@ -1,6 +1,6 @@
 ---
 name: fact-check
-description: "Use when accuracy must be settled before something goes out: fact check this draft, is this accurate, check the claims one by one, source-check the numbers in this post, re-check a hallucinating output — every claim checked against a current source. Not for surveying a field (literature-review)."
+description: "Use when a claim must be checked before it goes out: fact check this draft, verify the facts against live sources, is this accurate, check the claims one by one, source-check the numbers in this post, or re-derive an output that may be hallucinating. Not for surveying a field (literature-review)."
 metadata:
   spike-os:
     version: 2.0.0
@@ -26,7 +26,6 @@ Produces a claim-by-claim audit of a frozen artifact in this turn: each atomic c
 - A number, a date, an attribution, a superlative, or a comparison in a piece of writing has to be right before anyone acts on it
 - A claim needs its **disposition and its confidence separated** — whether the evidence supports it, and how much the evidence is worth
 - Something that says "currently", "latest", or "still" has to be checked against the period it claims
-- Any accuracy question whose answer would otherwise rest on recall rather than on a source read this turn — including a short piece where nothing looks obviously wrong, since the claims that fail are the ones that read fine
 
 ## When not to use
 
