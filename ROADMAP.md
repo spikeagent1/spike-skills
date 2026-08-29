@@ -63,6 +63,24 @@ What is open, and where it is tracked:
   and no fixture has been edited.
 - **Routing overlap.** Measured per cluster in the rewrite reports; the
   residual null-case hijacks are in the pruning report's routing section.
+  `catalog/cohorts.yaml` carries `routing-overlap-and-long-tail` as a
+  queued cohort with no skills assigned; the launcher is its first
+  candidate. `home` routes **50%** in the committed baseline (8 of 16
+  intents, lenient and strict alike) -- the lowest file on the ballot, and
+  by design the hardest, since every intent it should win is one another
+  skill's description also fits. Raising that number is the cohort's work,
+  not a fix to one description.
+- **Effect enforcement.** The effect declaration is lint: the validator
+  greps the body for keywords and cannot see intent, and nothing at run
+  time stops an undeclared effect. The enforcement path is emitting a
+  `PreToolUse` hook from `metadata.spike-os.effects` so the runtime denies
+  the call rather than the repository documenting that it should not
+  happen. Nothing of it exists yet.
+- **Listing budget bound to the adapter.** `LISTING_BUDGET_CHARS` is
+  16,000 in `tools/validators/context.py`, a constant the validator owns.
+  The number it stands for is OpenClaw's `maxSkillsPromptChars`, which the
+  runtime configures and the adapter should carry, so the budget the
+  validator enforces is the budget the runtime actually applies.
 - **Rendered-frontmatter routing mode.** Every routing baseline puts the
   portable `skills/*/SKILL.md` frontmatter on the ballot. The installed
   form differs -- claude-code renders `disable-model-invocation: true` from

@@ -28,6 +28,18 @@ writes the adapter file the skill's backticked vocabulary terms resolve
 against, and stamps the installed directory so `--check` can report drift
 later. `--dry-run` prints what it would write. It refuses a skill whose
 `metadata.spike-os.runtime` excludes the target, a destination directory
-it did not install, and a skill that depends on a term the adapter cannot
-honestly confirm — which is the case for the two task-provider skills on
-OpenClaw today.
+it did not install, and a skill that depends on a term the adapter marks
+UNCONFIRMED. That last refusal is not one runtime's quirk: it applies on
+both, wherever an adapter cannot attest a binding a skill's declaration
+needs. It is what stops `daily-task-manager` and `briefing` installing on
+OpenClaw today, where whether the runtime registers a task connector is
+still an open question.
+
+A binding the runtime knows to be absent or partial is the other case, and
+it is marked DEGRADED rather than UNCONFIRMED: the skill's own contract
+already states what it does without it, so the installer installs it and
+prints a `degraded:` note naming the term. On claude-code both
+`task provider` (no Todoist server; tasks are mirror-only) and
+`mail provider` (no agentmail; the owner's Gmail and Google Calendar are
+connected) are DEGRADED, so the same two skills install there and disclose
+the reduced state at run time.

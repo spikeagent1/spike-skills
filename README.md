@@ -49,7 +49,15 @@ runtime terms are [adapters/vocabulary.yaml](adapters/vocabulary.yaml).
 
 `catalog/approved.yaml` carries each package's `contract_version`. Version 2 is
 the only shape the validator knows; the field stays so a future bump has
-somewhere to declare itself.
+somewhere to declare itself. It is a different number from the
+`<!-- contract-version: 1 -->` marker at the top of
+[contracts/skill-contract.md](contracts/skill-contract.md) and
+[contracts/datastore.md](contracts/datastore.md), and the two never move
+together: the catalog field is the **template shape** a package is written to
+(thirteen sections, `metadata.spike-os`, the declaration rules), while the
+file-level marker is the version of that contract document's own rules, which a
+skill cites as `v1` in its `## Contract` section. A skill at
+`contract_version: 2` follows skill-contract v1; both numbers are correct.
 
 ## The gate
 
@@ -58,9 +66,12 @@ make validate     # the unit tests, the repository validator, the citation check
 ```
 
 `make validate` runs `make test` (a compile pass over every tool and test, then
-`python3 -m unittest discover -s tests`), then `tools/validate_repo.py`, then
-`tools/check_citations.py`. Run it before opening or updating a pull request.
-Without `make`, run those three commands directly.
+`python3 -m unittest discover -s tests`), then `tools/validate_repo.py`,
+`tools/check_citations.py`, and `tools/build_index.py --check`. Run it before
+opening or updating a pull request. Without `make`, run those four commands
+directly. `.github/workflows/validate.yml` calls the target itself, twice --
+once on a stock Python and once with `jsonschema` installed, since the validator
+takes a different path on each -- so a gate added here is a gate CI runs.
 
 `tools/validate_repo.py` composes the rule modules under `tools/validators/`:
 frontmatter, structure, catalog, contracts, and evals. It checks the canonical
@@ -69,6 +80,19 @@ source parity, provenance artifacts, the declared namespaces and effects against
 the contracts, the runtime binding for every adapter a skill claims, the eval
 fixtures against `schemas/skill-evals.schema.json`, and the committed baseline
 against the tree.
+
+What the validator checks about effects is a **keyword scan, not an
+understanding of intent**. `CAPABILITY_HINTS` maps body words -- "publish",
+"send", "delete", "schedule", "commit" -- to the effects that would cover them,
+and reports a skill that uses one without declaring the effect. It cannot tell a
+verb the skill performs from one it forbids, quotes, or routes elsewhere, and it
+misses any phrasing outside the list. So the declaration is **lint, not a
+boundary**: nothing at run time stops a skill taking an effect it never
+declared. What the declaration does buy is a machine-readable claim -- the
+installer refuses on it, `--check` re-derives the hints from it, and the
+`effects/` ledger is auditable against it after the fact. Emitting a
+`PreToolUse` hook from the declaration is the enforcement path, and it is on the
+roadmap rather than in the repository.
 
 `tools/check_citations.py` verifies that every `skills/<name>/SKILL.md:<line>`
 anchor in `contracts/`, `adapters/`, and `docs/` still resolves to a body
@@ -89,8 +113,11 @@ supporting directories and the repository files the skill declares as inputs,
 and writes a `.spike-os.json` stamp — which is what makes a directory ours to
 overwrite and `--check` possible at all. It refuses a skill whose declared
 runtimes exclude the target, a destination holding somebody else's skill, and a
-skill depending on a term the adapter cannot honestly confirm. `--dry-run`
-prints what a run would write and writes nothing.
+skill depending on a term the adapter marks UNCONFIRMED — a binding nobody can
+attest. A binding the runtime knows to be absent or partial is marked DEGRADED
+instead: the skill's own contract already discloses what it does without it, so
+the skill installs and the run prints a `degraded:` note naming the term.
+`--dry-run` prints what a run would write and writes nothing.
 
 ## Evaluation
 

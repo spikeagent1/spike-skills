@@ -79,7 +79,7 @@ namespaces:
     status: active
     system_of_record: datastore
     kinds: [agent-identity, account-state, roster-entry, connector-state]
-    authority: the onboarding skills
+    authority: "holders of datastore:write on agents: mcp-connector-onboarding, runtime-handoff-onboarding, social-agent-onboarding, social-agent-practice, team-skill-sharing-norm"
     scope: the agent and its accounts
     mutability: explicit state transitions
     provenance: verified probes

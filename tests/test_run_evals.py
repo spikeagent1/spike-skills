@@ -3494,8 +3494,10 @@ class RunSummaryUngradedTest(unittest.TestCase):
     def _run(self, extra_args: list, *, case2_grader_error: bool = True) -> tuple:
         fake = FakeClaudeRunner(self._scripted(case2_grader_error=case2_grader_error))
         self._patch_runner(fake)
-        stream = io.StringIO()
-        with contextlib.redirect_stdout(stream):
+        # stderr too: `--fail-on-ungraded` prints its refusal there, and an
+        # uncaptured line lands in the middle of the suite's own dots.
+        stream, errors = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(errors):
             code = run_evals.main(
                 [
                     "--claude-bin", self.claude_bin,
@@ -3504,7 +3506,7 @@ class RunSummaryUngradedTest(unittest.TestCase):
                     *extra_args,
                 ]
             )
-        return code, stream.getvalue()
+        return code, stream.getvalue() + errors.getvalue()
 
     def test_summary_line_carries_ungraded_inline_and_exits_zero_by_default(self) -> None:
         code, out = self._run(["--label", "ge1"])
@@ -3515,8 +3517,9 @@ class RunSummaryUngradedTest(unittest.TestCase):
         self.assertIn("2 UNGRADED (excluded from denominator)", out)
 
     def test_fail_on_ungraded_exits_with_the_distinct_code(self) -> None:
-        code, _ = self._run(["--label", "ge2", "--fail-on-ungraded"])
+        code, out = self._run(["--label", "ge2", "--fail-on-ungraded"])
         self.assertEqual(code, run_evals.EXIT_UNGRADED)
+        self.assertIn("fail-on-ungraded: 1 of 4 run(s) are not status=ok", out)
         self.assertNotEqual(run_evals.EXIT_UNGRADED, 1)  # distinct from --fail-on-regression's exit 1
 
     def test_fail_on_ungraded_does_not_misfire_on_a_fully_graded_run(self) -> None:

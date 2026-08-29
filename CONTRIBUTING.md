@@ -30,7 +30,13 @@ skill must:
    the namespaces it reads and writes, and the effects it performs. A non-empty
    `reads_from` needs `datastore:read`; a non-empty `writes_to` needs
    `datastore:write`; any mutating effect needs `effects` in `writes_to`, and
-   `notify:owner` needs `notifications`.
+   `notify:owner` needs `notifications`. Declare what the skill actually does,
+   not what makes the scan quiet: the validator's effect check greps the body
+   for keywords ("publish", "send", "delete", "commit") and cannot tell a verb
+   the skill performs from one it forbids or routes elsewhere, so it both
+   misfires and misses. And the declaration is lint, not a boundary — nothing at
+   run time stops an undeclared effect; it buys a claim the installer can refuse
+   on and the `effects/` ledger can be audited against.
 4. Name every runtime fact with a term from
    [adapters/vocabulary.yaml](adapters/vocabulary.yaml), never a product name, a
    path, or a proper noun a single runtime supplies.
@@ -51,12 +57,24 @@ After editing a skill body, re-run `python3 tools/check_citations.py --show` and
 confirm every anchor into that file still lands on the sentence the citing rule
 is about. Line numbers move; the citation does not follow.
 
+Two version numbers are easy to confuse and never move together.
+`catalog/approved.yaml`'s `contract_version: 2` is the **template shape** a
+package is written to — the thirteen sections, `metadata.spike-os`, the
+declaration rules. The `<!-- contract-version: 1 -->` marker at the top of
+`contracts/skill-contract.md` is the version of that document's own rules, which
+each skill cites as `v1` in its `## Contract` section. A `contract_version: 2`
+package following skill-contract v1 is correct, not skewed.
+
 ## Before opening a pull request
 
 ```sh
-make validate                     # tests, validator, citation check
+make validate                     # tests, validator, citation check, index check
 make eval-skill SKILL=<name>      # for every skill the change touches
 ```
+
+`make validate` is the whole gate and the only thing CI runs (twice: once on a
+stock Python, once with `jsonschema` installed). A check worth having belongs in
+that target, not in the workflow file.
 
 A per-skill pass-rate drop against `evals/baseline.json`, or any assertion that
 regresses, blocks the PR. Fix the skill, never the eval: a fixture change is a
@@ -79,3 +97,8 @@ Re-baseline from a clean tree once the gates pass:
 python3 tools/run_evals.py baseline update --from <run-id> --skill <name> --require-clean
 python3 tools/run_evals.py baseline check
 ```
+
+`baseline update` refuses a merge that regresses against the entry it would
+replace, and one carrying an ungraded assertion. Both refusals leave every
+committed entry untouched; `--allow-regression` and `--allow-ungraded` merge
+deliberately, and either is a decision to state in the pull request.

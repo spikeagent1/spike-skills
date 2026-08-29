@@ -24,7 +24,7 @@ provenance, recoverability, actionability.
 |---|---|---|---|---|---|---|---|---|---|
 | `profile/` | active | datastore | owner-fact, preference, boundary, authority-rule, correction | consolidation and owner-context-onboarding | owner-private | supersede-only | owner turns | history plus superseded records | authority-rule gates every permission check |
 | `people/` | active | datastore; contact-card from provider | person, relationship-context, voice-profile, contact-card | consolidation; draft-in-voice for voice-profile | one slug per human or org | supersede-only | owner-stated or agent-inference | history | consent required before quoting (P5) |
-| `agents/` | active | datastore | agent-identity, account-state, roster-entry, connector-state | the onboarding skills | the agent and its accounts | explicit state transitions | verified probes | re-probe the provider | gates connector and account use |
+| `agents/` | active | datastore | agent-identity, account-state, roster-entry, connector-state | holders of `datastore:write` on `agents` — `mcp-connector-onboarding`, `runtime-handoff-onboarding`, `social-agent-onboarding`, `social-agent-practice`, `team-skill-sharing-norm` | the agent and its accounts | explicit state transitions | verified probes | re-probe the provider | gates connector and account use |
 | `projects/` | active | datastore | brief, status, handoff | any skill holding `datastore:write` | one page per project slug | append status, supersede brief | session handoffs | history | read before resuming work |
 | `decisions/` | active | datastore | decision, commitment | consolidation only | dated owner choices | supersede-only | corpus span and local date | history | cited in briefings |
 | `journal/` | active | datastore | dream-report, candidate-ledger, reflection-cycle, run-report, health-log | any session kind | dated run artifacts | append-only per run key | run identity | rerun is idempotent | run artifacts are candidates only, never authority; `health-log` entries are owner records — authoritative for what was recorded, never for clinical truth |
@@ -121,6 +121,14 @@ and `status: confirmed` — the adapter maps it; records are never renamed here.
 6. Provenance is structured frontmatter, never prose (`skills/owner-dream-cycle/SKILL.md:38`).
 7. No credentials, OTPs, email addresses, or raw sensitive excerpts, in any namespace (`skills/owner-dream-cycle/SKILL.md:38`).
 8. Every write is followed by a readback that compares envelope and body (M4).
+
+Invariants 4 and 5 are runtime invariants, not lint. `tools/validate_repo.py`
+checks a skill's declared `writes_to` against this file; it cannot see which
+`kind` a write carries, whether the record was curated or a candidate, or what
+`session_kind` the session is running under — all three are facts of the turn,
+not of the declaration. They hold because each skill's own contract states them
+and its cases test them, and a violation shows up in the `effects/` ledger after
+the fact, never in a validator run before it.
 
 ## Verbs
 
