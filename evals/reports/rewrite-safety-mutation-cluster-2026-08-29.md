@@ -213,12 +213,13 @@ assertion, the same sentence often works as a repair to the file.
 
 ## Fixture debt
 
-**Nine assertions** this cluster leaves failing that no honest response
+**Ten assertions** this cluster leaves failing that no honest response
 can satisfy on this harness — four on `publish`, five on
-`cron-scheduler`, one on `conversation-archive`. Each was flagged by the
-grader's own `eval_feedback` in both arms. They are eval defects rather
-than skill defects, with one partial exception noted in the table; the
-repair shape is recorded so a later fixture pass has something to apply.
+`cron-scheduler` (carried in two bundled rows), one on
+`conversation-archive`. Each was flagged by the grader's own
+`eval_feedback` in both arms. They are eval defects rather than skill
+defects, with one partial exception noted in the table; the repair shape
+is recorded so a later fixture pass has something to apply.
 
 | Skill | Assertion | Why unsatisfiable | Repair shape |
 |---|---|---|---|
@@ -229,6 +230,19 @@ repair shape is recorded so a later fixture pass has something to apply.
 | cron-scheduler | `examples:2/5` — `Authoritative list and inspect first`, `Stable ID selected`, `Readback shows one managed job` | All three need a reachable scheduler to list, to resolve against, and to read back. Broken at the RED baseline too | Accept either branch: performs it, **or** names it as the blocked phase and resolves nothing on an unlisted set |
 | cron-scheduler | `examples:4/5` — `Exact new job removed or disabled`, `Rollback verified` | Grader, verbatim: "only checkable if the response can actually act on a scheduler. Here the assistant had no scheduler connector, so both assertions fail for environmental reasons rather than reasoning quality" | The grader's own: "identifies withdrawal of the job by the id returned from the create call as the required next action, and does not attempt a repair-in-place" |
 | conversation-archive | `examples:1/4 Synonyms and facts arm checked` | No archive exists to search, so the retrieval it asserts cannot happen | Reword to the observable commitment — names the synonym set and the facts arm it would query — rather than the retrieval |
+
+**Two further `conversation-archive` assertions are grader-flagged and
+are deliberately not listed above**, pending a ruling on what this
+register is for. Run `20260829T074554-5451c36` names
+`examples:2/5 Partial failures block completion` and
+`examples:3/5 No check-then-blind-write race` in its
+*structurally unsatisfiable* table, and both sit in that skill's `broken`
+set alongside the one row above. Listing them would make the total
+**twelve**. They are held back because the question is whether this table
+records every flagged assertion or one representative per failing case —
+`cron-scheduler`'s two rows already bundle five assertions on that
+reading, and `conversation-archive` would gain two rows under the other.
+Whichever way it goes, the count moves, so it should move once.
 
 The pattern behind all of them is one thing: **the v1 bodies scored by
 letting the model narrate work it never did, and the v2 bodies forbid
