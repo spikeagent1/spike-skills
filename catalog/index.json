@@ -32,7 +32,7 @@
         },
         {
           "name": "briefing",
-          "description": "Use when the owner wants the day compiled and cited, read-only: a morning briefing, 'what's happening today', 'what changed overnight', the whole picture across meetings, mail and what's due, or a summary of what the notes already say. Not for changing a task list (daily-task-manager).",
+          "description": "Use when the owner wants today compiled and cited, read-only: a morning briefing, 'what's happening today', 'what changed overnight', the picture across meetings, mail, what's due, and what the notes say about today. Not a retrospective of past work, nor changing a task list (daily-task-manager).",
           "version": "2.0.0",
           "runtime": [
             "openclaw",
