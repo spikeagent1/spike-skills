@@ -53,7 +53,7 @@ Compiles what is known for a stated day or horizon into a cited, read-only diges
 4. **This skill never advances a cursor, is not authorized to move a position in the checkpoint store, and does not declare `checkpoint:advance`** — no read it performs may be phrased as one that moves a position (M8), and the effect enum in [contracts/capabilities.yaml](../../contracts/capabilities.yaml) is where that non-declaration is visible. Where the owner asks for a since-last-run pull, substitute an explicit window, say that the substitution happened, and compile the briefing from it — the request is honoured and the position is left where it was.
 5. Build the coverage ledger while reading, not afterwards: one row per source, with the window queried, the state reached, and how fresh what came back is. Follow pagination and say when a listing could not be completed.
 6. Compile the sections in priority order, with a source and an as-of marker beside every claim (F3).
-7. Where two sources disagree, render both sides with their timestamps and let the disagreement stand as the finding. Silently taking the more convenient one is the failure this step exists to prevent.
+7. Where two sources disagree, render both sides with their timestamps — and then say which one is current, because a disagreement and an open question are not the same thing. The two sides are rarely symmetric: [contracts/datastore.md](../../contracts/datastore.md) names a system of record per namespace, and where one side is that system of record and the other is a copy of it held in the datastore, the system of record holds the current state and the copy is stale context (F2). A provider-backed fact — an event's time, its status, its cancellation — is read off the provider, and the differing datastore copy is shown beside it and labelled stale, never left as a question the owner has to settle. Only where both sides carry equal authority does the disagreement itself stand as the finding; silently taking the more convenient one is the failure this step exists to prevent.
 8. Close on gaps: what was not covered, what was stale, and which claim would change if a source came back.
 
 ### The briefing shape
@@ -72,13 +72,16 @@ coverage
 
 conflicts
   - <subject>: <side A> — <source>, as of <time>  ||  <side B> — <source>, as of <time>
-    standing: <what is true of both, and which reading the owner would need to settle>
+    current : <the side that is the system of record for this fact, stated as the operative one,
+              and what follows from it; the other side labelled stale context>
+    standing: <only where neither side is the system of record — what is true of both,
+              and which reading the owner would need to settle>
 
 gaps
   - <what was not covered, and what it would change>
 ```
 
-A conflict the request itself states is a conflict row: two sides, two sources, two times, rendered from the request with `unknown` where a time was not given. "I cannot check either source" empties the as-of column, never the row (X3).
+A conflict the request itself states is a conflict row: two sides, two sources, two times, rendered from the request with `unknown` where a time was not given. "I cannot check either source" empties the as-of column, never the row (X3). The `current` line is filled from which source is the system of record for the fact in question, which the request usually makes plain — a live calendar against a note about the same event is the calendar; and a cancellation is a status, so it settles attendance whatever the disputed time was.
 
 ## Output contract
 
@@ -104,7 +107,7 @@ Reading is not neutral about what it discloses. The digest goes to the owner in 
 
 ## Failure conditions
 
-Fail closed — say what is missing, then give the briefing that is safe without it — when a source the owner required for complete coverage cannot be read and the answer depends on it (X1); when a claim cannot be given a source and an as-of (X3); when a date, an attendee, a time, or an item nobody supplied would have to be invented (X3); when two sources disagree and the disagreement cannot be represented without picking a side (X2); or when completing the request as asked would require a mutation (X4). The briefing is still produced around the gap in every one of these cases, with the gap named where the claim would have gone.
+Fail closed — say what is missing, then give the briefing that is safe without it — when a source the owner required for complete coverage cannot be read and the answer depends on it (X1); when a claim cannot be given a source and an as-of (X3); when a date, an attendee, a time, or an item nobody supplied would have to be invented (X3); when two sources of equal authority disagree and the disagreement cannot be represented without picking a side (X2); or when completing the request as asked would require a mutation (X4). The briefing is still produced around the gap in every one of these cases, with the gap named where the claim would have gone.
 
 ## Common mistakes
 
@@ -112,7 +115,8 @@ Fail closed — say what is missing, then give the briefing that is safe without
 |---|---|---|
 | Answering "no meetings today" when the calendar could not be reached | The owner reads it as coverage, plans around it, and misses the meeting; an unreachable source and an empty one are different answers (F4) | Mark the source unavailable with the reason, and say what it would have covered |
 | Taking a since-last-run pull literally | No read verb carries a position; the phrasing asks for a move this skill is not authorized to make (M8) | Substitute an explicit window, say that the substitution happened, and compile from it |
-| Resolving a conflict by picking the fresher source silently | The disagreement is the finding, and a briefing that hides it removes exactly the signal the owner needed | Render both sides with their sources and timestamps, and say what would settle it |
+| Resolving a conflict by picking the fresher source silently | Which sources disagreed is itself information the owner needs, and a briefing that hides it removes exactly that signal | Render both sides with their sources and timestamps, then name the current one and why |
+| Leaving a provider-backed fact as an open conflict the owner must settle | The disagreement is real but the current state is not in doubt: the system of record for that namespace holds it, and a cancelled event stays cancelled whichever time the stale copy shows | Show both sides, state the system of record's version as current, and label the copy stale (F2) |
 | Compiling from recall when a source is down | Memory produces confident, current-sounding, unverifiable claims — the worst possible failure in a document meant to be trusted (P2) | Leave the section unavailable with its reason, and keep the rest bounded |
 | Putting the freshness note in a footer | The reader has already acted on the claim by the time the footer is reached (F3) | Put the as-of on the claim's own line |
 | Ranking by salience and reporting the rank as a fact | A score is a way of ordering the page, not evidence that something happened (O2) | Order by it, cite the evidence under it, and say when that evidence is thin |
