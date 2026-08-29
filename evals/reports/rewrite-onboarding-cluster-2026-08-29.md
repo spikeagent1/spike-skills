@@ -15,10 +15,18 @@ Gate runs: `20260829T051957-1299909` (owner-context),
 
 | Skill | wc -w | desc chars | with (RED) | without (RED) | delta (RED) | disc. (RED) | broken (RED) |
 |---|---|---|---|---|---|---|---|
-| owner-context-onboarding | 942 → 2912 | 116 → 300 | **87.5%** (87.5%) | 47.5% (41.3%) | +40.0pp (+46.3) | 7 (8) | 2 (2) |
-| mcp-connector-onboarding | 1008 → 2890 | 120 → 293 | **77.5%** (77.5%) | 45.0% (27.5%) | +32.5pp (+50.0) | 6 (9) | 4 (4) |
-| runtime-handoff-onboarding | 911 → 3033 | 135 → 291 | **53.75%** (60.0%) | 35.0% (41.3%) | +18.8pp (+18.8) | 3 (3) | 8 (7) |
-| social-agent-onboarding | 1098 → 3266 | 141 → 295 | **88.75%** (88.75%) | 48.75% (55.0%) | +40.0pp (+33.8) | 7 (6) | 2 (2) |
+| owner-context-onboarding | 942 → 3194 | 133 → 294 | **87.5%** (87.5%) | 47.5% (41.3%) | +40.0pp (+46.3) | 7 (8) | 2 (2) |
+| mcp-connector-onboarding | 1008 → 2924 | 140 → 293 | **77.5%** (77.5%) | 45.0% (27.5%) | +32.5pp (+50.0) | 6 (9) | 4 (4) |
+| runtime-handoff-onboarding | 911 → 3253 | 148 → 291 | **53.75%** (60.0%) | 35.0% (41.3%) | +18.8pp (+18.8) | 3 (3) | 8 (7) |
+| social-agent-onboarding | 1098 → 3410 | 138 → 295 | **88.75%** (88.75%) | 48.75% (55.0%) | +40.0pp (+33.8) | 7 (6) | 2 (2) |
+
+All four land between 2900 and 3400 words, above the 2200 that amendment
+10 makes a density question rather than a failure — the same range batch
+2 landed in (2476–2980) and for the same reason: every optional section
+carries a domain delta and none carries shared boilerplate. The
+`wc -w` and description figures are measured on the final committed
+files; individual rewrite commit messages quote the counts as they stood
+when that commit landed, before its skill's fix rounds.
 
 Three of four hold their RED `with_skill` rate exactly; every delta that
 shrank did so because the **control rose**, not because the skill lost
