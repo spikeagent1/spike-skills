@@ -26,8 +26,8 @@ skills:
     status: approved
     cohort: audience-and-community
     workshop_proposal: audience-content-engine-20260823-302476b31e
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: social-agent-practice
     classification: owned
