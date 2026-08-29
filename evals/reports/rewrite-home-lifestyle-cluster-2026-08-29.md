@@ -346,14 +346,18 @@ catalog addition and two body lines follow; no eval case changed, and
 **the cohort routing table above is not re-run** — no description was
 edited in this round, so the ballot is unchanged and the table stands.
 
-## The `home` cluster
+## The `household` cluster
 
 `catalog/routing.yaml` gains:
 
 ```yaml
-  - name: home
+  - name: household
     skills: [household-maintenance, wardrobe-and-packing, purchase-research]
 ```
+
+(Declared as `home` in this batch and renamed to `household` in task 25
+item 22: the index's cluster column collided with the `home` skill, so a
+reader could not tell the launcher from the domain it sits beside.)
 
 These three were the first cohort members with no cluster entry, so
 `validate_cluster_routing` had nothing to enforce against them and their

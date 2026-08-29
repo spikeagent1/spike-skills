@@ -331,7 +331,7 @@
           },
           "contract_version": "2",
           "cluster": [
-            "home"
+            "household"
           ]
         },
         {
@@ -353,7 +353,7 @@
           },
           "contract_version": "2",
           "cluster": [
-            "home"
+            "household"
           ]
         },
         {
@@ -375,7 +375,7 @@
           },
           "contract_version": "2",
           "cluster": [
-            "home"
+            "household"
           ]
         }
       ],

@@ -16,7 +16,7 @@ clusters:
     skills: [skill-library-ops, team-skill-sharing-norm]
   - name: social
     skills: [social-agent-practice, social-listening-engagement-loop, audience-content-engine, community-management]
-  - name: home
+  - name: household
     skills: [household-maintenance, wardrobe-and-packing, purchase-research]
   - name: datastore-readers
     skills: [conversation-archive, owner-dream-cycle, briefing]
