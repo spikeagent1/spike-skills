@@ -50,7 +50,7 @@ Produces the bag and what goes on the body: an activity-to-outfit matrix, a coun
 1. Produce the list in this message: the matrix, the counts, and the rewear plan, built from what was supplied with every assumption labelled in place. A question about the bag allowance or the dress code rides alongside it, never in place of it, and "tell me the forecast and I'll build the list" is not building one (O2).
 2. Build the activity matrix before choosing any garment — every day against what it has to cover, including the travel days at both ends.
 3. Take only the named garments as owned inventory, and lay the answer out in [the packing list shape](#the-packing-list-shape). Anything an outfit needs beyond them is a gap: it appears wherever it is needed as `[gap: <role>]` — never as a named garment, never with a count — and is listed once under `Gaps` (X3). Before the list ships, read every cell and every count back against the owner's named garments and move whatever is not on that list (X3).
-4. Pick one small colour and layering system so each top works with each bottom, and say how many complete outfits the set actually yields.
+4. Pick one small colour and layering system so each top works with each bottom, and name the layering scheme role by role — base, mid, insulating, shell — with how the layers combine and shed across the weather range. The scheme is named whether or not any garment has been supplied; it is what the owner fills from their own wardrobe. Say how many complete outfits the named garments actually yield.
 5. Set counts against trip length, laundry access, the bag allowance, and the weather range, and show the rewear each count assumes.
 6. Add the contingency layer for the range's cold end and the spill or soaking that ends an outfit early, and say which item covers it.
 7. Close with the departure sweep — essentials, documents, medication, chargers, adapters, and what has to come home again — naming each as a reminder rather than checking, obtaining, or filling in any of them.
@@ -70,6 +70,8 @@ Verify           the claims that need a current source before the bag is closed,
 ```
 
 `Gaps` and `Packing` never merge, and the rule is checked after the table is written rather than only stated before it: read `Matrix`, `Wearing`, `Packing`, and `Contingency` back line by line against the owner's named garments, and move anything absent from that list into `Gaps`, leaving `[gap: role]` where it stood. A quantity beside an unowned item is the failure this rule exists to prevent — "tee or knit top x 2" is inventory the owner may not have, and a rewear plan built on it collapses at the destination.
+
+The owned-only rule marks **provenance**; it never withholds the plan. Where the request names no garments at all, every line is a `[gap: role]` and the plan is still written in full — the layering scheme named end to end, how the layers combine and shed across the stated range, the count each role needs, and what the contingency covers — so the owner fills named roles from their own wardrobe instead of reading a page of empty brackets. A turn whose `Wearing` and `Packing` groups say only that nothing can be assigned has delivered nothing (O2).
 
 ## Output contract
 
