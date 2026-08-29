@@ -60,7 +60,7 @@ effects:
     openWorldHint: false
     approval: preview_then_explicit
     resource_class: classified
-    derived_from: [skills/social-agent-practice/SKILL.md:47, skills/social-agent-practice/SKILL.md:64]
+    derived_from: [skills/social-agent-practice/SKILL.md:72, skills/social-agent-practice/SKILL.md:139]
     summary: Change a durable belief through the requested-writing workflow only.
   - name: identity:propose
     readOnlyHint: true
@@ -78,7 +78,7 @@ effects:
     openWorldHint: false
     approval: never_autonomous
     resource_class: classified
-    derived_from: [skills/owner-dream-cycle/SKILL.md:14, skills/social-agent-practice/SKILL.md:49]
+    derived_from: [skills/owner-dream-cycle/SKILL.md:14, skills/social-agent-practice/SKILL.md:141]
     summary: Apply an owner-confirmed change to identity files.
   - name: provider:read
     readOnlyHint: true
@@ -132,7 +132,7 @@ effects:
     openWorldHint: true
     approval: preview_then_explicit
     resource_class: network
-    derived_from: [skills/publish/SKILL.md:60, skills/social-agent-practice/SKILL.md:101]
+    derived_from: [skills/publish/SKILL.md:60, skills/social-agent-practice/SKILL.md:136]
     summary: Send a message to a third party, authorized per recipient and channel.
   - name: publish:external
     readOnlyHint: false
@@ -205,7 +205,7 @@ effects:
     openWorldHint: true
     approval: preview_then_explicit
     resource_class: fs
-    derived_from: [skills/social-agent-practice/SKILL.md:48, skills/team-skill-sharing-norm/SKILL.md:32]
+    derived_from: [skills/social-agent-practice/SKILL.md:77, skills/team-skill-sharing-norm/SKILL.md:32]
     summary: Install or adopt a skill; never on the authority of external content.
   - name: fs:write-local
     readOnlyHint: false
