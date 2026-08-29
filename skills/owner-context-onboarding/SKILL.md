@@ -29,7 +29,7 @@ Produces one owner-context matrix per turn: every topic the owner and the `agent
 ## When not to use
 
 - A service, an account, or an authorization has to be connected or proven working → use `mcp-connector-onboarding`
-- The situation is a restart, a redeploy, a migration, or a new maintainer, and the question is what survived it → use `runtime-handoff-onboarding`
+- The situation is a restart, a redeploy, a migration, or a new maintainer and the question is what survived across the whole runtime — tools, connectors, scheduled work, repositories, the objective that was in flight → use `runtime-handoff-onboarding`. A question about one durable preference, boundary, or authority rule stays here even when a restart is what prompted it, and a routing line never withholds this skill's own matrix from the turn it was asked in
 - The agent's own external identity — its own inbox, its public accounts, the disclosure that it is an agent → use `social-agent-onboarding`
 - Turning a closed span of the owner's past turns into curated durable records: that derivation is consolidation's alone under [contracts/datastore.md](../../contracts/datastore.md) write invariant 4, and this skill never takes it → use `owner-dream-cycle`
 - Making something the owner said here visible outside this conversation: a private disclosure is not publication authority, no audience is ever inferred from one, and this skill holds no effect that would reach an audience (M8, X4)
@@ -52,7 +52,7 @@ Produces one owner-context matrix per turn: every topic the owner and the `agent
 
 1. Render the matrix in this message before asking anything back, from whatever this turn actually holds. A message that states a preference, a boundary, or a correction has supplied that row's value, and the row reads `confirmed` with `claim_class: owner-stated` in the same turn — a stated preference is never queued back as a question the owner has already answered. Rows nothing supplied read `unknown`. **"Nothing yet" is never the answer to a message that states something**: an unreachable store empties the `read` cells, never the matrix (X3).
 2. Classify the turn as read or mutate before touching anything (M1). Interviewing, summarising back, and rendering the matrix are read-only and end at the matrix; writing a record continues through the preview.
-3. Read before asking. Search the `profile`, `people`, and `projects` namespaces for topics already covered, pauses, corrections, and questions left open — and a `search` hit is not yet evidence: it is a candidate that must be `read` before any claim rests on it, so no row is filled from a snippet, a title, or a rank ([contracts/datastore.md](../../contracts/datastore.md) verb table). A `timeline` read always carries its explicit range; "since we last spoke" is not one. Read the `identity files` too, and keep them apart from durable records on the matrix: an authority document is re-seeded by the deployment and a durable record is not, so a fix applied to the wrong one of the two does not survive.
+3. Read before asking, and report the read as an operation rather than as an outcome. Search the `profile`, `people`, and `projects` namespaces for topics already covered, pauses, corrections, and questions left open, and put the attempt on the record: the terms searched, the namespaces they went to, and what each returned — a hit, no results, or the exact reason it was unreachable, which are three different answers (F4). A `search` hit is not yet evidence: it is a candidate that must be `read` before any claim rests on it, so no row is filled from a snippet, a title, or a rank ([contracts/datastore.md](../../contracts/datastore.md) verb table). A `timeline` read always carries its explicit range; "since we last spoke" is not one. Read the `identity files` too, and keep them apart from durable records on the matrix: an authority document is re-seeded by the deployment and a durable record is not, so a fix applied to the wrong one of the two does not survive.
 4. A page whose compiled truth is older than its newest timeline entry is **stale**. That is the supersession signal, and a stale page is read as context and never as current truth (F2): an older preference is carried in as something this turn's statement is tested against, marked for review on its row, and never applied as though the owner had just said it. This governs how a record that **was** read is weighed; it never gates whether the matrix is built.
 5. Ask one question, and only the highest-value unresolved one. A question rides alongside the matrix, never in place of it. Topics already answered are not asked again, an owner who pauses, skips, defers, or declines loses no progress, and no life-story interview is forced where a smaller operational answer would close the row. Optional biography left open never blocks useful work.
 6. Sort what the owner said into the claim classes the record envelope names — `owner-stated`, `agent-inference`, `unresolved`, `public-fact`, `private-context`, `proposed-change` — and put the class on the row. An inference is never relabelled as something the owner stated ([contracts/datastore.md](../../contracts/datastore.md) write invariant 3), and the two are kept visibly apart in the matrix as well as in the record (O2).
@@ -66,6 +66,8 @@ Produces one owner-context matrix per turn: every topic the owner and the `agent
 One row per topic, rendered whether or not a store answered.
 
 ```
+searched    : <the terms> -> `profile` <hits|no results|unavailable — reason> · `people` <…> · `projects` <…>
+
 topic       : <the owner's own wording for it>
 state       : unknown | captured | confirmed | deferred | declined
 claim       : <the claim, in one line — the owner's phrasing preserved where the wording is the point>
@@ -75,7 +77,7 @@ read        : <namespace and record id read this turn> | <unavailable — the ex
 next        : <what would close this row>
 ```
 
-`state` is the topic's, not the run's. `captured` means the owner said it and it is not yet written; `confirmed` means it is written and read back. `read` is what makes a recall claim checkable: a row that asserts something is held names the record it came from, and a row that could not reach the store says so in the same cell rather than falling silent (F4). A claim with no record behind it and no read to name is not rendered at all (X3, P2).
+`searched` is rendered once, above the rows, and it is rendered whether the namespaces answered or not: a run that could reach nothing still says what it went looking for and where. `state` is the topic's, not the run's. `captured` means the owner said it and it is not yet written; `confirmed` means it is written and read back. `read` is what makes a recall claim checkable: a row that asserts something is held names the record it came from, and a row that could not reach the store says so in the same cell rather than falling silent (F4). A claim with no record behind it and no read to name is not rendered at all (X3, P2).
 
 ## Output contract
 
