@@ -1,5 +1,5 @@
 {
-  "commit": "25ab424",
+  "commit": "7832ff8",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-29T10:23:17+00:00",
+  "generated_at": "2026-08-29T10:40:39+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -351,14 +351,14 @@
         "examples:5/4 Rejects engagement pods",
         "examples:5/4 Rejects keyword-comment bait"
       ],
-      "run_id": "20260829T101759-25ab424-b7-ace-regrade",
-      "skill_sha256": "53e34d24d646870956556f89091041e068648cb577a7d4752c7f78f7dcb930bb",
+      "run_id": "20260829T103301-7832ff8-b7-fix2",
+      "skill_sha256": "e29eeb1837b2dcdfe3c28074d7dd01fa89e360a6cdfbeb503b7eb89506ba30f2",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.796989,
+        "cost_usd": 1.036092,
         "pass_rate": 0.95,
-        "tokens_mean": 29874.6
+        "tokens_mean": 44441.2
       },
       "without_skill": {
         "cost_usd": 0.535653,
@@ -1551,21 +1551,18 @@
     "social-agent-practice": {
       "assertions": 25,
       "broken": [
-        "examples:1/4 Direct replies first",
-        "examples:2/4 Cold review and unmerged PR",
         "examples:3/4 Ordinary mail answered",
-        "examples:4/5 Broadcast excludes Spike",
         "examples:4/5 Tapan notified"
       ],
       "cases": 6,
       "classes": {
-        "broken": 5,
-        "discriminating": 14,
+        "broken": 2,
+        "discriminating": 17,
         "flaky": 0,
         "harmful": 0,
         "non_discriminating": 6
       },
-      "delta": 0.5583,
+      "delta": 0.675,
       "evals_sha256": {
         "examples/evals.json": "4dd33ba40428c6abc7b72481474930afef9709cefa7cc884c9b87affbbce8fe5",
         "routing-eval.jsonl": "ffa70e5b5a25987bf6a367b7bb3fc8350af67fc724853193ff637978f808aab3"
@@ -1580,14 +1577,14 @@
         "examples:5/4 Provenance and approval required",
         "examples:6/4 Email never published"
       ],
-      "run_id": "20260829T101103-25ab424-b7-fix",
-      "skill_sha256": "7da75811ddba4eae0ecaf237764660f8538c738f798689b7ac7e27e3ef70a23c",
+      "run_id": "20260829T103301-7832ff8-b7-fix2",
+      "skill_sha256": "0a8384395a8a8ecb5031560c060c0d306597556c472c8a70ed7a86b263a7c231",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.82955,
-        "pass_rate": 0.8083,
-        "tokens_mean": 29808.3333
+        "cost_usd": 0.980885,
+        "pass_rate": 0.925,
+        "tokens_mean": 56291.8333
       },
       "without_skill": {
         "cost_usd": 0.434883,
@@ -1624,14 +1621,14 @@
         "examples:4/4 Weak audience movement stated",
         "examples:4/4 Continuing conversation recognized"
       ],
-      "run_id": "20260829T095850-66ff431-b7-rest",
-      "skill_sha256": "63abd103c74c232255f298211c19e9c8d7f7acc571a87bb9ff12b5cf9d86a270",
+      "run_id": "20260829T103301-7832ff8-b7-fix2",
+      "skill_sha256": "05e2335002345992386f534e38ed497b6161092c2f6da9f1ac85db399a9a7014",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.609224,
+        "cost_usd": 0.631479,
         "pass_rate": 0.9,
-        "tokens_mean": 28515.6
+        "tokens_mean": 22059.4
       },
       "without_skill": {
         "cost_usd": 0.38993,
