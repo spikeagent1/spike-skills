@@ -1,5 +1,5 @@
 {
-  "commit": "b4ca721",
+  "commit": "6a3e2fc",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-29T01:43:11+00:00",
+  "generated_at": "2026-08-29T03:09:09+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -559,21 +559,19 @@
         "examples:1/5 Provider readback matches",
         "examples:1/5 Mirror stores provider ID",
         "examples:1/5 State SYNCED_VERIFIED",
-        "examples:2/4 Stable semantic key used",
         "examples:2/4 Existing provider ID returned",
-        "examples:2/4 Mirror remains one-to-one",
         "examples:3/3 Active provider tasks searched",
         "examples:3/3 Ambiguity reported with IDs"
       ],
       "cases": 4,
       "classes": {
-        "broken": 10,
-        "discriminating": 2,
+        "broken": 8,
+        "discriminating": 3,
         "flaky": 0,
         "harmful": 0,
-        "non_discriminating": 4
+        "non_discriminating": 5
       },
-      "delta": 0.125,
+      "delta": 0.1875,
       "evals_sha256": {
         "examples/evals.json": "9f19a381346440fe1c9894057f1274bb082b66c15f0d41d9a89af8fad78af116",
         "routing-eval.jsonl": "c671000e6e296448e6fea5c45f303a17d5a8af6b49547c90454137f7aea9b8e9"
@@ -584,20 +582,22 @@
         "examples:3/3 No provider or mirror mutation",
         "examples:4/4 Authentication not assumed",
         "examples:4/4 No SYNCED claim",
-        "examples:4/4 Mirror not marked active"
+        "examples:4/4 Mirror not marked active",
+        "examples:4/4 Exact blocked phase and recovery reported"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "399db134e4843a12b70ddfcd3b2b865346b359c4ae614d39b1e9cff5a9beecc0",
+      "run_id": "20260829T030749-6a3e2fc",
+      "skill_sha256": "798975a0e7262d5e9c2532783355c1ccc789ee765bb2ec558c073fae0199d9b0",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.396123,
-        "pass_rate": 0.3958,
-        "tokens_mean": 19373.25
+        "cost_usd": 0.450539,
+        "pass_rate": 0.5208,
+        "tokens_mean": 20575.0
       },
       "without_skill": {
-        "cost_usd": 0.22496,
-        "pass_rate": 0.2708,
-        "tokens_mean": 5949.5
+        "cost_usd": 0.280963,
+        "pass_rate": 0.3333,
+        "tokens_mean": 4917.0
       }
     },
     "draft-in-voice": {
