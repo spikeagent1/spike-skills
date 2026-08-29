@@ -2,38 +2,80 @@
 
 Keep each change attributable, testable, and safe to share.
 
-- Do not commit credentials, private messages, visitor identity, memories, production checkpoints, or raw session transcripts.
+- Do not commit credentials, private messages, visitor identity, memories,
+  production checkpoints, or raw session transcripts.
 - Use synthetic fixtures that preserve the structure of a real failure.
 - Record upstream URL, commit, license, and local modifications for imported work.
 - Do not edit vendored imports in place.
 - Put reusable skill changes through Skill Workshop. Pending proposals are not releases.
-- Include representative success cases, an edge case, near-miss triggers, and authorization cases for mutating skills.
-- Reject improvements that only polish prose without improving held-out behavior or eliminating a documented defect.
+- Include representative success cases, an edge case, near-miss triggers, and
+  authorization cases for mutating skills.
+- Reject improvements that only polish prose without improving held-out behaviour
+  or eliminating a documented defect.
 
-## Candidate package checklist
+## Editing a skill
 
-A candidate skill must:
+[contracts/SKILL.template.md](contracts/SKILL.template.md) is the shape and
+[contracts/skill-contract.md](contracts/skill-contract.md) is the rule set. A
+skill must:
 
-1. Keep its purpose and trigger narrow enough that an agent can route reliably.
-2. Separate required user inputs from assumptions and ask only when safety or
-   feasibility depends on the answer.
-3. Declare source freshness rules for claims that can change.
-4. Preview connector or file mutations and require explicit authorization.
-5. State domain-specific stop and escalation conditions.
-6. Define a concrete output contract and explicit failure conditions.
-7. Include unique positive eval IDs, at least two non-empty assertions per case,
-   and meaningful `expected_output` text when that optional field is used.
-8. Cover a representative success, edge case, factual-uncertainty case, and
-   authorization case for every available mutation path.
+1. Carry the thirteen canonical H2 sections in their fixed order — eight
+   mandatory, five optional — with each optional section holding domain deltas
+   only. A section that restates a contract rule instead of citing its ID is the
+   duplication the contract exists to remove.
+2. Open with a `description` that is third person, at most 300 characters, starts
+   with "Use when", names concrete phrasings, names no principal and no runtime,
+   and carries one negative clause naming a sibling skill.
+3. Declare in `metadata.spike-os` its semantic version, the runtimes it claims,
+   the namespaces it reads and writes, and the effects it performs. A non-empty
+   `reads_from` needs `datastore:read`; a non-empty `writes_to` needs
+   `datastore:write`; any mutating effect needs `effects` in `writes_to`, and
+   `notify:owner` needs `notifications`.
+4. Name every runtime fact with a term from
+   [adapters/vocabulary.yaml](adapters/vocabulary.yaml), never a product name, a
+   path, or a proper noun a single runtime supplies.
+5. Carry a produce-anyway clause as a numbered `Workflow` step and again at the
+   top of `Output contract`: the deliverable is produced in this turn from what
+   the request already carries. A marked slot stands in for a missing fact, never
+   for the substance of a draft, a reply, or an argument (X6).
+6. Name every cluster sibling from `catalog/routing.yaml` in `When not to use`,
+   each with the observable condition that sends work there.
+7. Link every supporting file from `SKILL.md`, one level deep, and declare any
+   repository file it reads on the `Dependencies:` line — that line is what the
+   installer bundles and what the eval executor grants.
+8. Keep unique positive eval IDs, at least two non-empty assertions per case, at
+   least two `routing-eval.jsonl` lines expecting the skill itself and one
+   expecting no skill.
 
-Run `make validate` before opening or updating a pull request. If `make` is
-unavailable, run the three commands documented in the root `README.md`.
+After editing a skill body, re-run `python3 tools/check_citations.py --show` and
+confirm every anchor into that file still lands on the sentence the citing rule
+is about. Line numbers move; the citation does not follow.
 
-Run `make eval-skill SKILL=<name>` before opening a PR that edits a skill; a
-per-skill pass-rate drop vs `evals/baseline.json` blocks the PR.
+## Before opening a pull request
 
-`make eval-skill` exits 3 when any grading in the run is ungraded
-(`grader_error`, `no_response`) — a transient grader error is never cached, so
-it costs nothing to retry. Re-grade with
+```sh
+make validate                     # tests, validator, citation check
+make eval-skill SKILL=<name>      # for every skill the change touches
+```
+
+A per-skill pass-rate drop against `evals/baseline.json`, or any assertion that
+regresses, blocks the PR. Fix the skill, never the eval: a fixture change is a
+separate proposal, and the standing ones live in
+`evals/reports/assertion-pruning-2026-08-29.md`.
+
+`make eval-skill` exits **3** when any grading in the run is ungraded
+(`grader_error`, `no_response`) — a transient grader error is never cached, so it
+costs nothing to retry. Re-grade with
 `python3 tools/run_evals.py grade --run <run-id>` (only the ungraded cases are
 re-graded) and re-invoke `make eval-skill`.
+
+When a `description` changes, re-run routing for the skill and every sibling in
+its `catalog/routing.yaml` cluster: the description is the ballot the router
+votes on, and changing one line moves every file's numbers.
+
+Re-baseline from a clean tree once the gates pass:
+
+```sh
+python3 tools/run_evals.py baseline update --from <run-id> --skill <name> --require-clean
+python3 tools/run_evals.py baseline check
+```

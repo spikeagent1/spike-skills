@@ -1,69 +1,150 @@
 # spike-skills
 
-Shareable, evaluation-backed skills maintained by Spike and Tapan.
+A personal operating system, as a library of installable skills. The portable
+core — skills, contracts, catalog, tooling — lives here; a runtime is an adapter
+over that core, not a fork of it. [ARCHITECTURE.md](ARCHITECTURE.md) is the
+design; this file is how to work in the repository.
 
-This repository is the source of truth for skills we own or explicitly adapt. Runtime-installed skills, private state, credentials, memories, and raw conversation transcripts do not belong here.
+Runtime-installed skills, private state, credentials, memories, and raw
+conversation transcripts do not belong here.
 
-## Current work
-
-Audience/community, safety/state-mutation, owner-operations, research/writing, portfolio-governance, and onboarding cohorts have evaluated releases and now carry a consistent public operator contract for routing, inputs, workflow, freshness, privacy/mutation boundaries, outputs, and failures. See `evals/reports/public-skills-followup-2026-08-24.md` for the follow-up scorecard and verification evidence. Health and home/lifestyle packages are approved, applied through Skill Workshop, and released with the same operator-contract and evaluation gates. Wealth, travel/mobility, routing-overlap, and long-tail cleanup are next. A related-work survey grounding the personal-OS direction is in [docs/related-work.md](docs/related-work.md).
-
-Candidate skills enter through Skill Workshop proposals. Candidate packages may appear in `skills/` on `main` for inspection before approval only when the repository contract marks them `pending-review`, keeps them in domain `next` lists instead of `released` lists, records the real proposal ID, and passes validation. Presence in this repository does not approve, apply, install, or release a Skill Workshop proposal. Released skills carry synthetic evaluation cases, provenance, compatibility notes, and a benchmark summary.
-
-Start with the [onboarding collection](ONBOARDING.md) when setting up a new owner relationship, connector, runtime handoff, or social-agent identity.
-
-## Layout
+## Where things are
 
 ```text
-catalog/             Cohorts and skill inventory
+skills/              31 skill packages, each centred on SKILL.md
+contracts/           The rules every skill follows, and the stores they name
+adapters/            One directory per runtime: the vocabulary bindings and the rendered ADAPTER.md
+catalog/             The inventory, the domains, the cohorts, the routing clusters, the generated index
+evals/baseline.json  The committed behavioural + routing baseline
+evals/reports/       Shareable benchmark summaries and the fixture-debt registers
+evals/workspaces/    Local generated runs; gitignored
+docs/                The related-work survey the design is grounded in
 imports/             Pinned upstream material, unchanged
-skills/              Approved owned/adapted skill packages
-evals/baseline.json  Committed behavioral + routing baseline; regenerate with `make eval-baseline`
-evals/reports/       Shareable benchmark summaries
-evals/workspaces/    Local generated runs; ignored
 schemas/             Validation schemas
-tools/               Deterministic audit helpers
+tools/               The validator, the eval runner, the installer, the index builder
 ```
 
-## Review a candidate
+## The contract every skill follows
 
-Each package uses `SKILL.md` as its package-level user and reviewer documentation. Approved public packages must define when to use the skill, when not to use it, required and optional inputs, workflow, source freshness, privacy and mutation boundaries, safety boundaries, output contract, dependencies, provenance, and failure conditions. Pending candidates use the same core contract while preserving their `pending-review` governance state. The adjacent `examples/evals.json` must exercise normal behavior, edge cases, factual uncertainty, privacy, and authorization before mutations.
+[contracts/skill-contract.md](contracts/skill-contract.md) holds the rule IDs —
+dependencies, mutation boundary, privacy, safety, freshness, output, failure,
+provenance, and the runtime vocabulary. A skill cites a rule by ID rather than
+restating it, and restates one only to add a domain-specific delta.
 
-Run the local gate from the repository root:
+[contracts/SKILL.template.md](contracts/SKILL.template.md) is the canonical
+shape: **thirteen H2 sections in a fixed order**, of which eight are mandatory —
+`Overview`, `When to use`, `When not to use`, `Inputs`, `Workflow`,
+`Output contract`, `Failure conditions`, `Contract` — and five optional:
+`Worked example`, `Sources and freshness`, `Privacy and mutations`,
+`Safety boundaries`, `Common mistakes`. An optional section carries domain
+deltas only; the generic rules live in the contract. `tools/validate_repo.py`
+enforces the set, the order, and the body quality of every one of them.
+
+Frontmatter is the six agentskills.io keys plus `metadata.spike-os`, which
+declares the semantic version, the runtimes the skill claims, the datastore
+namespaces it reads and writes, and the effects it performs. The closed effect
+enum is [contracts/capabilities.yaml](contracts/capabilities.yaml); the
+namespaces are [contracts/datastore.md](contracts/datastore.md); the neutral
+runtime terms are [adapters/vocabulary.yaml](adapters/vocabulary.yaml).
+
+`catalog/approved.yaml` carries each package's `contract_version`. Version 2 is
+the only shape the validator knows; the field stays so a future bump has
+somewhere to declare itself.
+
+## The gate
 
 ```sh
-python3 -m py_compile tools/validate_repo.py tests/test_validate_repo.py
-python3 -m unittest discover -s tests
-python3 tools/validate_repo.py
+make validate     # the unit tests, the repository validator, the citation check
 ```
 
-`make validate` runs the same commands when `make` is installed. Candidate
-review does not apply, install, or release a Skill Workshop proposal.
+`make validate` runs `make test` (a compile pass over every tool and test, then
+`python3 -m unittest discover -s tests`), then `tools/validate_repo.py`, then
+`tools/check_citations.py`. Run it before opening or updating a pull request.
+Without `make`, run those three commands directly.
 
-### Evaluation
+`tools/validate_repo.py` composes the rule modules under `tools/validators/`:
+frontmatter, structure, catalog, contracts, and evals. It checks the canonical
+sections, the description rules and the launcher listing budget, catalog and
+source parity, provenance artifacts, the declared namespaces and effects against
+the contracts, the runtime binding for every adapter a skill claims, the eval
+fixtures against `schemas/skill-evals.schema.json`, and the committed baseline
+against the tree.
 
-Behavioral and routing evals run the real Claude Code CLI in an isolated
+`tools/check_citations.py` verifies that every `skills/<name>/SKILL.md:<line>`
+anchor in `contracts/`, `adapters/`, and `docs/` still resolves to a body
+statement; `--show` prints each anchor beside the line it lands on, which is the
+audit to do after editing a skill.
+
+## Installing a skill into a runtime
+
+```sh
+python3 tools/install_skill.py --runtime claude-code <name>     # or --all
+python3 tools/install_skill.py --runtime claude-code --check    # declared vs actual
+make stage-openclaw                                             # stage every eligible skill into dist/
+```
+
+The installer renders the portable `SKILL.md` for one runtime: it emits that
+adapter's frontmatter keys, appends the `## Runtime binding` trailer, copies the
+supporting directories and the repository files the skill declares as inputs,
+and writes a `.spike-os.json` stamp — which is what makes a directory ours to
+overwrite and `--check` possible at all. It refuses a skill whose declared
+runtimes exclude the target, a destination holding somebody else's skill, and a
+skill depending on a term the adapter cannot honestly confirm. `--dry-run`
+prints what a run would write and writes nothing.
+
+## Evaluation
+
+Behavioural and routing evals run the real Claude Code CLI in an isolated
 project, so they cost money and are never run in CI.
 
 | Command | What it does |
 | --- | --- |
 | `make eval-doctor` | Probes auth and isolation and writes `evals/workspaces/doctor.json`. Required before any run; every other eval command refuses without it. |
-| `make eval-skill SKILL=<name>` | Runs one skill's cases with and without its `SKILL.md` and compares the result against `evals/baseline.json`. |
-| `make eval-baseline` | Re-records the full baseline: all behavioral cases, then routing in native mode. |
+| `make eval-skill SKILL=<name>` | Runs one skill's cases with and without its `SKILL.md` and compares against `evals/baseline.json`. |
+| `make eval-routing` | Measures which skill the router picks for each `routing-eval.jsonl` intent. |
+| `make eval-report RUN=<id>` | Re-renders one run's report. |
+| `make eval-baseline` | Re-records the full baseline: all behavioural cases, then routing in native mode. |
 
 Each case is answered twice — once with the skill loaded, once without — and a
 second, blind model grades both. An assertion both configs satisfy is
-`non_discriminating`: it measures the model, not the skill.
+`non_discriminating`: it measures the model, not the skill. An assertion the
+skill-loaded arm fails is `broken`; the standing proposals for those are in
+`evals/reports/assertion-pruning-2026-08-29.md`.
 
-## Release gate
+`make eval-skill` exits **3** when any grading in the run is ungraded
+(`grader_error`, `no_response`). A transient grader error is never cached, so a
+retry costs nothing: re-grade with `python3 tools/run_evals.py grade --run
+<run-id>` — only the ungraded cases are re-graded — then re-invoke
+`make eval-skill`.
 
-1. Define the trigger and expected output.
+`python3 tools/run_evals.py baseline update --from <run> [--skill a,b]` merges a
+run into the baseline, per skill; `--routing-from <run>` merges a routing run
+per file, leaving files the run did not cover alone.
+
+## Review a candidate
+
+Candidate skills enter through Skill Workshop proposals. A candidate may appear
+in `skills/` on `main` for inspection before approval only when it is marked
+`pending-review`, sits in a domain `next` list rather than `released`, records a
+real proposal ID, and passes validation. Presence here does not approve, apply,
+install, or release a proposal.
+
+The release gate:
+
+1. Define the trigger and the expected output.
 2. Extract sanitized regression cases from observed failures.
-3. Compare the candidate with the previous released version or a no-skill baseline.
+3. Compare the candidate against the previous released version or the no-skill arm.
 4. Review outputs, objective checks, latency, and token use.
 5. Verify dependencies, provenance, license, privacy, and mutation scope.
 6. Apply the Skill Workshop proposal only after explicit approval.
-7. Run `make validate` to compile validation code, run validator tests, and check manifests, eval schema structure, catalogs, dependencies, provenance, ignored local state, and obvious secrets. When `make` is unavailable, run the three commands in the Makefile directly.
+7. Run `make validate`, and `make eval-skill SKILL=<name>` for every skill touched.
 8. Commit one coherent skill change and publish through a pull request.
 
-The public remote is `spikeagent1/spike-skills`. Public releases exclude credentials, private memory, raw conversations, and internal operational weakness reports.
+Start with the [onboarding collection](ONBOARDING.md) when setting up a new owner
+relationship, connector, runtime handoff, or social-agent identity. The
+related-work survey grounding the design is in
+[docs/related-work.md](docs/related-work.md).
+
+The public remote is `spikeagent1/spike-skills`. Public releases exclude
+credentials, private memory, raw conversations, and internal operational
+weakness reports.

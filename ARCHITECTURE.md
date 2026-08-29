@@ -66,9 +66,11 @@ adapter policy, not a security boundary; the runtime's own permissions are that.
 ## Dispatcher
 
 `skills/home/` is the entry point: it reads `catalog/index.md`, routes to
-exactly one skill, and never performs the task itself. The index is generated
-from frontmatter, so it cannot drift from the library. `briefing` is the today
-view, not the router.
+exactly one skill, and never performs the task itself. Invoked with no request at
+all, it prints the domain index instead — the eight sections and the skills under
+them — because the owner opening the library is asking what is in it. The index
+is generated from frontmatter, so it cannot drift from the library. `briefing` is
+the today view, not the router.
 
 ## Notifications
 
@@ -105,4 +107,8 @@ The following are deliberately outside the current product:
 - a "today" block inside `home`.
 
 These concerns may be reconsidered only when a real use case cannot be solved
-cleanly without them.
+cleanly without them. Re-checked at the end of phase 5: every item above is still
+outside the product, and nothing built in the eight rewrite batches, the
+installer, or the OpenClaw staging crossed one of these lines. `home`'s bare
+invocation prints the index rather than compiling a day, so the "today block"
+exclusion holds.

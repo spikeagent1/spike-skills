@@ -16,8 +16,18 @@ be shared — lives in
 [contracts/skill-contract.md](contracts/skill-contract.md) and
 [contracts/datastore.md](contracts/datastore.md).
 
-**Install.** Copy `skills/<name>/` into the directory your runtime loads
-skills from, then reload it. A stamped installer,
-`tools/install_skill.py --runtime <claude-code|openclaw> <skill>`, lands
-with the runtime-adapter work and will replace the copy step; it does not
-exist yet.
+**Install.**
+
+```sh
+python3 tools/install_skill.py --runtime claude-code owner-context-onboarding
+python3 tools/install_skill.py --runtime claude-code --check
+```
+
+The installer renders the portable `SKILL.md` for the runtime you name,
+writes the adapter file the skill's backticked vocabulary terms resolve
+against, and stamps the installed directory so `--check` can report drift
+later. `--dry-run` prints what it would write. It refuses a skill whose
+`metadata.spike-os.runtime` excludes the target, a destination directory
+it did not install, and a skill that depends on a term the adapter cannot
+honestly confirm — which is the case for the two task-provider skills on
+OpenClaw today.

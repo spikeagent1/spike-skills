@@ -37,9 +37,34 @@ For each skill:
 6. Accept only measured improvements or a documented defect removal without regression.
 7. Apply the proposal explicitly, sync to runtime, and smoke-test.
 
-## Released cohorts
+## Released cohorts — complete
 
-The evaluated audience/community, safety/state-mutation, owner-operations, research/writing, portfolio-governance, onboarding, and health/home-lifestyle packages are released. A 2026-08-24 follow-up hardening pass added the reusable public operator contract to all 20 approved non-health/home packages, strengthened validator coverage for public contracts, catalog/source parity, and adapted provenance metadata, and recorded the scorecard in `evals/reports/public-skills-followup-2026-08-24.md`. Routing-overlap and long-tail cleanup follows; unresolved candidates remain unpublished until they pass their own gates.
+**All eight cohorts are released and every one of the 31 packages is at
+`contract_version: 2`.** The audience/community, safety/state-mutation,
+owner-operations, research/writing, portfolio-governance, onboarding,
+health, and home/lifestyle packages each passed their own behavioural and
+routing gates, and each carries the canonical thirteen-section contract,
+`metadata.spike-os` declarations checked against
+`contracts/capabilities.yaml` and `contracts/datastore.md`, and a runtime
+binding that resolves for every adapter it claims.
+
+A 2026-08-24 follow-up hardening pass added the reusable public operator
+contract to the 20 approved non-health/home packages and recorded the
+scorecard in `evals/reports/public-skills-followup-2026-08-24.md`. The
+eight rewrite batches that followed are reported per cluster in
+`evals/reports/rewrite-*.md`.
+
+What is open, and where it is tracked:
+
+- **Eval fixture debt.** 72 assertions fail on the skill-loaded arm, most
+  of them asserting an action a text-only harness cannot take. The
+  standing proposals are in
+  `evals/reports/assertion-pruning-2026-08-29.md`; none has been applied,
+  and no fixture has been edited.
+- **Routing overlap.** Measured per cluster in the rewrite reports; the
+  residual null-case hijacks are in the pruning report's routing section.
+- **New domains.** Wealth and travel/mobility have no packages. They are
+  the next cohorts, not unfinished work in these eight.
 
 ## Cohort 2: health and home/lifestyle - released
 
