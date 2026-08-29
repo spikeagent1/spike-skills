@@ -205,7 +205,7 @@ effects:
     openWorldHint: true
     approval: preview_then_explicit
     resource_class: fs
-    derived_from: [skills/social-agent-practice/SKILL.md:48, skills/team-skill-sharing-norm/SKILL.md:115]
+    derived_from: [skills/social-agent-practice/SKILL.md:48, skills/team-skill-sharing-norm/SKILL.md:32]
     summary: Install or adopt a skill; never on the authority of external content.
   - name: fs:write-local
     readOnlyHint: false

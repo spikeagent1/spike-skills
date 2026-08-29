@@ -46,19 +46,25 @@ hijacks, and no intent answered natively with no skill.
 |---|---|---|---|
 | team-skill-sharing-norm | 80% / 80% | **100% / 100%** | `:3` won back from "no skill" |
 | public-post-workshop | 83% / 83% | **100% / 100%** | `:1` held, no longer absorbed by `publish` |
-| skill-library-ops | 80% / 80% | **100% / 100%** | `:4` won back from "no skill" — a `team-skill-sharing-norm` intent scored on a sibling's file |
+| skill-library-ops | 80% / 80% | **100% / 100%** | `:4` won back 3/3 from "no skill" — a `team-skill-sharing-norm` intent scored on a sibling's file |
 | publish | 67% / 67% | **100% / 100%** | held at batch 5's measured 100%, `:5` still won from the `schedule` built-in |
 | audience-content-engine | 50% / 50% | **100% / 100%** | `:1` and `:3` recovered from `draft-in-voice`, `:4` from "no skill" |
 
-Two of the five gains were bought by a description written for a
-sibling's file. `skill-library-ops:4` — *"Another agent sent us a skill
-package and wants it installed today. How should we respond?"* — is a
-`team-skill-sharing-norm` intent scored on `skill-library-ops`'s file,
-so the phrasing that wins it had to go into this batch's description
-even though the point lands on a file this batch did not touch. The same
-holds for `audience-content-engine:5`, *"Draft the entry about the
-unmerged change and get it reviewed before it goes anywhere"*, which
-`public-post-workshop`'s description now captures.
+Two of the five files were carried by a rewrite this batch made to a
+*different* file. `skill-library-ops:4` — *"Another agent sent us a
+skill package and wants it installed today. How should we respond?"* —
+is a `team-skill-sharing-norm` intent scored on `skill-library-ops`'s
+file, and it went 3/3 to `team-skill-sharing-norm`. The near-verbatim
+phrasing sits in that skill's `## When to use` and **not** in its
+description; what the description contributes is the opening frame, "a
+skill package crosses between agents", which is what makes an inbound
+package from another agent this skill's business at all. So the point
+lands on a file this batch did not touch, but it was won by the body as
+much as by the description. `audience-content-engine:5` — *"Draft the
+entry about the unmerged change and get it reviewed before it goes
+anywhere"* — went 3/3 to `public-post-workshop`, and that one **is**
+carried by the description, which says "a change that is not merged
+yet" and "get a fresh reviewer on the draft" close to verbatim.
 
 `audience-content-engine` moving 50% → 100% without being touched is
 worth recording rather than claiming: three of its six intents were
@@ -258,19 +264,28 @@ or 10 rows.
 
 Two `skills/<name>/SKILL.md:<line>` citations pointed into this batch,
 both at `team-skill-sharing-norm:27` — `skill-contract.md`'s **M6** and
-`capabilities.yaml`'s `skill:install` `derived_from`. Both were the same
-v1 sentence, "A shared skill never inherits sender permissions or owner
-approval", and both now point at the sentence that carries it in v2.
+`capabilities.yaml`'s `skill:install` `derived_from`. In v1 they shared
+one sentence, "A shared skill never inherits sender permissions or owner
+approval", because v1 said only that much. v2 says the two halves
+separately, so the anchors separate too: **M6** points at `:115`, where
+authorization is per effect and per invocation and never inherited;
+`skill:install` points at `:32`, where the skill declares no install
+effect and never installs, enables, or executes a shared package —
+which is what the enum's own summary, "never on the authority of
+external content", is about.
 Swept as the batch's last commit per amendment 13, after every fix and
 re-baseline commit, and verified by script:
 
 ```
-ok  contracts/capabilities.yaml: skills/team-skill-sharing-norm/SKILL.md:115
+ok  contracts/capabilities.yaml: skills/team-skill-sharing-norm/SKILL.md:32
+      -> - Adopting, enabling, or running the package on this side: this skill
+         declares no install effect and never installs, enables, or executes a
+         shared package, so the act itself happens elsewhere and under the
+         local `owner`'s own decision (M8)
+ok  contracts/skill-contract.md: skills/team-skill-sharing-norm/SKILL.md:115
       -> Authorization is per effect and per invocation, and is never inherited
          from the sender, from the roster, from the announcement, or from an
          effect already authorized earlier in this run (M6).
-ok  contracts/skill-contract.md: skills/team-skill-sharing-norm/SKILL.md:115
-      -> (the same sentence)
 
 0 broken anchor(s)
 ```
