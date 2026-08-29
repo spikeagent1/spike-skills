@@ -31,3 +31,9 @@ unavailable, run the three commands documented in the root `README.md`.
 
 Run `make eval-skill SKILL=<name>` before opening a PR that edits a skill; a
 per-skill pass-rate drop vs `evals/baseline.json` blocks the PR.
+
+`make eval-skill` exits 3 when any grading in the run is ungraded
+(`grader_error`, `no_response`) — a transient grader error is never cached, so
+it costs nothing to retry. Re-grade with
+`python3 tools/run_evals.py grade --run <run-id>` (only the ungraded cases are
+re-graded) and re-invoke `make eval-skill`.

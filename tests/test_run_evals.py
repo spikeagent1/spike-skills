@@ -2385,6 +2385,11 @@ class AggregateRunTest(unittest.TestCase):
         self.assertEqual(self.skill["ungraded"], 1)
         self.assertEqual(self.skill["executor_issues"], {"timeout": 1})
 
+    def test_ungraded_keys_names_the_case_that_went_ungraded(self) -> None:
+        # eval-4 is the only case with a non-ok grading in this fixture; its
+        # key is what `compare()` later matches a label's case ref against.
+        self.assertEqual(self.skill["ungraded_keys"], ["briefing:examples:4"])
+
     def test_structurally_unsatisfiable_pulls_the_grader_suggestion_for_the_broken_assertion(self) -> None:
         entries = self.results["structurally_unsatisfiable"]
         self.assertEqual(len(entries), 1)
@@ -2407,6 +2412,34 @@ class AggregateRunTest(unittest.TestCase):
         # 4 with_skill executor calls (eval-3 has two repeats) + 4 grader calls.
         self.assertGreater(self.skill["configs"]["with_skill"]["cost_usd_total"], 0.0)
         self.assertGreater(self.skill["configs"]["without_skill"]["cost_usd_total"], 0.0)
+
+
+class MissingGradingUngradedKeysTest(unittest.TestCase):
+    """A `grading.json` missing entirely (harness crashed before grading) is not
+    counted in `ungraded` (unchanged from before this fix round), but its case
+    still lands in `ungraded_keys` — `compare()` must not treat its vanished
+    labels as a fix any more than it does for a `grader_error` grading.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.run_root = Path(self.tmp.name) / "runs" / "r1"
+        _write_json(self.run_root / "run.json", {"run_id": "r1", "repeats": 1})
+        eval1 = self.run_root / "briefing" / "eval-1"
+        _write_eval_metadata(eval1, eval_id=1, key="briefing:examples:1", assertions=["A1"])
+        _write_timing(eval1 / "with_skill" / "run-1")  # grading.json deliberately absent
+        _write_timing(eval1 / "without_skill" / "run-1")
+        _write_grading(eval1 / "without_skill" / "run-1", ["A1"], [True])
+        self.skill = analysis.aggregate_run(self.run_root)["skills"]["briefing"]
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_ungraded_count_is_unchanged(self) -> None:
+        self.assertEqual(self.skill["ungraded"], 0)
+
+    def test_ungraded_keys_still_names_the_case(self) -> None:
+        self.assertEqual(self.skill["ungraded_keys"], ["briefing:examples:1"])
 
 
 class AllUngradedConfigTest(unittest.TestCase):
@@ -2622,6 +2655,69 @@ class CompareTest(unittest.TestCase):
         self.assertEqual(result["no_signal"], [])
         self.assertFalse(result["skills"][0]["no_signal"])
         self.assertEqual(result["regressions"], 1)
+
+    # --- Fix round 1: per-case suppression, not whole-skill (reviewer's repro) ---
+
+    def test_an_unrelated_ungraded_case_does_not_suppress_a_genuine_flip(self) -> None:
+        # Reviewer's reproduction: a genuine broken flip in case 5, plus an
+        # unrelated case (3) that went ungraded on the `b` side. Only case 3's
+        # own label may be suppressed; case 5's flip must still count.
+        a = {"skills": {"briefing": self._skill(with_rate=0.9, assertions=10, broken=["examples:3/1 X"])}}
+        b = dict(
+            self._skill(with_rate=0.9, assertions=10, broken=["examples:5/1 Y"]),
+            ungraded=1,
+            ungraded_keys=["briefing:examples:3"],
+        )
+        result = analysis.compare(a, {"skills": {"briefing": b}})
+        self.assertEqual(
+            result["flips"], [{"skill": "briefing", "assertion": "examples:5/1 Y", "direction": "regression"}]
+        )
+        self.assertEqual(result["no_signal"], [{"skill": "briefing", "assertion": "examples:3/1 X"}])
+        self.assertEqual(result["regressions"], 1)
+        self.assertEqual(result["gains"], 0)
+
+    def test_the_ungraded_cases_own_gain_is_still_suppressed_with_known_keys(self) -> None:
+        a = {"skills": {"briefing": self._skill(with_rate=0.9, assertions=10, broken=["examples:3/1 X"])}}
+        b = dict(
+            self._skill(with_rate=0.9, assertions=10),
+            ungraded=1,
+            ungraded_keys=["briefing:examples:3"],
+        )
+        result = analysis.compare(a, {"skills": {"briefing": b}})
+        self.assertEqual(result["flips"], [])
+        self.assertEqual(result["gains"], 0)
+        self.assertEqual(result["no_signal"], [{"skill": "briefing", "assertion": "examples:3/1 X"}])
+
+    def test_missing_ungraded_keys_falls_back_to_whole_skill_suppression(self) -> None:
+        # A pre-fix results.json/baseline entry recorded only the count, not
+        # which case it belongs to. Guessing would risk exactly the false
+        # gain this whole mechanism exists to prevent, so both labels — the
+        # genuinely unrelated one included — fall back to `no_signal`.
+        a = {"skills": {"briefing": self._skill(with_rate=0.9, assertions=10, broken=["examples:3/1 X"])}}
+        b = dict(self._skill(with_rate=0.9, assertions=10, broken=["examples:5/1 Y"]), ungraded=1)
+        result = analysis.compare(a, {"skills": {"briefing": b}})
+        self.assertEqual(result["flips"], [])
+        self.assertEqual(result["regressions"], 0)
+        self.assertEqual(
+            sorted(item["assertion"] for item in result["no_signal"]),
+            ["examples:3/1 X", "examples:5/1 Y"],
+        )
+
+    def test_an_empty_ungraded_keys_list_is_known_not_missing(self) -> None:
+        # `ungraded_keys: []` on the side with `ungraded == 0` is the normal
+        # new-schema shape, not an "unknown" marker — it must not force the
+        # whole-skill fallback for the other, genuinely-ungraded side.
+        a = dict(self._skill(with_rate=0.9, assertions=10, broken=["examples:3/1 X"]), ungraded=0, ungraded_keys=[])
+        b = dict(
+            self._skill(with_rate=0.9, assertions=10, broken=["examples:5/1 Y"]),
+            ungraded=1,
+            ungraded_keys=["briefing:examples:3"],
+        )
+        result = analysis.compare({"skills": {"briefing": a}}, {"skills": {"briefing": b}})
+        self.assertEqual(
+            result["flips"], [{"skill": "briefing", "assertion": "examples:5/1 Y", "direction": "regression"}]
+        )
+        self.assertEqual(result["no_signal"], [{"skill": "briefing", "assertion": "examples:3/1 X"}])
 
     def test_skill_filter_restricts_the_comparison(self) -> None:
         a = {

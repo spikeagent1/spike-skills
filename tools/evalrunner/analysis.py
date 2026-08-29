@@ -99,11 +99,33 @@ def _eval_number(eval_dir: Path) -> int:
         return 0
 
 
-def _label(key: str, eval_id: int, total_assertions: int, assertion: str) -> str:
-    """Human-readable id for one assertion, e.g. `examples:1/4 No mutation`."""
+def _label_prefix(key: str, eval_id: int) -> str:
+    """`file:eval_id` case reference shared by a row's label and its ungraded ref.
+
+    Built from `eval_id` (the directory-naming id, offset-shifted for a
+    skill's second eval file so `(skill, eval_id)` stays unique) rather than
+    the raw id embedded in `key` — the two diverge for a multi-file skill, and
+    `eval_id` is what a rendered label actually carries, so it is the only
+    value `compare()` can recover by parsing one back.
+    """
     parts = key.split(":")
     file_part = parts[1] if len(parts) >= 3 else parts[0]
-    return f"{file_part}:{eval_id}/{total_assertions} {assertion}"
+    return f"{file_part}:{eval_id}"
+
+
+def _label(key: str, eval_id: int, total_assertions: int, assertion: str) -> str:
+    """Human-readable id for one assertion, e.g. `examples:1/4 No mutation`."""
+    return f"{_label_prefix(key, eval_id)}/{total_assertions} {assertion}"
+
+
+def _case_ref(skill: str, key: str, eval_id: int) -> str:
+    """Stable per-case identifier for `ungraded_keys`, matching a label's own prefix.
+
+    `compare()` recovers the identical string from a rendered label (skill
+    name from its own dict key, `_label_prefix` from the label text) to test
+    whether a flip belongs to a case that was ungraded on either side.
+    """
+    return f"{skill}:{_label_prefix(key, eval_id)}"
 
 
 def _norm(text: str) -> str:
@@ -121,6 +143,7 @@ def _new_bucket() -> Dict[str, Any]:
         "harmful": [],
         "flaky": [],
         "ungraded": 0,
+        "ungraded_keys": set(),
         "executor_issues": {},
     }
 
@@ -161,6 +184,11 @@ def _finalize_skill(bucket: Dict[str, Any]) -> Dict[str, Any]:
         "harmful": list(bucket["harmful"]),
         "flaky": list(bucket["flaky"]),
         "ungraded": bucket["ungraded"],
+        # Additive over the plain count: which cases contributed it, so
+        # `compare()` can suppress only their own labels instead of every
+        # label in the skill. Absent (not empty) on a pre-fix results.json or
+        # baseline entry, which `compare()` treats as "unknown, be safe".
+        "ungraded_keys": sorted(bucket["ungraded_keys"]),
         "skill_invoked": None,  # populated once --load-mode discover lands
         "executor_issues": dict(bucket["executor_issues"]),
     }
@@ -225,11 +253,16 @@ def aggregate_run(run_dir: Path) -> Dict[str, Any]:
 
                 grading = _read_json(run_path / "grading.json")
                 if grading is None:
+                    # Harness-crashed-before-grading: not counted in the
+                    # `ungraded` total (unchanged from before this fix), but
+                    # still a case `compare()` must not read a label diff for.
+                    bucket["ungraded_keys"].add(_case_ref(skill, key, eval_id))
                     continue
                 config_entry["cost"] += float(grading.get("grader_cost_usd") or 0.0)
                 expectations = grading.get("expectations") or []
                 if grading.get("status") != STATUS_OK or len(expectations) != len(assertions):
                     bucket["ungraded"] += 1
+                    bucket["ungraded_keys"].add(_case_ref(skill, key, eval_id))
                     continue
 
                 run_passed = 0
@@ -342,6 +375,33 @@ def _with_pass_rate(skill: Dict[str, Any]) -> Optional[float]:
     return None
 
 
+def _label_case_ref(skill: str, label: str) -> str:
+    """`_case_ref`-shaped id recovered from a rendered label, e.g. `briefing:examples:1`.
+
+    Inverse of `_label`'s prefix: `"file:eval_id/total assertion text"` ->
+    the `"file:eval_id"` before the first `/`, with the skill name (implicit
+    in the label itself) restored so it matches an `ungraded_keys` entry.
+    """
+    prefix = label.split(" ", 1)[0].split("/", 1)[0]
+    return f"{skill}:{prefix}"
+
+
+def _route_labels(
+    labels: Any,
+    skill: str,
+    ungraded_refs: set,
+    no_signal: List[Dict[str, Any]],
+    target: List[Dict[str, Any]],
+    extra: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Sort `labels` into `no_signal` (case is in `ungraded_refs`) or `target`."""
+    for label in sorted(labels):
+        if _label_case_ref(skill, label) in ungraded_refs:
+            no_signal.append({"skill": skill, "assertion": label})
+        else:
+            target.append({"skill": skill, "assertion": label, **(extra or {})})
+
+
 def compare(
     a: Dict[str, Any], b: Dict[str, Any], *, skills: Optional[Sequence[str]] = None
 ) -> Dict[str, Any]:
@@ -364,13 +424,19 @@ def compare(
     own, since there is no stored identity for the residual `discriminating`
     class to confirm what an assertion moved *from*.
 
-    When either side's skill entry carries `ungraded > 0`, its label-set diffs
-    are skipped entirely and reported in `no_signal` instead: an assertion can
-    drop out of `broken`/`non_discriminating` because its grading errored, not
-    because it passed, and a plain set diff cannot tell "fixed" apart from
-    "unmeasured". The `with_pass_rate` regression signal is untouched — it is
-    already computed from graded rows only, so an ungraded run just shrinks its
-    sample rather than skewing it.
+    A label whose case is named in `ungraded_keys` on either side is routed to
+    `no_signal` instead of `flips`/`signal_lost`/`signal_gained`: an assertion
+    can drop out of `broken`/`non_discriminating` because its grading errored,
+    not because it passed, and a plain set diff cannot tell "fixed" apart from
+    "unmeasured". This is per-*case*, not per-skill — an unrelated case's
+    genuine flip in the same skill still counts. A side that carries
+    `ungraded > 0` but no `ungraded_keys` list at all (a pre-fix results.json
+    or baseline entry, which recorded only the count) is unknown rather than
+    empty: every label diff for that skill falls back to `no_signal`, since
+    guessing which label the count belongs to would risk exactly the false
+    gain this function exists to prevent. The `with_pass_rate` regression
+    signal is untouched either way — it is already computed from graded rows
+    only, so an ungraded run just shrinks its sample rather than skewing it.
     """
     skills_a = a.get("skills") or {}
     skills_b = b.get("skills") or {}
@@ -414,18 +480,21 @@ def compare(
         soft_a = set(sa.get("non_discriminating") or []) | set(sa.get("flaky") or [])
         soft_b = set(sb.get("non_discriminating") or []) | set(sb.get("flaky") or [])
 
-        if has_ungraded:
+        # A side with ungraded>0 but no `ungraded_keys` field at all is a
+        # pre-fix artifact: which case the count belongs to is unknown.
+        keys_known = (ungraded_a == 0 or sa.get("ungraded_keys") is not None) and (
+            ungraded_b == 0 or sb.get("ungraded_keys") is not None
+        )
+        ungraded_refs = set(sa.get("ungraded_keys") or []) | set(sb.get("ungraded_keys") or [])
+
+        if has_ungraded and not keys_known:
             for label in sorted((fail_a ^ fail_b) | (soft_a ^ soft_b)):
                 no_signal.append({"skill": name, "assertion": label})
         else:
-            for label in sorted(fail_b - fail_a):
-                flips.append({"skill": name, "assertion": label, "direction": "regression"})
-            for label in sorted(fail_a - fail_b):
-                flips.append({"skill": name, "assertion": label, "direction": "gain"})
-            for label in sorted(soft_b - soft_a):
-                signal_lost.append({"skill": name, "assertion": label})
-            for label in sorted(soft_a - soft_b):
-                signal_gained.append({"skill": name, "assertion": label})
+            _route_labels(fail_b - fail_a, name, ungraded_refs, no_signal, flips, {"direction": "regression"})
+            _route_labels(fail_a - fail_b, name, ungraded_refs, no_signal, flips, {"direction": "gain"})
+            _route_labels(soft_b - soft_a, name, ungraded_refs, no_signal, signal_lost)
+            _route_labels(soft_a - soft_b, name, ungraded_refs, no_signal, signal_gained)
 
         per_skill.append(
             {

@@ -338,6 +338,11 @@ def _condense_skill(name: str, full: Dict[str, Any], run_id: Optional[str], root
         "harmful": full.get("harmful"),
         "flaky": full.get("flaky"),
         "ungraded": full.get("ungraded"),
+        # Additive alongside the count (task 13x fix round 1): lets
+        # `analysis.compare` suppress only the ungraded case's own labels
+        # instead of every label in the skill. Absent on an entry condensed
+        # before this field existed, which `compare` treats as "unknown".
+        "ungraded_keys": full.get("ungraded_keys"),
     }
     for cname in (CONFIG_WITH_SKILL, CONFIG_WITHOUT_SKILL):
         if cname in configs:
