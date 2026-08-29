@@ -179,7 +179,7 @@ sources:
     status: approved
     cohort: research-and-writing
     provenance: repo-owned
-    version: 1.0.0
+    version: 2.0.0
 
   team-skill-sharing-norm:
     classification: owned
