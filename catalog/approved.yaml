@@ -96,8 +96,8 @@ skills:
     status: approved
     cohort: owner-operations
     workshop_proposal: briefing-20260823-8f2c2cee05
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: owner-dream-cycle
     classification: owned
