@@ -66,7 +66,7 @@ Turns work that is already true — a shipped artifact, an approved entry, a cle
 
 ### The content package
 
-One block, rendered whether or not a channel answered. A field nothing supplied reads `unknown`; a field a channel would fill but could not be reached reads `pending` with the channel named.
+One block, rendered whether or not a channel answered. A field nothing supplied reads `unknown`; a field a channel would fill but could not be reached reads `pending` with the channel named. `cold-review gate` on the authority line is the route through `public-post-workshop`; `direct` is a channel this skill previews and authorizes itself.
 
 ```
 inventory    : <candidate source in hand> -> <the idea it supports> -> <the outcome that idea enables>   (one line each; `none in hand` is a finding, not a blank)
@@ -75,7 +75,7 @@ claims       : <claim> -> <source inspected this run> | cut: <claim> (<what woul
 disclosure   : <public|cleared by whom, for what> · quotes <cleared|asked|declined|none>
 channels     : <channel> -> <why this audience is there> · <authorized|unscheduled: reason>
 drafts       : <channel> -> <the full draft text> · format rationale · media or artifact needed
-authority    : <channel> -> <draft only|needs approval|authorized> · route <direct|the workshop gate>
+authority    : <channel> -> <draft only|needs approval|authorized> · route <direct|cold-review gate>
 handoff      : questions expected · conversations worth joining · follow-ups for the listening loop
 measurement  : <outcome> -> <direct|inferred|unknown> · attribution limits · next test and its hypothesis
 state        : <one name from the state vocabulary below>
