@@ -55,6 +55,7 @@ def executor_key(
     tools: str,
     prompt: str,
     repeat: int,
+    scaffold: Dict[str, Any],
 ) -> str:
     """Cache key for one executor invocation.
 
@@ -63,12 +64,13 @@ def executor_key(
     surface, or the router, so an answer recorded under one version is not an
     answer to the same question under the next.
 
-    The key covers the semantic inputs, not the text `executor.build_request`
-    derives from them: the appended skill header and the `--add-dir` grants are a
-    pure function of `skill_body`, so a change to the SKILL.md invalidates them
-    too -- but a change to the harness code that derives them does not. Refresh
-    with `run --refresh-config with_skill` after one, or bump `HARNESS_VERSION`
-    when the change is large enough to invalidate every recorded answer.
+    `scaffold` is `executor.request_scaffold`: the two header constants
+    `build_request` wraps around the body and the repository directories it
+    grants, relative to the root. Those are derived from `skill_body`, so a
+    SKILL.md edit already moved the key -- but the derivation is harness code,
+    and rewording a header or changing the grant rule changes what was asked
+    with every skill untouched. Keying on them is what stops an answer recorded
+    under the old wording being replayed as an answer to the new one.
     """
     return _digest(
         key_material(
@@ -81,6 +83,7 @@ def executor_key(
             tools=tools,
             prompt=prompt,
             repeat=repeat,
+            scaffold=scaffold,
         )
     )
 

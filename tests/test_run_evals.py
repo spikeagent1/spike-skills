@@ -19,6 +19,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import tools.run_evals as run_evals
 import tools.validate_repo as validate_repo
@@ -38,6 +39,19 @@ from tools.evalrunner import (
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "stream"
+
+
+# Every executor-key field but the scaffold, so a scaffold test varies one input.
+_EXECUTOR_KEY_FIELDS = {
+    "claude_code_version": "2.1.251",
+    "mode": "with_skill",
+    "model": "sonnet",
+    "system_prompt": "minimal",
+    "skill_body": "# Home",
+    "tools": "Read,Glob,Grep",
+    "prompt": "route this",
+    "repeat": 1,
+}
 
 
 def _fixture_lines(name: str) -> list[str]:
@@ -1371,6 +1385,11 @@ class CacheKeyTest(unittest.TestCase):
         "tools": "Read,Glob,Grep",
         "prompt": "Give me this morning's briefing.",
         "repeat": 1,
+        "scaffold": {
+            "skill_header": "The following skill is active...",
+            "repo_input_header": "Repository files...",
+            "extra_dirs": ["catalog"],
+        },
     }
     GRADER = {
         "claude_code_version": "2.1.248",
@@ -1388,6 +1407,18 @@ class CacheKeyTest(unittest.TestCase):
             changed = dict(self.EXECUTOR)
             changed[field] = 2 if field == "repeat" else str(self.EXECUTOR[field]) + "-x"
             self.assertNotEqual(base, cache.executor_key(**changed), field)
+
+    def test_the_scaffold_is_part_of_the_executor_key(self) -> None:
+        """The headers and grants are text the model reads, so they are the question.
+
+        `build_request` derives them from the skill body, but the derivation
+        itself is harness code: editing a header constant or the set of granted
+        directories changes what was asked without changing the SKILL.md, and an
+        answer recorded under the old wording is not an answer to the new one.
+        """
+        moved = dict(self.EXECUTOR)
+        moved["scaffold"] = dict(self.EXECUTOR["scaffold"], extra_dirs=["contracts"])
+        self.assertNotEqual(cache.executor_key(**self.EXECUTOR), cache.executor_key(**moved))
 
     def test_grader_key_is_stable_and_input_sensitive(self) -> None:
         base = cache.grader_key(**self.GRADER)
@@ -5485,6 +5516,38 @@ class RepoInputGrantTest(unittest.TestCase):
         ).argv
         prompt = argv[argv.index("--append-system-prompt") + 1]
         self.assertNotIn("declares as inputs", prompt)
+
+    def test_changing_the_skill_header_constant_changes_the_cache_key(self) -> None:
+        before = executor.request_scaffold(self.DEPS, "home", self.root)
+        with mock.patch.object(executor, "SKILL_HEADER", "A different header: {path}\n\n"):
+            after = executor.request_scaffold(self.DEPS, "home", self.root)
+        self.assertNotEqual(before, after)
+        self.assertNotEqual(
+            cache.executor_key(**dict(_EXECUTOR_KEY_FIELDS, scaffold=before)),
+            cache.executor_key(**dict(_EXECUTOR_KEY_FIELDS, scaffold=after)),
+        )
+
+    def test_changing_the_repo_input_header_changes_the_cache_key(self) -> None:
+        before = executor.request_scaffold(self.DEPS, "home", self.root)
+        with mock.patch.object(executor, "REPO_INPUT_HEADER", "Readable under {paths}.\n\n"):
+            after = executor.request_scaffold(self.DEPS, "home", self.root)
+        self.assertNotEqual(before, after)
+
+    def test_the_scaffold_records_grants_relative_to_the_repository(self) -> None:
+        # An absolute path is a property of the checkout, not of the question; a
+        # temp-directory prefix in the key would miss every entry on every run.
+        scaffold = executor.request_scaffold(self.DEPS, "home", self.root)
+        self.assertEqual(scaffold["extra_dirs"], ["catalog"])
+
+    def test_a_skill_with_no_grant_carries_no_repo_input_header(self) -> None:
+        scaffold = executor.request_scaffold("# alpha\n", "alpha", self.root)
+        self.assertEqual(scaffold["extra_dirs"], [])
+
+    def test_the_without_skill_leg_has_an_empty_scaffold(self) -> None:
+        self.assertEqual(
+            executor.request_scaffold(None, "home", self.root),
+            {"skill_header": "", "repo_input_header": "", "extra_dirs": []},
+        )
 
     def test_repo_input_dirs_ignores_links_outside_the_repository(self) -> None:
         body = "**Dependencies:** see [docs](https://example.com/x.md) and [up](../../../etc/passwd)."

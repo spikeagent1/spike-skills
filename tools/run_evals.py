@@ -575,7 +575,8 @@ def _execute_and_grade(
     run_dir = _run_dir_for(run_root, case, config, repeat)
     req = executor.build_request(case, config, args, list(isolation_flags), run_dir)
 
-    body = executor.skill_body(config, case.skill, executor.repo_root(args))
+    root = executor.repo_root(args)
+    body = executor.skill_body(config, case.skill, root)
     exec_key = cache.executor_key(
         claude_code_version=args.claude_code_version,
         mode=config,
@@ -587,6 +588,7 @@ def _execute_and_grade(
         tools=executor.EXECUTOR_TOOLS,
         prompt=case.prompt,
         repeat=repeat,
+        scaffold=executor.request_scaffold(body, case.skill, root),
     )
     cached = store.get(exec_key, config=config)
     from_cache = cached is not None

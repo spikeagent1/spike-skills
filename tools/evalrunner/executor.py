@@ -194,6 +194,36 @@ def executor_env(args: Any) -> Dict[str, str]:
     return strategy_env(strategy, workspace.WORKSPACE, environ)
 
 
+def request_scaffold(body: Optional[str], skill: str, root: Path) -> Dict[str, Any]:
+    """Cache-key material for the text `build_request` wraps around the skill body.
+
+    The two header constants and the `--add-dir` grants named in them are text
+    the model reads, so they are part of the question asked. They are derived
+    from the SKILL.md, which the key already covers -- but the derivation is
+    harness code, and editing a header constant or the grant rule changes the
+    request without touching any skill. Recording them here means such an edit
+    invalidates the entries it affects instead of replaying an answer given to
+    different words.
+
+    Directories are recorded relative to the repository root: the absolute
+    prefix is a property of the checkout, not of the question. A leg with no
+    skill body appends no header at all, and its scaffold is empty.
+    """
+    empty = {"skill_header": "", "repo_input_header": "", "extra_dirs": []}
+    if body is None:
+        return empty
+    root = Path(root)
+    dirs = sorted(
+        os.path.relpath(str(path), str(root))
+        for path in repo_input_dirs(body, root / "skills" / skill, root)
+    )
+    return {
+        "skill_header": SKILL_HEADER,
+        "repo_input_header": REPO_INPUT_HEADER,
+        "extra_dirs": dirs,
+    }
+
+
 def build_request(
     case: BehavioralCase,
     config: str,
