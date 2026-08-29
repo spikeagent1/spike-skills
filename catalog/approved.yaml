@@ -186,8 +186,8 @@ skills:
     status: approved
     cohort: onboarding
     workshop_proposal: runtime-handoff-onboarding-20260824-cfba35ad2d
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: social-agent-onboarding
     classification: owned
