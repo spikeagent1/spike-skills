@@ -118,6 +118,9 @@ class Report:
     refused: list[str] = field(default_factory=list)
     drift: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    # (identity file, before, after) when this run changes it -- set once, on the
+    # guarded path, so a dry run previews exactly what a real run would do.
+    identity_change: tuple[Path, str, str] | None = None
 
 
 # -- repository access -------------------------------------------------
@@ -771,9 +774,20 @@ def locate_block(lines: Sequence[str], begin: str, end: str) -> tuple[int, int] 
         )
     if not begins or not ends:
         marker, numbers = (begin, begins) if begins else (end, ends)
+        missing = end if begins else begin
+        buried = [
+            number
+            for number, line in enumerate(lines, 1)
+            if missing in line and line.strip() != missing
+        ]
+        where = (
+            f"{missing!r} shares line {buried[0]} with other text"
+            if buried
+            else f"{marker!r} at line {numbers[0]} has no {missing!r}"
+        )
         raise InstallError(
-            f"identity file carries an unpaired marker {marker!r} at line "
-            f"{numbers[0]}; the block is not ours to repair, so nothing was written"
+            f"identity file carries an unpaired marker: {where}; the block is not "
+            "ours to repair, so nothing was written"
         )
     if ends[0] < begins[0]:
         raise InstallError(
@@ -904,6 +918,7 @@ def bind_identity_file(adapter: dict[str, Any], dry_run: bool, report: Report) -
     if after == before:
         report.notes.append(f"{display_path(str(path))} already carries the import line")
         return []
+    report.identity_change = (path, before, after)
     had_markers = str(imports["begin_marker"]) in before
     report.notes.append(
         f"{display_path(str(path))}: import line "
@@ -976,11 +991,6 @@ def runtime_skills(runtime: str) -> list[str]:
 def do_install(context: Context, names: Sequence[str], args: argparse.Namespace) -> int:
     report = Report()
     overrides = local_overrides_path(context.adapter, args.local_overrides)
-    identity_path = expand(str((context.adapter.get("identity_import") or {}).get("file") or ""))
-    identity_before = (
-        identity_path.read_text(encoding="utf-8") if identity_path.is_file() else ""
-    )
-
     renders: list[Rendered] = []
     for name in names:
         try:
@@ -1055,15 +1065,10 @@ def do_install(context: Context, names: Sequence[str], args: argparse.Namespace)
                 )
         report.installed.append(rendered.name)
 
-    if identity_path and str(identity_path) != str(repo_root()):
-        identity_after = (
-            identity_path.read_text(encoding="utf-8")
-            if identity_path.is_file() and not args.dry_run
-            else apply_identity_import(identity_before, context.adapter)
-        )
-        if identity_after != identity_before:
-            print(f"\n--- {display_path(str(identity_path))} ---")
-            print_diff(identity_path, identity_before, identity_after)
+    if report.identity_change is not None:
+        path, before, after = report.identity_change
+        print(f"\n--- {display_path(str(path))} ---")
+        print_diff(path, before, after)
 
     return finish(context, report, args)
 
@@ -1078,10 +1083,8 @@ def finish(context: Context, report: Report, args: argparse.Namespace) -> int:
     for refusal in report.refused:
         print(f"refused: {refusal}")
 
-    identity = context.adapter.get("identity_import") or {}
-    raw = str(identity.get("file") or "")
-    if raw.startswith(("~", "/")) or PLACEHOLDER_RE.search(raw):
-        identity_file = expand(raw)
+    if report.identity_change is not None:
+        identity_file = report.identity_change[0]
         target = identity_file.parent
         print(
             f"\nRun this yourself if {display_path(str(target))} is a git repository "

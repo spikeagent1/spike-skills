@@ -688,6 +688,47 @@ class InstallSkillTest(unittest.TestCase):
         self.assertIn("line 3", out)
         self.assertEqual(path.read_text(encoding="utf-8"), original)
 
+    def test_dry_run_refuses_a_malformed_identity_file_the_same_way_a_real_run_does(
+        self,
+    ) -> None:
+        """The preview must go through the guarded path, or a malformed marker
+        unwinds past the summary: no `would install:` line, no notes, and a
+        refusal missing the path prefix the real run prints."""
+        original = "# Owner\n\n<!-- spike-os:begin -->\n\n- keep this line\n"
+        path = self._claude_md(original)
+        code, out = self._run("--runtime", "claude-code", "--dry-run", "fixture-notes")
+        self.assertEqual(code, 1)
+        self.assertEqual(path.read_text(encoding="utf-8"), original)
+        self.assertIn("would install: fixture-notes", out)
+        self.assertIn("unfilled placeholders", out)
+        self.assertIn(
+            "refused: ~/.claude/CLAUDE.md: identity file carries an unpaired marker: "
+            "'<!-- spike-os:begin -->' at line 3 has no '<!-- spike-os:end -->'",
+            out,
+        )
+        self.assertNotIn("git -C", out)
+
+    def test_a_real_run_and_a_dry_run_print_the_same_identity_refusal(self) -> None:
+        original = "# Owner\n\n<!-- spike-os:begin -->\n\n- keep this line\n"
+        self._claude_md(original)
+        _, dry = self._run("--runtime", "claude-code", "--dry-run", "fixture-notes")
+        self._claude_md(original)
+        _, real = self._run("--runtime", "claude-code", "fixture-notes")
+        refusal = [line for line in dry.splitlines() if line.startswith("refused: ~/")]
+        self.assertEqual(
+            refusal, [line for line in real.splitlines() if line.startswith("refused: ~/")]
+        )
+        self.assertEqual(len(refusal), 1)
+
+    def test_a_marker_sharing_a_line_is_named_in_the_unpaired_message(self) -> None:
+        self._claude_md(
+            "# Owner\nsome text <!-- spike-os:begin --> more text\n"
+            "@~/.claude/spike-os/ADAPTER.md\n<!-- spike-os:end -->\n"
+        )
+        code, out = self._run("--runtime", "claude-code", "fixture-notes")
+        self.assertEqual(code, 1)
+        self.assertIn("line 2", out)
+
     def test_a_second_marker_block_is_refused_and_the_file_is_untouched(self) -> None:
         original = (
             "# Owner\n"
