@@ -16,14 +16,14 @@ vocabulary:
   agent:
     value: Spike, defined by SOUL.md and IDENTITY.md
   owner_datastore:
-    value: GBrain 0.46.1 at /data/.gbrain/brain.pglite, driven by /data/.local/bin/gbrain
+    value: GBrain 0.46.28 at /data/.gbrain/brain.pglite, driven by /data/.local/bin/gbrain and registered as the gbrain MCP server
     note: Needs GBRAIN_HOME=/data on PATH-less calls; search mode is conservative.
   durable_memory:
     value: MEMORY.md and memory/<date>.md in the workspace, plus the owner datastore
     note: MEMORY.md is injected into every session including visitor sessions; keep it compact.
   task_provider:
-    value: the Todoist connector
-    note: DEGRADED - runtime/openclaw.json (git-owned; keys agents, channels, commands, gateway, plugins) registers no Todoist connector, so tasks are mirror-only and contracts/sync.md's fallback applies: system_of_record flips to the datastore and the skill discloses mirror-only. A task skill installs and says so. Spike confirms whether the live volume copy differs.
+    value: the Todoist MCP server registered at mcp.servers.todoist
+    note: CONFIRMED 2026-08-29 against the live volume config; openclaw mcp doctor --json reports todoist ok. A turn where its tools are unavailable is a blocked dependency for that turn, not evidence that the provider is globally absent.
   calendar_provider:
     value: none configured
   mail_provider:
@@ -90,8 +90,8 @@ vocabulary:
     value: main, reached by an unmerged pull request
     note: Merging is a separate authorization from creating the pull request.
   norms_directory:
-    value: .agents/behaviors/<name>/BEHAVIOR.md, relative to the repo in hand
-    note: CONVENTION - checked 2026-08-29: no .agents/behaviors/ exists in chughtapan/vibe-blogging yet; the path is the agreed convention and skills citing it treat it as aspirational, not load-bearing.
+    value: /data/.openclaw/workspace/team-roster/.agents/behaviors/<name>/BEHAVIOR.md
+    note: CONFIRMED 2026-08-29 on the live volume; feedback-reporting, pre-meeting-check-in, protocol-health-ping, and skill-sharing behavior files exist there.
 
 datastore:
   paths:
@@ -117,7 +117,7 @@ datastore:
     write: gbrain put <namespace>/<id> with the page on stdin
     append_timeline: gbrain timeline-add <namespace>/<id> <date> <summary> [--detail <text>]
     supersede: gbrain put the replacement, then gbrain put the original with status superseded
-  note: CONFIRMED 2026-08-29 against GBrain v0.46.1.0 source (src/core/operations.ts cliHints: get_page→get, put_page→put with stdin content, list_pages→list --type/--limit, get_timeline→timeline, add_timeline_entry→timeline-add <slug> <date> <summary> [--detail]); two spellings corrected from the 0.18.2 reading (--limit, summary). Spike's live `gbrain --help` on the volume is the final check. conversations/ is a separate root and no private corpus has been imported yet.
+  note: CONFIRMED 2026-08-29 against the live GBrain 0.46.28 CLI help (get, put with stdin content, list --type/--limit, timeline, timeline-add <slug> <date> <summary> [--detail], search). The gbrain MCP server also passes openclaw mcp doctor. conversations/ is a separate root and is absent on the live workspace.
 
 notification:
   channels:

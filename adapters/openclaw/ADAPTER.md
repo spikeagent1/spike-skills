@@ -11,9 +11,9 @@ states what it does without it; the installer installs such a skill with a print
 |---|---|
 | `owner` | ${OWNER_NAME}, described in USER.md |
 | `agent` | Spike, defined by SOUL.md and IDENTITY.md |
-| `owner datastore` | GBrain 0.46.1 at /data/.gbrain/brain.pglite, driven by /data/.local/bin/gbrain |
+| `owner datastore` | GBrain 0.46.28 at /data/.gbrain/brain.pglite, driven by /data/.local/bin/gbrain and registered as the gbrain MCP server |
 | `durable memory` | MEMORY.md and memory/<date>.md in the workspace, plus the owner datastore |
-| `task provider` | the Todoist connector — **DEGRADED** (none registered in runtime/openclaw.json; tasks are mirror-only and the skill discloses it) |
+| `task provider` | the Todoist MCP server registered at mcp.servers.todoist; live health check passes |
 | `calendar provider` | none configured |
 | `mail provider` | AgentMail, polled by scripts/check_agentmail.py on a five-minute cron |
 | `contacts provider` | none configured |
@@ -39,7 +39,7 @@ states what it does without it; the installer installs such a skill with a print
 | `journal build toolchain` | Astro, building site/ in chughtapan/vibe-blogging |
 | `entry schema` | the stream contract v1 at contracts/stream.v1.schema.json |
 | `journal source branch` | main, reached by an unmerged pull request |
-| `norms directory` | .agents/behaviors/<name>/BEHAVIOR.md, relative to the repo in hand — convention, not yet created |
+| `norms directory` | /data/.openclaw/workspace/team-roster/.agents/behaviors/<name>/BEHAVIOR.md |
 
 ## Datastore
 GBrain page slugs. At the brain root: `profile` `people` `agents` `decisions`
@@ -55,8 +55,9 @@ far empty. One page per record key.
 | `supersede` | `gbrain put` the replacement, then the original with `status: superseded` |
 
 ## Providers
-Tasks are **mirror-only** until a task provider is registered, and the skill says
-so (`contracts/sync.md`); calendar and contacts are unconfigured.
+Tasks use the live Todoist MCP server. If its tools are unavailable in a turn,
+the skill reports that phase blocked rather than claiming a provider write;
+calendar and contacts are unconfigured.
 
 ## Channels and quiet hours
 `notification channel` first (outbound `sendMessage` is not currently enabled — see the
@@ -75,8 +76,8 @@ boot, outside the datastore, changed only through `identity:propose` then
 `dist/openclaw/workspace/skills/` and prints the copy step.
 
 ## Notes on fallbacks
-The gbrain CLI is the only way into the datastore here — there is no MCP
-fallback, so a failed `gbrain doctor --json` is a blocked phase to report (D2),
-never a reason to answer from memory (P2). Verb spellings come from GBrain 0.18.2
-on the owner's host; the volume runs 0.46.1, so re-check after the next runtime
-build. Hand edits to the volume's config are lost on deploy — use the CLI.
+The gbrain CLI is the adapter's canonical verb binding, and the live runtime
+also registers a healthy gbrain MCP server. If neither route is available, the
+phase is blocked (D2), never a reason to answer from memory (P2). Verb spellings
+were confirmed against the live GBrain 0.46.28 CLI. Hand edits to the volume's
+config are lost on deploy — use the CLI.

@@ -17,7 +17,7 @@ error once `tools/validate_repo.py` gates runtime binding (Task 12).
 |---|---|---|---|---|
 | Spike | `agent` | `vocabulary.agent` | social-agent-practice 8,20-27; the Provenance boilerplate library-wide | yes, both |
 | Tapan | `owner` | `vocabulary.owner` | owner-context-onboarding 13; audience-content-engine; daily-task-manager | yes, both — value is `${OWNER_NAME}` |
-| Todoist | `task provider` | `vocabulary.task_provider` | daily-task-manager 12,37,42,52,61 | yes, both — **UNCONFIRMED** on both, so tasks stay mirror-only |
+| Todoist | `task provider` | `vocabulary.task_provider` | daily-task-manager 12,37,42,52,61 | yes, both — OpenClaw binds the healthy live `todoist` MCP server; claude-code retains its own host binding |
 | brain, pages, search/query/get, timeline, enrich entities | `owner datastore` | `vocabulary.owner_datastore`, `datastore.verbs` | briefing 12,20-21,37,40,72,90; fact-check 45; conversation-archive | yes, both — plus all 7 verbs mapped |
 | recall cursors | `checkpoint store` | `vocabulary.checkpoint_store`, `datastore.paths.checkpoints` | briefing 12,93; social-listening-engagement-loop 54 | yes, both |
 | `MEMORY.md`, `memory/`, "canonical memory surface" | `durable memory` | `vocabulary.durable_memory` | owner-dream-cycle 43 | yes, both |
@@ -41,7 +41,7 @@ error once `tools/validate_repo.py` gates runtime binding (Task 12).
 | `edited_by_human`, "voice-agent Stream entry" | `entry schema` | `vocabulary.entry_schema` | public-post-workshop 33-42 | yes, both — none in claude-code |
 | "active site branch" | `journal source branch` | `vocabulary.journal_source_branch` | public-post-workshop 33-42 | yes, both — none in claude-code |
 | "commit as Spike" | `repo identity` | `vocabulary.repo_identity` | public-post-workshop 33-42; publish | yes, both |
-| `.agents/behaviors/<name>/BEHAVIOR.md` | `norms directory` | `vocabulary.norms_directory` | team-skill-sharing-norm | yes, both — **UNCONFIRMED** on both; the directory does not exist yet |
+| `.agents/behaviors/<name>/BEHAVIOR.md` | `norms directory` | `vocabulary.norms_directory` | team-skill-sharing-norm | yes, both — OpenClaw binds `/data/.openclaw/workspace/team-roster/.agents/behaviors/<name>/BEHAVIOR.md`; claude-code retains its own host binding |
 
 ## Bound but not yet named by any skill
 
