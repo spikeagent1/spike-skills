@@ -9,7 +9,7 @@ from __future__ import annotations
 import datetime
 import subprocess
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Sequence
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE = ROOT / "evals" / "workspaces"
@@ -47,9 +47,22 @@ def git_commit_short(root: Optional[Path] = None) -> str:
     return _git("rev-parse", "--short", "HEAD", root=root) or "unknown"
 
 
-def git_dirty(root: Optional[Path] = None) -> bool:
-    """True when `root`'s working tree (default: this repo) has uncommitted changes."""
-    return bool(_git("status", "--porcelain", root=root))
+def git_dirty(root: Optional[Path] = None, exclude: Sequence[str] = ()) -> bool:
+    """True when `root`'s working tree (default: this repo) has uncommitted changes.
+
+    `exclude` names repo-relative paths that do not count. The baseline writer
+    asks whether the tree it describes is clean, and its own pending write to
+    `evals/baseline.json` is not part of that tree.
+    """
+    status = _git("status", "--porcelain", root=root)
+    if not status:
+        return False
+    skipped = set(exclude)
+    for line in status.splitlines():
+        path = line[3:].strip().strip('"')
+        if path.split(" -> ")[-1] not in skipped:
+            return True
+    return False
 
 
 def git_config(key: str) -> str:

@@ -5208,6 +5208,25 @@ class BaselineCommitProvenanceTest(unittest.TestCase):
         merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
         self.assertTrue(merged["dirty"], "a dirty tree at merge time is a dirty baseline")
 
+    def test_the_baselines_own_pending_write_does_not_count_as_dirty(self) -> None:
+        # `dirty` describes the tree the baseline is about; the file being written
+        # is not part of that tree, and a second merge in a row would otherwise
+        # record the first one's write as contamination.
+        path = self.root / "evals" / "baseline.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "add", "evals/baseline.json"], cwd=str(self.root), check=True
+        )
+        path.write_text('{"schema_version": 1}\n', encoding="utf-8")
+        merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
+        self.assertFalse(merged["dirty"])
+
+    def test_any_other_pending_change_still_counts_as_dirty(self) -> None:
+        (self.root / "skills" / "briefing" / "SKILL.md").write_text("changed\n", encoding="utf-8")
+        merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
+        self.assertTrue(merged["dirty"])
+
     def test_carried_over_entries_keep_their_own_source_commit(self) -> None:
         existing = {"skills": {"owner-dream-cycle": {"run_id": "r0", "source_commit": "0000000"}}}
         merged = report.merge_baseline(existing, self.run_results, self.run_meta, root=self.root)

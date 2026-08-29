@@ -400,7 +400,7 @@ def merge_baseline(
         # HEAD at merge time, not the source run's: the baseline describes the
         # tree it is committed alongside, and its entries carry `source_commit`.
         "commit": workspace.git_commit_short(root_path),
-        "dirty": workspace.git_dirty(root_path),
+        "dirty": workspace.git_dirty(root_path, exclude=(BASELINE_REL.as_posix(),)),
         "evaluator": {
             "claude_code_version": run_meta.get("claude_code_version"),
             "executor_model": executor_model.get("resolved") or executor_model.get("alias"),
