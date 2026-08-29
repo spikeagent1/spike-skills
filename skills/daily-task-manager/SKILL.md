@@ -39,7 +39,9 @@ Operates the `tasks` sync instance defined in [contracts/sync.md](../../contract
 | The operation — add, review, complete, defer, edit, remove | yes | classify it from the owner's own verb; where complete and remove are both readable, fail closed to review and say which two readings were open (X1) |
 | The object — the owner's exact wording, or an identity to match on | yes, to mutate | ask once, in the same turn as an operation record built on the strictest safe reading, every unmatched field written `unknown` (X1, X3) |
 | Which system holds the list — the `task provider`, or the `tasks` namespace when no connector is authorized | yes | assume mirror-only, disclose it in the record, and continue; a product name in the request is the owner naming their `task provider`, and is answered in that term rather than queried back |
-| Due date and the zone it was derived in, project or list, priority, labels | no | leave the field `unknown` and say which one; a date, a project, or a priority nobody supplied is never inferred from the wording (X3) |
+| The account and the list within it | yes, to mutate | the request resolves them where it names them — a named provider is the account, and a named list, inbox, or project is the target within it, carried into the record as resolved rather than left `unknown`; only a target nothing named reads `unknown` (X3) |
+| Due date, project or list, priority, labels | no | leave the field `unknown` and say which one; a date, a project, or a priority nobody supplied is never inferred from the wording (X3) |
+| The zone that fixes the day boundary | yes, to resolve a relative date | resolve "tomorrow", "next Tuesday", and "this morning" against the `owner timezone` read from the `profile` namespace; where the profile carries none, name the zone actually used and the fact that it was assumed rather than read, on the `derived` line, and give the resolved date anyway (F3, X3) |
 | Authorization for the exact mutation | yes, to mutate | show the preview and stop at **previewed** (M2, X4) |
 
 **Dependencies:** none beyond the contract. The `task provider` is read and written only through a connector the owner has authorized this turn (D1); where none is, the run is mirror-only and says so rather than reporting provider success (D2). Owner-set defaults — the chosen system of record, the default project, the day boundary — are read from the `profile` namespace when present. Objects live in the `task provider` and the `tasks` namespace and nowhere else; no other skill's namespace, no shared list, no hidden second copy (D3, P3).
@@ -48,7 +50,7 @@ Operates the `tasks` sync instance defined in [contracts/sync.md](../../contract
 
 1. Write the operation record into this message before asking anything back — the mode, the resolved target, the identity, the exact change, and the state, with `unknown` in every field nothing supplied and `derived` beside every value this skill computed rather than received, so what was given and what was inferred stay visibly apart (O2). A question about the date, the project, or which of two items was meant rides alongside that record, never in place of it, and "tell me which one and I'll show you the change" is not showing it.
 2. Classify the request as read or mutate before touching anything (M1). Review is read-only and ends at the record; add, complete, defer, edit, and remove are mutations and continue through the preview.
-3. Resolve the target and the identity. Provider identity first, the stored id map second, the semantic key last — and semantic-key matching runs over active objects only and fails closed on zero matches or more than one. The id-map, semantic-key, pagination, and match-fallback mechanics are [contracts/sync.md](../../contracts/sync.md)'s; this skill adds nothing to them and restates none of them.
+3. Resolve the target and the identity. Provider identity first, the stored id map second, the semantic key last — and semantic-key matching runs over active objects only and fails closed on zero matches or more than one. The id-map, semantic-key, pagination, and match-fallback mechanics are [contracts/sync.md](../../contracts/sync.md)'s; this skill adds nothing to them and restates none of them. What the request itself states about the list — the account, the target list, how many objects match a word — is resolved evidence and is carried into the record; only what nothing supplied is `unknown`.
 4. Remove needs explicit delete language from the owner for each object. Where the wording is "clear", "get rid of", "take off my list", or "done with", offer complete and defer beside removal and act on neither until one is named (X4).
 5. Preview the exact change by showing it in this turn — the object as it stands, the object as it would stand, the target it lands in — and take authorization for that exact change (M2). The preview is shown for every mutation without exception, including the ones a same-turn verb already authorizes.
 6. Mutate in the order [contracts/sync.md](../../contracts/sync.md) fixes — provider, provider readback, field verification, mirror, mirror readback — and report only the state that order actually reached (M4, O3). A mirror write that fails after a verified provider write does not undo the provider write.
@@ -61,15 +63,17 @@ One block per operation, rendered whether or not a provider answered. Every fiel
 
 ```
 mode        : add | review | complete | defer | edit | remove
-target      : task provider <as named by the owner, or "mirror-only — no connector authorized"> / project <name|unknown>
+target      : task provider <the provider the owner named, or "mirror-only — no connector authorized"> / list <the inbox, list, or project the request named|unknown>
 identity    : provider id <id|pending> · mirror id <id|unknown> · semantic key <normalized description | project | due | account>
 change      : <field> <before> -> <after>, one line each; unsupplied fields omitted rather than guessed
-derived     : <every value computed rather than given — a date, the zone it was read in, a default project — labelled as derived>
+derived     : <every value computed rather than given, each with what it was computed from — the resolved date and the zone that fixed the day boundary, named, with whether that zone was read from the `profile` namespace or assumed>
 state       : <one name from the state vocabulary below>
 open        : <what is unresolved: the candidates, the blocked phase, the field still to fill>
 ```
 
-`semantic key` is printed as the normalized fields it was built from, so the owner can see what an identical retry would match on. Where two or more active objects match, all of them are listed as rows of this shape with their ids — `unknown` where no id was supplied — and nothing mutates (X1).
+`semantic key` is printed as the normalized fields it was built from, so the owner can see what an identical retry would match on.
+
+Where the identity resolves to more than one active object, every candidate is listed as a row of this shape before anything else, with its ids — `unknown` where none was supplied — and nothing mutates (X1). **The candidates the request itself names are candidates.** A request that says two active items contain a word has told the skill how many there are and what distinguishes them; those rows are rendered from the request, `unknown` in the id column, rather than answered with "I cannot enumerate the list" — an unreachable provider empties the ids, never the candidate list (X3).
 
 ## Output contract
 
