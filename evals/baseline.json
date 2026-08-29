@@ -1,5 +1,5 @@
 {
-  "commit": "1ce7eeb",
+  "commit": "4cf0309",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-29T15:30:55+00:00",
+  "generated_at": "2026-08-29T16:24:16+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -877,7 +877,7 @@
         "examples:1/4 Does not name a skill the index does not list"
       ],
       "run_id": "20260829T144433-fcb5ac8-t25-home-fix2",
-      "skill_sha256": "d5b38b7b1c7093cfa12d403238b488a46e4b99137c166814fe589e8c6fb616e6",
+      "skill_sha256": "63daa5c7f4843396f3dca9b1a0230a521ae2259ae0c6989962b0bb86fafdeaf6",
       "source_commit": "fcb5ac8",
       "ungraded": 0,
       "ungraded_keys": [],
