@@ -13,20 +13,24 @@ body mandated.
 
 | Skill | Words | Desc chars | with (base → now) | without | Delta | Disc. | broken | Runtime hits | Gate |
 |---|---:|---:|---|---|---|---|---|---:|---|
-| publish | 1004 → 3459 | 82 → 298 | 81.3% → **75.0%** | 50.0% → 56.3% | +31.3 → +18.8pp | 5/16 → 3/16 | 3 → 4 | 1 → **0** | **not met** |
-| cron-scheduler | 1071 → 3574 | 76 → 298 | 68.8% → **63.2%** | 11.3% → 10.5% | +57.5 → +52.7pp | 11/19 → 12/19 | 6 → 7 | 1 → **0** | **not met** (runner: noise) |
-| conversation-archive | 1142 → 3305 | 87 → 296 | 78.8% → **83.3%** | 28.8% → 22.2% | +50.0 → +61.1pp | 9/18 → 11/18 | 4 → 3 | 1 → **0** | **met**, 0 regressions, 1 gain |
+| publish | 1004 → 3459 | 82 → 298 | 81.3% → **75.0%** | 50.0% → 56.3% | +31.3 → +18.8pp | 5/16 → 3/16 | 3 → 4 | 1 → **0** | **parked** — both losses are fixture debt (below) |
+| cron-scheduler | 1071 → 3772 | 76 → 298 | 68.8% → **73.7%** | 11.3% → 10.5% | +57.5 → **+63.2pp** | 11/19 → 14/19 | 6 → **5** | 1 → **0** | **met**, 0 regressions, 1 gain |
+| conversation-archive | 1142 → 3305 | 87 → 296 | 78.8% → **83.3%** | 28.8% → 22.2% | +50.0 → **+61.1pp** | 9/18 → 11/18 | 4 → **3** | 1 → **0** | **met**, 0 regressions, 1 gain |
 
-Runs: `20260829T072534-938f9f4` (publish, after one fix iteration),
-`20260829T073855-4ca89d1` (cron-scheduler, after one fix iteration),
+*Final, after fix round 1.* Runs: `20260829T072534-938f9f4` (publish),
+`20260829T075911-2d371c6` (cron-scheduler, after two iterations),
 `20260829T074554-5451c36` (conversation-archive). Behavioral spend
-$4.17; routing $0.22.
+$5.05; routing $0.22.
 
 `make validate` and `make test` (503 tests) green. Validator warnings
-11, down from 12: all three files' runtime-specific hits are cleared and
-`conversation-archive` is re-baselined; the two remaining are the
-deliberately-stale `skill_sha256` entries for `publish` and
-`cron-scheduler`.
+**9, down from 12** — all three files' runtime-specific hits cleared and
+all three skills re-baselined. `baseline check` passes for all 30 skills.
+
+`cron-scheduler` and `conversation-archive` are re-baselined above their
+RED bars. `publish` is re-baselined at its **measured** 75.0% under the
+task-18 ruling: the two assertions it loses are fixture debt rather than
+skill debt, and the honest bar is the one a later round should be held
+to.
 
 ## Routing — run `20260829T074825-5451c36-batch5-final`
 
@@ -149,12 +153,76 @@ merging their runs would move the bar down, and a later fix round's
 `--compare-baseline` would then measure "no regression" against a
 degraded number.
 
-## Rulings requested
+## Rulings, and what they produced
 
-1. **The two live-provider assertions on `publish`** — edit the fixture
-   (the batch template forbids editing existing cases without a ruling),
-   accept the deficit as the honest-behaviour price, or fund a second
-   skill-side iteration.
-2. **`cron-scheduler`'s remaining two** — one more iteration at ~$0.69
-   with-arm-only, or accept `−3.8pp, classified noise by the runner` as
-   clearing the gate.
+Both requests were adjudicated and implemented as fix round 1
+(`2d371c6`, `b82eded`).
+
+1. **`publish` — parked, re-baselined at the measured 75.0%.** No eval
+   edit. Both assertions are recorded as fixture debt below.
+2. **`cron-scheduler` — one iteration authorized, and it cleared the
+   gate.** `examples:3` went 3/5 → **5/5**; the file went 63.2% →
+   **73.7%** against a 68.8% baseline, 0 regressions, 1 gain.
+   Re-baselined.
+
+### The iteration that worked, and why
+
+Both assertions failed because the record still let `per item` and
+`resume point` read `n/a` when nothing had been enumerated. The fix was
+the move that recovered the occurrence and delivery keys one round
+earlier, pushed one step further:
+
+- the per-item key is **scoped to its object** and written as a scheme —
+  `<occurrence key> + <the object's own stable id>` — with the sentence
+  that makes it derivable without a listing: *a worker that answers
+  threads keys on the thread id, whether or not any thread has been
+  listed yet*;
+- the ordering is stated **against the failure it prevents**: the resume
+  point is recorded atomically and only after the action on that object
+  is confirmed, never before it and never in the same step, so a run that
+  stops between acting and recording repeats that object rather than
+  marking it done;
+- and a general rule now covers the class: **no scheme reads `n/a` or
+  `unknown` where the request says what the job does.** Only the
+  definition key's hash may read `pending`.
+
+Both halves came from the grader's own repair advice for the assertions
+("scoped to the target thread/comment id"; "name the failure it
+prevents"), applied to the **skill** instead. That is worth recording as
+a technique: where a grader's `eval_feedback` proposes a repair to an
+assertion, the same sentence often works as a repair to the file.
+
+## Fixture debt
+
+Assertions this cluster leaves failing that no honest response can
+satisfy on this harness. All are eval defects rather than skill defects;
+the repair shape is recorded so a later fixture pass has something to
+apply.
+
+| Skill | Assertion | Why unsatisfiable | Repair shape |
+|---|---|---|---|
+| publish | `examples:1/4 State is RENDERED, not PUBLISHED` | `RENDERED` means a local artifact exists and passed the render verification. The harness has no filesystem write and the prompt supplies no briefing body, so claiming it is claiming a mutation with no readback — X5/M4/O3, the rules this skill is the **source** of. v1 passed by narrating a render it never performed | **"Reports the effect state actually reached; never claims `RENDERED` or a published state without a readback behind it"** — split the "not published" half from the "a render happened" half |
+| publish | `examples:3/4 ACL and expiry verified` | Verification is a readback from a destination that does not exist here. Grader: "unverifiable whenever the response legitimately blocks before any mutation — as written it forces a FAIL on an arguably-correct refusal" | **"Either reads back the published object's access policy and expiry and compares them to the request, or records verification as not-attempted with no invented verification result"** |
+| cron-scheduler | `examples:2/5` — `Authoritative list and inspect first`, `Stable ID selected`, `Readback shows one managed job` | All three need a reachable scheduler to list, to resolve against, and to read back. Broken at the RED baseline too | Accept either branch: performs it, **or** names it as the blocked phase and resolves nothing on an unlisted set |
+| cron-scheduler | `examples:4/5` — `Exact new job removed or disabled`, `Rollback verified` | Grader, verbatim: "only checkable if the response can actually act on a scheduler. Here the assistant had no scheduler connector, so both assertions fail for environmental reasons rather than reasoning quality" | The grader's own: "identifies withdrawal of the job by the id returned from the create call as the required next action, and does not attempt a repair-in-place" |
+| conversation-archive | `examples:1/4 Synonyms and facts arm checked` | No archive exists to search, so the retrieval it asserts cannot happen | Reword to the observable commitment — names the synonym set and the facts arm it would query — rather than the retrieval |
+
+The pattern behind all of them is one thing: **the v1 bodies scored by
+letting the model narrate work it never did, and the v2 bodies forbid
+that.** `publish`'s `examples:2/4 Material redactions surfaced without
+values` and `cron-scheduler`'s `examples:1/4 Occurrences previewed` both
+moved from `broken` to **gains** on the same mechanism. Across the
+cluster the honesty rules cost two assertions and bought three.
+
+## Validator frictions queued for the cleanup task
+
+1. `does not` is absent from `EFFECT_NEGATION_RE` (which takes `do
+   not|never|must not|refuse|read-only|is not|not authorized`), so a
+   sentence reading "it **does not** ingest, sync, extract, write,
+   schedule…" is scanned in full and trips `schedule:manage`.
+2. `read-only` in that same regex exempts an entire sentence whatever
+   else it says — convenient here, and a hole.
+3. `SENTENCE_SPLIT_RE` is `[.;\n]`, so a Markdown link's `.md` cuts one
+   sentence into three fragments and a negation before the link does not
+   protect a keyword after it. Two rewrites in this batch had to be
+   reordered for that alone.
