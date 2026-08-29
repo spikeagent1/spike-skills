@@ -14,8 +14,15 @@ body mandated.
 | Skill | Words | Desc chars | with (base → now) | without | Delta | Disc. | broken | Runtime hits | Gate |
 |---|---:|---:|---|---|---|---|---|---:|---|
 | publish | 1004 → 3459 | 82 → 298 | 81.3% → **75.0%** | 50.0% → 56.3% | +31.3 → +18.8pp | 5/16 → 3/16 | 3 → 4 | 1 → **0** | **parked** — both losses are fixture debt (below) |
-| cron-scheduler | 1071 → 3772 | 76 → 298 | 68.8% → **73.7%** | 11.3% → 10.5% | +57.5 → **+63.2pp** | 11/19 → 14/19 | 6 → **5** | 1 → **0** | **met**, 0 regressions, 1 gain |
-| conversation-archive | 1142 → 3305 | 87 → 296 | 78.8% → **83.3%** | 28.8% → 22.2% | +50.0 → **+61.1pp** | 9/18 → 11/18 | 4 → **3** | 1 → **0** | **met**, 0 regressions, 1 gain |
+| cron-scheduler | 1071 → 3772 | 76 → 298 | 68.8% → **75.0%** | 11.3% → 11.3% | +57.5 → **+63.8pp** | 11/19 → **14/19** | 6 → **5** | 1 → **0** | **met**, 0 regressions, 1 gain |
+| conversation-archive | 1142 → 3305 | 87 → 296 | 78.8% → **83.8%** | 28.8% → 25.0% | +50.0 → **+58.8pp** | 9/18 → **11/18** | 4 → **3** | 1 → **0** | **met**, 0 regressions, 1 gain |
+
+The pass-rate columns are the **case-weighted** rate `--compare-baseline`
+gates on (each case scored, then averaged). The assertions-passed
+fraction is the other scale and moves further: with the skill,
+`cron-scheduler` went 8/19 → **14/19** and `conversation-archive`
+reached **15/18**. Both are recorded because they diverge — a case with
+five assertions moves the case rate less than it moves the fraction.
 
 *Final, after fix round 1.* Runs: `20260829T072534-938f9f4` (publish),
 `20260829T075911-2d371c6` (cron-scheduler, after two iterations),
@@ -161,9 +168,9 @@ Both requests were adjudicated and implemented as fix round 1
 1. **`publish` — parked, re-baselined at the measured 75.0%.** No eval
    edit. Both assertions are recorded as fixture debt below.
 2. **`cron-scheduler` — one iteration authorized, and it cleared the
-   gate.** `examples:3` went 3/5 → **5/5**; the file went 63.2% →
-   **73.7%** against a 68.8% baseline, 0 regressions, 1 gain.
-   Re-baselined.
+   gate.** `examples:3` went 3/5 → **5/5**; the file went 63.8% →
+   **75.0%** case-weighted against a 68.8% baseline (8/19 → 14/19 by
+   assertion), 0 regressions, 1 gain. Re-baselined.
 
 ### The iteration that worked, and why
 
