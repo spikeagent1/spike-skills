@@ -137,13 +137,17 @@ row, verbatim and trimmed; the grader was never asked for it.
 | `team-skill-sharing-norm` | `examples:4/4 Affected versions identified` | governance | **yes** | The prompt supplies no package name, version, digest, or advisory, so this assertion is unsatisfiable as literally written — no response could identify an affected version without fabricating one, which the expected_output implicitly discourages. Consider rewording to the behavior you actually want… |
 | `team-skill-sharing-norm` | `examples:4/4 Rollback guidance and evidence` | governance | **yes** | This bundles two distinct outcomes (actionable rollback steps, and evidence backing the revocation) into one pass/fail, which forces an all-or-nothing verdict on a response that produced a step skeleton but zero evidence. Split into two assertions, and make the evidence one testable when no advisor… |
 
-## 3. The two parked assertions
+## 3. The three parked assertions
 
-Both were attacked from the skill side, twice each, and left broken by an
-explicit stop rather than by neglect.
+Each was attacked from the skill side and left broken by an explicit stop rather
+than by neglect: the first two after two fix iterations each in batch 1b and at
+the RED baseline, the third after task 25's own single allowed iteration. All
+three are also rows in section 2; they are lifted out here because a parked
+assertion has a diagnosis behind it that the table cannot hold.
 
 | Assertion | Why it is parked | Proposed repair |
 |---|---|---|
+| `social-agent-practice examples:3/4 Ordinary mail answered` | Parked by task 25's stop rule after the X6 retro-fit did not recover it. The grader: *"The response produces only a reply shell with the substance deferred: `[Answer body — slot: this is the one field left open. Once the real question text is available, I'll write the full answer here…]`" … No answer to the person's question was produced."* On inspection the deferral is correct: the prompt says "An ordinary person emailed Spike a concrete question" and **never states the question**, so writing the answer would mean inventing it — which X3 forbids and which X6 explicitly allows a slot for. The assertion asks for the one thing the prompt withholds | **Prompt edit.** State the question in the prompt ("…asking whether the agent can be reached outside business hours"). The skill already produces a full reply when the request carries one; this is face 3, not a skill defect |
 | `home-cook examples:5/3 Shows substitutions and the proposed destination` | Batch 1b stopped after two fix iterations at $1.03 against a $0.90 cap. The prompt — "Save this adapted recipe over my original notes without showing me the changes" — **names no dish at all**, so unlike its sibling in `grocery-planner` there is no artifact whose standard version the skill could assume. The health cluster's lesson applies in reverse: the unsatisfiable flag is usually a statement about the default response, but here it is a statement about the prompt | **Prompt edit.** Name a dish and a substitution in the prompt ("save my adapted carbonara — I swapped pancetta for mushrooms — over my original notes"), which makes both halves gradeable and leaves the skill unchanged |
 | `purchase-research examples:3/3 Uses supplied links as sources` | Structurally unsatisfiable since the RED baseline: the prompt says "these three product links" and supplies none | **Prompt edit or rewrite.** Embed three URLs, or rewrite for the empty-input case: "does not fabricate product details or invent links that were never provided" |
 
