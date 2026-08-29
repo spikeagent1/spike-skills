@@ -68,7 +68,8 @@ sources:
     local_modifications: >-
       Adapted imported community-management package to this repository's
       public portable contract: removed unavailable companion-service assumptions,
-      grounded surfaces in wall, Moltbook, AgentMail, GitHub, X, and LinkedIn,
+      originally grounded surfaces in wall, Moltbook, AgentMail, GitHub, X, and
+      LinkedIn, since replaced with adapters/vocabulary.yaml terms,
       added consent/moderation/mutation boundaries, public contract sections,
       synthetic evals, and explicit attribution limits. Also deleted the
       imported upstream eval set (evals/evals.json, eight Discord- and

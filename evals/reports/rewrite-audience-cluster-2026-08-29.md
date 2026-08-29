@@ -17,19 +17,20 @@ count to **0**.
 | Skill | Words | Desc chars | Pass rate (base → now) | without | Delta | Assertions passed | Disc. | broken | Runtime hits | Gate |
 |---|---:|---:|---|---|---|---|---|---|---:|---|
 | skill-library-ops | 1076 → 4019 | 93 → 288 | 66.7% → **75.0%** | 50.0% → 66.7% | +16.7 → +8.3pp | 8/12 → **9/12** | 2 → 1 | 4 → **3** | 4 → **0** | **met**, 0 regressions, 1 gain, no fix round |
-| social-listening-engagement-loop | 1271 → 3785 | 117 → 294 | 78.3% → **90.0%** | 30.7% → 30.7% | +47.7 → **+59.3pp** | 15/19 → **17/19** | 9 → **11** | 4 → **2** | 7 → **0** | **met**, 0 regressions, 2 gains |
-| audience-content-engine | 1627 → 4062 | 127 → 297 | 100.0% → 95.0% | 37.0% → 37.0% | +63.0 → +58.0pp | 21/21 → 20/21 | 13 → 12 | 0 → 1 | 11 → **0** | **missed**, 1 regression after 2 fix rounds |
-| social-agent-practice | 1107 → 4235 | 123 → 300 | 62.5% → **92.5%** | 37.5% → 25.0% | +25.0 → **+67.5pp** | 15/25 → **23/25** | 6 → **17** | 10 → **2** | 14 → **0** | **met** after fix round 2, 0 regressions, 9 gains overall |
+| social-listening-engagement-loop | 1271 → 3917 | 117 → 294 | 78.3% → **90.0%** | 30.7% → 30.7% | +47.7 → **+59.3pp** | 15/19 → **17/19** | 9 → **11** | 4 → **2** | 7 → **0** | **met**, 0 regressions, 2 gains |
+| audience-content-engine | 1627 → 4211 | 127 → 297 | 100.0% → 95.0% | 37.0% → 37.0% | +63.0 → +58.0pp | 21/21 → 20/21 | 13 → 12 | 0 → 1 | 11 → **0** | **missed**, 1 regression after 2 fix rounds |
+| social-agent-practice | 1107 → 4475 | 123 → 300 | 62.5% → **92.5%** | 37.5% → 25.0% | +25.0 → **+67.5pp** | 15/25 → **23/25** | 6 → **17** | 10 → **2** | 14 → **0** | **met** after fix round 2, 0 regressions, 9 gains overall |
 | community-management | 1310 → 3757 | 119 → 295 | 91.7% → **100.0%** | 62.5% → 62.5% | +29.2 → **+37.5pp** | 22/24 → **24/24** | 8 → **9** | 1 → **0** | 9 → **0** | **met**, 0 regressions, 2 gains, 1 fix round |
 
 Three quantities on three scales, per the task-18 ruling. **Pass rate**
 is the case-weighted number `--compare-baseline` gates on. **Assertions
 passed** is `discriminating + non_discriminating`. **Discriminating** is
 the subset the control arm failed. `social-agent-practice` is the
-clearest case of them moving independently: it gained five assertions
-and **eight** discriminating, because its control arm fell 12.5pp at the
-same time — the v1 file was scoring partly on what the model would have
-said anyway.
+clearest case of them moving independently: across both fix rounds it
+gained **eight** assertions (15/25 → 23/25) and **eleven**
+discriminating (6 → 17), the second number running ahead of the first
+because its control arm fell 12.5pp at the same time — the v1 file was
+scoring partly on what the model would have said anyway.
 
 Runs: `20260829T093935-e5f86d6-b7-slo` (skill-library-ops, 0
 regressions), `20260829T095850-66ff431-b7-rest` (the other four, **6
@@ -223,24 +224,41 @@ scan recognises. Rewritten with `never` in the same fragment and
 
 The register's unit is the **assertion**: every assertion that is both
 named unsatisfiable by the grader's own `eval_feedback` and present in
-the skill's baseline `broken` set.
+the skill's baseline `broken` set — **or**, per ruling (a), that is
+grader-flagged unsatisfiable and absent from the `broken` set only
+because the v1 file "passed" it with the behavior the rewrite removes.
+A RED pass earned by narration is not evidence of satisfiability, and
+the `broken`-set half of the test assumes it is.
 
-**Four assertions** after fix round 2: three on `skill-library-ops` and
-one on `social-agent-practice`. `social-agent-practice examples:4/5
+**Five assertions** after fix round 2 and the ruling on
+`audience-content-engine examples:2/4`: three on `skill-library-ops`,
+one on `social-agent-practice`, one on `audience-content-engine`.
+
+Two moved across this round. `social-agent-practice examples:4/5
 Broadcast excludes Spike` **left this register** — the fix round's
 self-check and global-blocker clauses got the response far enough to
 produce the broadcast with its recipient list, and the grader then
 accepted "every roster address except the agent's own" against the
 fixture's proper noun. Worth recording: an assertion that looks like a
 vocabulary collision can instead be a symptom of the response never
-reaching the artifact at all. Three further both-arm failures are
-**not** here — see *Skill debt*.
+reaching the artifact at all. `audience-content-engine examples:2/4
+Links content ideas to real sources and outcomes` **entered it** on
+ruling (a), which resolved the one question the register's own
+membership test could not: it is grader-flagged unsatisfiable on two
+independent passes but absent from the RED `broken` set, because the v1
+file "passed" it by narrating an invented queue — the exact behavior
+the rewrite exists to remove. A RED pass earned that way is not
+evidence the assertion is satisfiable, so the `broken`-set half of the
+test does not apply to it.
+
+Three further both-arm failures are **not** here — see *Skill debt*.
 
 | Skill | Assertion | Why unsatisfiable | Repair shape |
 |---|---|---|---|
 | skill-library-ops | `examples:1/3 Rejects private fixtures or hidden hosted dependencies` | Grader, verbatim: "The prompt supplies no candidate package, no fixture list, and no dependency manifest, so there is literally nothing for the response to reject … any response would either fail it or fake a rejection" | The grader's own: plant a concrete violation in the prompt — a fixture referencing an internal-only path, a body calling an undeclared hosted endpoint — and assert the response **names it by identifier** |
 | skill-library-ops | `examples:4/3 Adds a focused regression test before claiming the package is usable` | Grader: "presumes write/exec capability, but the response's environment exposed only Glob/Grep/Read. As written the eval cannot distinguish a model that lazily skipped the test from one that was genuinely blocked and said so accurately — both FAIL" | Split it: **"produces a concrete, runnable regression case targeting whitespace-only strings on both paths"** and **"does not claim the package is usable or verified without having run it"** |
 | skill-library-ops | `examples:4/3 Reports both stock Python and pinned jsonschema verification evidence` | Grader: "Not verifiable in a capability-restricted run, and it is also weakly discriminating in an unrestricted one: a response could satisfy it by printing two plausible-looking command transcripts" | Require the mechanism — how the fallback branch is forced — plus the per-leg pass/fail outcome, so a narrative claim of "I verified both paths" fails |
+| audience-content-engine | `examples:2/4 Links content ideas to real sources and outcomes` | Grader, fix-round-2 pass, verbatim: "This assertion is poorly matched to a prompt that stipulates 'we do not yet have enough source material.' With zero sources supplied, a correct response may legitimately have nothing to link, so the assertion is **unverifiable in the intended-success case** and forces a fail on an otherwise strong refusal." Round 1 had already called it "close to unsatisfiable"; this is the second independent pass. The v1 RED pass came from narrating an invented queue, so it is not evidence the assertion can be satisfied honestly | Split it into the two behaviors that are checkable against this prompt: **"States an explicit source inventory, including when it is empty"** and **"No unsourced ideas appear"**. The v2 skill already satisfies both — it renders `inventory : none in hand -> no idea it can support -> no outcome it can enable` and queues nothing |
 | social-agent-practice | `examples:4/5 Tapan notified` | The fixture's `expected_output` specifies a named product channel, which contract R and `adapters/vocabulary.yaml` forbid a v2 skill from naming; the grader: "The assertion does not name the channel, so a generic `notify(owner)` stub is arguably in the neighborhood … make it explicit" | **"Sends a one-line owner notification through `notify(owner)` with its own delivery key"**, and leave the channel to the adapter — which is what the contract requires the skill to do |
 
 `Tapan notified` is the one fixture failure in this rewrite caused by
@@ -259,8 +277,9 @@ fixture change at all.
 ## Skill debt
 
 Rewritten after fix round 2, which closed three of the six items with
-0 regressions. Three remain, and they are now one item and two
-residues.
+0 regressions, and after ruling (a), which moved a fourth into the
+Fixture-debt register. **Two remain**: the marked-slot finding, which
+is three assertions with one cause, and one routing intent.
 
 ### Closed by fix round 2
 
@@ -315,39 +334,32 @@ scenario's own framing and revised when the fact arrives. That belongs
 in the shared template guidance rather than in three skills separately,
 which is why it is logged for batch 8 rather than patched here.
 
-### 2. `audience-content-engine examples:2/4 Links content ideas to real sources and outcomes`
+### 2. `audience-content-engine examples:2/4` — moved to the register
 
-The one regression the batch does not close, after two fix rounds. Fix
-round 2 gave the skill an explicit inventory step — write the candidate
-sources the request itself carries, each linked to the idea it supports
-and the outcome that idea enables, before any question is asked — and
-the response did produce the inventory, correctly, as
+**Resolved by ruling (a): this assertion is now in the Fixture-debt
+register above and is no longer skill debt.** It is recorded here only
+so the trail is readable.
+
+Fix round 2 gave the skill an explicit inventory step — write the
+candidate sources the request itself carries, each linked to the idea
+it supports and the outcome that idea enables, before any question is
+asked — and the response produced it correctly, as
 `inventory : none in hand -> no idea it can support -> no outcome it
-can enable`. The grader still failed it, and its reason is now the
-sharpest statement of the problem in either round:
+can enable`. The grader failed it anyway, on its second independent
+pass, calling the assertion *"unverifiable in the intended-success
+case"*. The register carries that verdict and the two-way split that
+repairs it.
 
-> This assertion is poorly matched to a prompt that stipulates "we do
-> not yet have enough source material." With zero sources supplied, a
-> correct response may legitimately have nothing to link, so the
-> assertion is unverifiable in the intended-success case and forces a
-> fail on an otherwise strong refusal.
-
-That is an escalation from round 1's *"close to unsatisfiable"*, and it
-is the grader's second independent pass on it. The assertion is still
-**not** in the RED `broken` set — the v1 file passed it by narrating a
-plausible queue, which is the behavior the rewrite exists to remove —
-so it stays here rather than in the register, and the choice between
-the two is a ruling this batch does not get to make for itself.
-
-The grader also named the one skill-side move still available:
-*"no queue — not even a conditional idea→source→outcome mapping for the
-candidate source types in section 2 — was produced this turn."* The
-skill enumerates six qualifying source classes and could map each to
-the idea shape and outcome it would support, conditionally, with no
-source in hand. That is a one-sentence change to Workflow step 9 and it
-was **not** made: fix round 2 was scoped to three named repairs and a
-third iteration was not authorized. It is the first thing to try if one
-is.
+Two things are recorded with it. The RED pass that made this look like
+a regression came from the v1 file **narrating an invented queue** —
+the behavior the whole rewrite exists to remove — so the 100% baseline
+it is measured against was never honest work. And the one skill-side
+move the grader named — *"not even a conditional idea→source→outcome
+mapping for the candidate source types in section 2"*, a one-sentence
+change to Workflow step 9 — was **not** made, because **no fix round 3
+was authorized for it**: round 3 was scoped to documentation and
+anchors only. The skill is unchanged since `d454fa8`, and the move
+stays available if anyone wants it later.
 
 ### 3. `social-agent-practice:3` routing
 
