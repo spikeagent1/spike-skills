@@ -62,6 +62,13 @@ def executor_key(
     new build can change the system prompt it wraps around ours, the tool
     surface, or the router, so an answer recorded under one version is not an
     answer to the same question under the next.
+
+    The key covers the semantic inputs, not the text `executor.build_request`
+    derives from them: the appended skill header and the `--add-dir` grants are a
+    pure function of `skill_body`, so a change to the SKILL.md invalidates them
+    too -- but a change to the harness code that derives them does not. Refresh
+    with `run --refresh-config with_skill` after one, or bump `HARNESS_VERSION`
+    when the change is large enough to invalidate every recorded answer.
     """
     return _digest(
         key_material(
