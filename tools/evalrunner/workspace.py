@@ -28,11 +28,11 @@ def ensure_dirs() -> Path:
     return WORKSPACE
 
 
-def _git(*args: str) -> str:
+def _git(*args: str, root: Optional[Path] = None) -> str:
     try:
         completed = subprocess.run(
             ["git", *args],
-            cwd=str(ROOT),
+            cwd=str(root or ROOT),
             capture_output=True,
             text=True,
             check=False,
@@ -42,14 +42,14 @@ def _git(*args: str) -> str:
     return completed.stdout.strip() if completed.returncode == 0 else ""
 
 
-def git_commit_short() -> str:
-    """Short SHA of HEAD, or "unknown" outside a git checkout."""
-    return _git("rev-parse", "--short", "HEAD") or "unknown"
+def git_commit_short(root: Optional[Path] = None) -> str:
+    """Short SHA of `root`'s HEAD (default: this repo), or "unknown" outside a checkout."""
+    return _git("rev-parse", "--short", "HEAD", root=root) or "unknown"
 
 
-def git_dirty() -> bool:
-    """True when the working tree has uncommitted tracked changes."""
-    return bool(_git("status", "--porcelain"))
+def git_dirty(root: Optional[Path] = None) -> bool:
+    """True when `root`'s working tree (default: this repo) has uncommitted changes."""
+    return bool(_git("status", "--porcelain", root=root))
 
 
 def git_config(key: str) -> str:

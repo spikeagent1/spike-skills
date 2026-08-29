@@ -322,11 +322,23 @@ def _condensed_config(config: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _condense_skill(name: str, full: Dict[str, Any], run_id: Optional[str], root: Path) -> Dict[str, Any]:
-    """A run's rich per-skill stats, compacted to what `evals/baseline.json` commits."""
+def _condense_skill(
+    name: str,
+    full: Dict[str, Any],
+    run_id: Optional[str],
+    root: Path,
+    source_commit: Optional[str] = None,
+) -> Dict[str, Any]:
+    """A run's rich per-skill stats, compacted to what `evals/baseline.json` commits.
+
+    `source_commit` is the commit the run measured, kept per entry because the
+    top-level `commit` is the tree the merged baseline describes, and a baseline
+    is normally assembled from runs taken at several commits.
+    """
     configs = full.get("configs") or {}
     entry: Dict[str, Any] = {
         "run_id": run_id,
+        "source_commit": source_commit,
         "skill_sha256": skill_sha256(name, root),
         "evals_sha256": evals_sha256(name, root),
         "cases": full.get("cases"),
@@ -363,28 +375,32 @@ def merge_baseline(
 
     `skills_subset` narrows which of `run_results`'s skills are merged in
     (default: all of them); every other skill already in `existing` is carried
-    over unchanged. `routing` is optional and tolerated absent (the routing
-    runner lands in a later task); when omitted, `existing`'s routing section
-    (if any) is carried over as-is.
+    over unchanged. `routing` is optional and tolerated absent; when omitted,
+    `existing`'s routing section (if any) is carried over as-is. The top-level
+    `commit`/`dirty` describe `root` at merge time; each merged entry records the
+    commit its own run measured as `source_commit`.
     """
     root_path = Path(root) if root else workspace.ROOT
     baseline_skills: Dict[str, Any] = dict((existing or {}).get("skills") or {})
     run_skills = run_results.get("skills") or {}
     wanted = set(skills_subset) if skills_subset is not None else set(run_skills)
     run_id = run_results.get("run_id") or run_meta.get("run_id")
+    source_commit = run_meta.get("commit")
 
     for name, full in run_skills.items():
         if name not in wanted:
             continue
-        baseline_skills[name] = _condense_skill(name, full, run_id, root_path)
+        baseline_skills[name] = _condense_skill(name, full, run_id, root_path, source_commit)
 
     executor_model = run_meta.get("executor_model") or {}
     return {
         "schema_version": (existing or {}).get("schema_version") or SCHEMA_VERSION,
         "harness_version": run_results.get("harness_version") or run_meta.get("harness_version"),
         "generated_at": workspace.utc_iso(),
-        "commit": run_meta.get("commit"),
-        "dirty": run_meta.get("dirty"),
+        # HEAD at merge time, not the source run's: the baseline describes the
+        # tree it is committed alongside, and its entries carry `source_commit`.
+        "commit": workspace.git_commit_short(root_path),
+        "dirty": workspace.git_dirty(root_path),
         "evaluator": {
             "claude_code_version": run_meta.get("claude_code_version"),
             "executor_model": executor_model.get("resolved") or executor_model.get("alias"),
@@ -396,6 +412,29 @@ def merge_baseline(
         "skills": baseline_skills,
         "routing": routing if routing is not None else (existing or {}).get("routing"),
     }
+
+
+def merge_routing_block(
+    existing: Optional[Dict[str, Any]], incoming: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Fold a routing run's block into the committed one, per file.
+
+    A routing run normally covers a subset of the fixtures, and replacing the
+    whole block would silently drop every file it did not measure. Files the run
+    covers are replaced; the rest are carried over. `phantom_targets` is unioned
+    because the carried-over files still name theirs.
+    """
+    if not isinstance(existing, dict):
+        return dict(incoming)
+    files: Dict[str, Any] = dict(existing.get("files") or {})
+    files.update(incoming.get("files") or {})
+    phantom = set(existing.get("phantom_targets") or []) | set(
+        incoming.get("phantom_targets") or []
+    )
+    merged = dict(incoming)
+    merged["files"] = files
+    merged["phantom_targets"] = sorted(phantom)
+    return merged
 
 
 def check_baseline(baseline: Dict[str, Any], root: Path) -> List[str]:

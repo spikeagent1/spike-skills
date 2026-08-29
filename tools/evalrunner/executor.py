@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -38,6 +39,10 @@ SKILL_HEADER = (
     "The following skill is active for this task. Supporting files referenced below are "
     "readable under `{path}`.\n\n"
 )
+# The canonical template's Dependencies line is where a skill declares the
+# repository files it reads; nothing outside that line grants anything.
+DEPENDENCIES_LINE_RE = re.compile(r"^\s*\*\*Dependencies:\*\*.*$", re.MULTILINE)
+MARKDOWN_LINK_TARGET_RE = re.compile(r"\]\(([^)\s]+)")
 
 
 class ConfigError(ValueError):
@@ -142,6 +147,37 @@ def skill_body(config: str, skill: str, root: Path) -> Optional[str]:
     return strip_frontmatter(_skill_at_ref(root, skill, ref))
 
 
+def repo_input_dirs(body: str, skill_dir: Path, root: Path) -> List[Path]:
+    """Repository directories the Dependencies line links into, sorted and deduplicated.
+
+    A skill that declares a repo file it reads -- `catalog/index.md` for the
+    launcher, `contracts/datastore.md` for the datastore readers -- can only
+    exercise that branch under eval when the directory is granted. The grant is
+    derived from the declaration, so a link the skill did not declare reaches
+    nothing, and neither does one that escapes the repository.
+    """
+    # normpath, not resolve: the grant has to spell the same path the skill's own
+    # --add-dir does, and resolve() would rewrite a symlinked tmp root.
+    skill_dir = Path(os.path.normpath(Path(skill_dir).absolute()))
+    root = Path(os.path.normpath(Path(root).absolute()))
+    granted: Dict[str, Path] = {}
+    for line in DEPENDENCIES_LINE_RE.findall(body or ""):
+        for target in MARKDOWN_LINK_TARGET_RE.findall(line):
+            target = target.split("#", 1)[0].strip()
+            if not target or "://" in target or target.startswith("mailto:"):
+                continue
+            resolved = Path(os.path.normpath(skill_dir / target))
+            directory = resolved if target.endswith("/") else resolved.parent
+            if not directory.is_dir():
+                continue
+            if directory == skill_dir or skill_dir in directory.parents:
+                continue  # already reachable through the skill's own grant
+            if directory != root and root not in directory.parents:
+                continue  # outside the repository
+            granted[str(directory)] = directory
+    return [granted[key] for key in sorted(granted)]
+
+
 def executor_env(args: Any) -> Dict[str, str]:
     """Environment for an executor call: nesting vars dropped, isolation applied."""
     environ = probe_environ(os.environ)
@@ -197,6 +233,8 @@ def build_request(
             "--add-dir",
             str(skill_dir),
         ]
+        for extra in repo_input_dirs(body, skill_dir, root):
+            argv += ["--add-dir", str(extra)]
     argv += list(isolation_flags)
 
     return ClaudeRequest(

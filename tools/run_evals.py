@@ -177,7 +177,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Behavioral run id to merge in; optional when only --routing-from is given.",
     )
     baseline_update.add_argument(
-        "--routing-from", help="Routing run id whose results.json fills the baseline's routing block.",
+        "--skill",
+        help=(
+            "Comma-separated skill names; merge only these entries from --from and "
+            "leave every other baseline entry untouched."
+        ),
+    )
+    baseline_update.add_argument(
+        "--routing-from",
+        help=(
+            "Routing run id whose results.json is merged into the baseline's routing "
+            "block, per file: files the run did not cover keep their committed numbers."
+        ),
+    )
+    baseline_update.add_argument(
+        "--replace-routing", action="store_true",
+        help="Replace the whole routing block with --routing-from's instead of merging per file.",
     )
     baseline_update.add_argument(
         "--require-clean", action="store_true", help="Refuse when the source run was recorded dirty."
@@ -756,6 +771,12 @@ def cmd_routing(args: argparse.Namespace) -> int:
         "cost_usd_total": 0.0,
     }
     _write_run_json(run_root / "run.json", run_json)
+    # The ballot the run voted on, in the exact material `descriptions_digest`
+    # hashes: a digest alone cannot be read back when a later run disagrees.
+    (run_root / "descriptions.txt").write_text(
+        "".join(f"{name}: {description}\n" for name, description in descriptions),
+        encoding="utf-8",
+    )
     for case in selected:
         _write_intent_metadata(run_root / case.skill_file / f"intent-{case.line_no}", case)
 
@@ -895,8 +916,11 @@ def _route_one(
         result = executor.result_from_json(cached)
     else:
         # Native mode kills the call as soon as the model names a skill: the answer
-        # is the choice, and running the skill would only add cost and latency.
-        result = runner.run(req, early_stop_on_skill=args.mode == routing.MODE_NATIVE)
+        # is the choice, and running the skill would only add cost and latency. An
+        # `expect_question` case is the exception -- it scores on the reply text,
+        # which a stop at the first Skill tool_use would throw away.
+        early_stop = args.mode == routing.MODE_NATIVE and not case.expect_question
+        result = runner.run(req, early_stop_on_skill=early_stop)
         if result.status == "ok":
             store.put(key, executor.result_to_json(result))
     executor.persist_result(run_dir, req, result)
@@ -1258,6 +1282,22 @@ def cmd_baseline_update(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 2
+    skills_subset: Optional[List[str]] = None
+    if getattr(args, "skill", None):
+        skills_subset = [name.strip() for name in args.skill.split(",") if name.strip()]
+        covered = set((results or {}).get("skills") or {})
+        unknown = [name for name in skills_subset if name not in covered]
+        if unknown:
+            # Merging a name the run never measured would write nothing and say
+            # nothing; a typo in --skill has to be loud.
+            print(
+                "run_evals.py baseline update: --skill named "
+                f"{', '.join(unknown)}, which the run does not cover "
+                f"({', '.join(sorted(covered)) or 'no skills in the run'})",
+                file=sys.stderr,
+            )
+            return 2
+
     routing_block = None
     if args.routing_from:
         routing_block, routing_error = _load_routing_block(args.routing_from)
@@ -1266,6 +1306,10 @@ def cmd_baseline_update(args: argparse.Namespace) -> int:
             return 2
 
     existing = report.load_baseline()
+    if routing_block is not None and not args.replace_routing:
+        routing_block = report.merge_routing_block(
+            (existing or {}).get("routing"), routing_block
+        )
     if run_root is None:
         # Routing-only update: the behavioral half of the baseline is untouched,
         # so nothing but the routing section (and its timestamp) may change.
@@ -1281,7 +1325,8 @@ def cmd_baseline_update(args: argparse.Namespace) -> int:
         merged["generated_at"] = workspace.utc_iso()
     else:
         merged = report.merge_baseline(
-            existing, results, run_meta, routing=routing_block, root=workspace.ROOT
+            existing, results, run_meta, skills_subset,
+            routing=routing_block, root=workspace.ROOT,
         )
     path = report.write_baseline(merged, root=workspace.ROOT)
     routing_note = f", routing from {args.routing_from}" if args.routing_from else ""

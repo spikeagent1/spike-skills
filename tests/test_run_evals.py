@@ -3006,7 +3006,9 @@ class BaselineTest(unittest.TestCase):
         merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
         self.assertEqual(merged["evaluator"]["executor_model"], "claude-sonnet-5")
         self.assertEqual(merged["evaluator"]["grader_model"], "opus")
-        self.assertEqual(merged["commit"], "abc1234")
+        # The run's commit is the entry's provenance; the top-level `commit` is
+        # the tree the merge happened against (task 25 item 6).
+        self.assertEqual(merged["skills"]["briefing"]["source_commit"], "abc1234")
 
     def test_routing_is_carried_over_when_not_supplied(self) -> None:
         existing = {"skills": {}, "routing": {"mode": "native"}}
@@ -4698,6 +4700,65 @@ class RoutingCLITest(unittest.TestCase):
         self.assertTrue(by_file["beta"]["asked_question"])
         self.assertFalse(by_file["alpha"]["asked_question"])
 
+    def test_the_ballot_is_persisted_beside_run_json(self) -> None:
+        # Task 25 item 7: `descriptions_sha256` alone cannot be re-read; the run
+        # has to carry the ballot it actually voted on.
+        self._patch_runner(FakeClaudeRunner(self._native_answers()))
+        self.assertEqual(
+            self._main(
+                ["routing", "--all", "--model", "sonnet", "--mode", "native",
+                 "--repeats", "3", "--workers", "1", "--label", "ballot"]
+            ),
+            0,
+        )
+        run_dir = self._routing_run_dir("ballot")
+        ballot = (run_dir / "descriptions.txt").read_text(encoding="utf-8")
+        self.assertEqual(
+            ballot.splitlines(),
+            ["alpha: Fixture skill alpha.", "beta: Fixture skill beta."],
+        )
+
+    def test_the_persisted_ballot_hashes_to_the_recorded_digest(self) -> None:
+        # Task 25 item 26: the file and the digest are two views of one ballot.
+        self._patch_runner(FakeClaudeRunner(self._native_answers()))
+        self.assertEqual(
+            self._main(
+                ["routing", "--all", "--model", "sonnet", "--mode", "native",
+                 "--repeats", "3", "--workers", "1", "--label", "digest"]
+            ),
+            0,
+        )
+        run_dir = self._routing_run_dir("digest")
+        material = (run_dir / "descriptions.txt").read_text(encoding="utf-8").rstrip("\n")
+        run_json = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            hashlib.sha256(material.encode("utf-8")).hexdigest(),
+            run_json["descriptions_sha256"],
+        )
+
+    def test_an_expect_question_case_runs_to_completion_in_native_mode(self) -> None:
+        # Task 25 item 24: early-stopping on the first Skill tool_use throws away
+        # the reply, which is the only evidence an `expect_question` case scores on.
+        (self.root / "skills" / "beta" / "routing-eval.jsonl").write_text(
+            '{"intent":"nothing to do here","expected_skill":null,"expect_question":true}\n',
+            encoding="utf-8",
+        )
+        fake = FakeClaudeRunner(self._native_answers())
+        self._patch_runner(fake)
+        self.assertEqual(
+            self._main(
+                ["routing", "--all", "--model", "sonnet", "--mode", "native",
+                 "--repeats", "3", "--workers", "1", "--label", "q"]
+            ),
+            0,
+        )
+        by_intent = {
+            req.argv[req.argv.index("-p") + 1]: stop
+            for req, stop in zip(fake.requests, fake.early_stops)
+        }
+        self.assertFalse(by_intent["nothing to do here"], "expect_question must run to completion")
+        self.assertTrue(by_intent["do the alpha thing"], "ordinary native cases still early-stop")
+
     def test_native_run_writes_the_layout_and_scores_the_intents(self) -> None:
         fake = FakeClaudeRunner(self._native_answers())
         self._patch_runner(fake)
@@ -5082,6 +5143,270 @@ class PartialToolInputTest(unittest.TestCase):
         _, tool_uses, _, _ = claude_cli.parse_stream_lines(_fixture_lines("skill_tool_use.jsonl"))
         self.assertEqual([use["name"] for use in tool_uses], ["Skill"])
         self.assertEqual(tool_uses[0]["input"], {"skill": "zz-eval-sentinel-fa2a907f"})
+
+
+class BaselineCommitProvenanceTest(unittest.TestCase):
+    """Task 25 item 6: the baseline records the tree it describes, not the run's."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        _write_skill_tree(
+            self.root, "briefing",
+            examples={"evals": [{"id": 1, "prompt": "p", "assertions": ["a", "b"]}]},
+        )
+        _git_init(self.root)
+        self.head = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(self.root), capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        self.run_results = {"run_id": "r1", "skills": {"briefing": {"cases": 4, "configs": {}}}}
+        self.run_meta = {"run_id": "r1", "commit": "abc1234", "dirty": False}
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_top_level_commit_is_head_at_merge_time_not_the_runs(self) -> None:
+        merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
+        self.assertEqual(merged["commit"], self.head)
+        self.assertNotEqual(merged["commit"], "abc1234")
+
+    def test_each_entry_keeps_the_commit_its_run_measured(self) -> None:
+        merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
+        entry = merged["skills"]["briefing"]
+        self.assertEqual(entry["run_id"], "r1")
+        self.assertEqual(entry["source_commit"], "abc1234")
+
+    def test_dirty_is_the_worktree_at_merge_time(self) -> None:
+        (self.root / "skills" / "briefing" / "SKILL.md").write_text("changed\n", encoding="utf-8")
+        merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
+        self.assertTrue(merged["dirty"], "a dirty tree at merge time is a dirty baseline")
+
+    def test_carried_over_entries_keep_their_own_source_commit(self) -> None:
+        existing = {"skills": {"owner-dream-cycle": {"run_id": "r0", "source_commit": "0000000"}}}
+        merged = report.merge_baseline(existing, self.run_results, self.run_meta, root=self.root)
+        self.assertEqual(merged["skills"]["owner-dream-cycle"]["source_commit"], "0000000")
+        self.assertEqual(merged["skills"]["briefing"]["source_commit"], "abc1234")
+
+    def test_a_root_outside_git_records_unknown_rather_than_the_repos_head(self) -> None:
+        with tempfile.TemporaryDirectory() as outside:
+            _write_skill_tree(Path(outside), "briefing", examples={"evals": []})
+            merged = report.merge_baseline(
+                None, self.run_results, self.run_meta, root=Path(outside)
+            )
+        self.assertEqual(merged["commit"], "unknown")
+        self.assertFalse(merged["dirty"])
+
+
+class MergeRoutingBlockTest(unittest.TestCase):
+    """Task 25 item 13: a routing run covering some files must not erase the rest."""
+
+    EXISTING = {
+        "run_id": "r0",
+        "mode": "native",
+        "repeats": 3,
+        "files": {
+            "alpha": {"cases": 2, "pass": 2, "pass_rate": 1.0},
+            "beta": {"cases": 1, "pass": 0, "pass_rate": 0.0},
+        },
+        "phantom_targets": ["ghost-skill"],
+    }
+    INCOMING = {
+        "run_id": "r1",
+        "mode": "native",
+        "repeats": 1,
+        "files": {"beta": {"cases": 1, "pass": 1, "pass_rate": 1.0}},
+        "phantom_targets": ["other-ghost"],
+    }
+
+    def test_files_absent_from_the_run_are_preserved(self) -> None:
+        merged = report.merge_routing_block(self.EXISTING, self.INCOMING)
+        self.assertEqual(merged["files"]["alpha"], self.EXISTING["files"]["alpha"])
+
+    def test_files_present_in_the_run_are_replaced(self) -> None:
+        merged = report.merge_routing_block(self.EXISTING, self.INCOMING)
+        self.assertEqual(merged["files"]["beta"], {"cases": 1, "pass": 1, "pass_rate": 1.0})
+
+    def test_the_run_id_and_mode_come_from_the_incoming_run(self) -> None:
+        merged = report.merge_routing_block(self.EXISTING, self.INCOMING)
+        self.assertEqual(merged["run_id"], "r1")
+        self.assertEqual(merged["repeats"], 1)
+
+    def test_phantom_targets_are_unioned_because_the_kept_files_still_name_theirs(self) -> None:
+        merged = report.merge_routing_block(self.EXISTING, self.INCOMING)
+        self.assertEqual(merged["phantom_targets"], ["ghost-skill", "other-ghost"])
+
+    def test_no_existing_block_is_the_incoming_block(self) -> None:
+        self.assertEqual(report.merge_routing_block(None, self.INCOMING), self.INCOMING)
+
+
+class BaselineUpdateFlagsTest(unittest.TestCase):
+    """Task 25 items 13 and 15: `--skill`, per-file routing merge, `--replace-routing`."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self._saved_ws = run_evals.workspace.WORKSPACE
+        self._saved_root = run_evals.workspace.ROOT
+        run_evals.workspace.WORKSPACE = self.root / "evals" / "workspaces"
+        run_evals.workspace.ROOT = self.root
+        for name in ("alpha", "beta"):
+            _write_skill_tree(
+                self.root, name,
+                examples={"evals": [{"id": 1, "prompt": "p", "assertions": ["a", "b"]}]},
+                routing='{"intent":"do it","expected_skill":"%s"}\n' % name,
+            )
+        run_root = run_evals.workspace.WORKSPACE / "runs" / "r1"
+        _write_json(run_root / "run.json", {"run_id": "r1", "repeats": 1, "commit": "abc1234"})
+        for name in ("alpha", "beta"):
+            eval_dir = run_root / name / "eval-1"
+            _write_eval_metadata(eval_dir, eval_id=1, key=f"{name}:examples:1", assertions=["a", "b"])
+            for config, marks in (("with_skill", [True, True]), ("without_skill", [True, False])):
+                _write_timing(eval_dir / config / "run-1")
+                _write_grading(eval_dir / config / "run-1", ["a", "b"], marks)
+        _write_json(
+            run_evals.workspace.WORKSPACE / "routing" / "rt1" / "results.json",
+            {
+                "run_id": "rt1", "mode": "native", "repeats": 1,
+                "files": {"beta": {"cases": 1, "pass": 1, "pass_rate": 1.0}},
+                "phantom_targets": [],
+            },
+        )
+
+    def tearDown(self) -> None:
+        run_evals.workspace.WORKSPACE = self._saved_ws
+        run_evals.workspace.ROOT = self._saved_root
+        self.tmp.cleanup()
+
+    def _main_quietly(self, argv: list[str]) -> int:
+        with contextlib.redirect_stdout(io.StringIO()):
+            return run_evals.main(argv)
+
+    def _baseline(self) -> dict:
+        return json.loads(
+            (self.root / "evals" / "baseline.json").read_text(encoding="utf-8")
+        )
+
+    def test_skill_flag_merges_only_the_named_entries(self) -> None:
+        code = self._main_quietly(["baseline", "update", "--from", "r1", "--skill", "alpha"])
+        self.assertEqual(code, 0)
+        self.assertEqual(sorted(self._baseline()["skills"]), ["alpha"])
+
+    def test_skill_flag_takes_a_comma_separated_list(self) -> None:
+        self.assertEqual(
+            self._main_quietly(["baseline", "update", "--from", "r1", "--skill", "alpha,beta"]), 0
+        )
+        self.assertEqual(sorted(self._baseline()["skills"]), ["alpha", "beta"])
+
+    def test_a_skill_the_run_never_covered_is_refused(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = run_evals.main(["baseline", "update", "--from", "r1", "--skill", "ghost"])
+        self.assertEqual(code, 2)
+        self.assertIn("ghost", err.getvalue())
+
+    def test_routing_from_merges_per_file_and_keeps_the_others(self) -> None:
+        self.assertEqual(self._main_quietly(["baseline", "update", "--from", "r1"]), 0)
+        seeded = self._baseline()
+        seeded["routing"] = {
+            "run_id": "rt0", "mode": "native", "repeats": 3,
+            "files": {
+                "alpha": {"cases": 1, "pass": 0, "pass_rate": 0.0},
+                "beta": {"cases": 1, "pass": 0, "pass_rate": 0.0},
+            },
+            "phantom_targets": [],
+        }
+        report.write_baseline(seeded, root=self.root)
+        self.assertEqual(self._main_quietly(["baseline", "update", "--routing-from", "rt1"]), 0)
+        routing_block = self._baseline()["routing"]
+        self.assertEqual(routing_block["files"]["alpha"]["pass_rate"], 0.0)
+        self.assertEqual(routing_block["files"]["beta"]["pass_rate"], 1.0)
+        self.assertEqual(routing_block["run_id"], "rt1")
+
+    def test_replace_routing_restores_whole_block_replacement(self) -> None:
+        self.assertEqual(self._main_quietly(["baseline", "update", "--from", "r1"]), 0)
+        seeded = self._baseline()
+        seeded["routing"] = {
+            "run_id": "rt0", "mode": "native", "repeats": 3,
+            "files": {"alpha": {"cases": 1, "pass": 0}, "beta": {"cases": 1, "pass": 0}},
+            "phantom_targets": [],
+        }
+        report.write_baseline(seeded, root=self.root)
+        self.assertEqual(
+            self._main_quietly(
+                ["baseline", "update", "--routing-from", "rt1", "--replace-routing"]
+            ),
+            0,
+        )
+        self.assertEqual(sorted(self._baseline()["routing"]["files"]), ["beta"])
+
+
+class RepoInputGrantTest(unittest.TestCase):
+    """Task 25 item 25: a repo file named on the Dependencies line is readable under eval."""
+
+    DEPS = (
+        "---\n"
+        "name: home\n"
+        "description: Fixture launcher.\n"
+        "---\n"
+        "\n"
+        "# Home\n"
+        "\n"
+        "## Inputs\n"
+        "\n"
+        "**Dependencies:** none beyond the contract. This skill reads one repository "
+        "file, [catalog/index.md](../../catalog/index.md), and touches no namespace.\n"
+    )
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        (self.root / "catalog").mkdir(parents=True, exist_ok=True)
+        (self.root / "catalog" / "index.md").write_text("# index\n", encoding="utf-8")
+        _write_skill_tree(self.root, "home", body=self.DEPS)
+        _write_skill_tree(self.root, "alpha")
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _argv(self, skill: str, config: str) -> list[str]:
+        case = _behavioral_case(skill=skill)
+        args = _run_args(repo_root=str(self.root), sandbox_root=str(self.root / "sandbox"))
+        return executor.build_request(case, config, args, [], self.root / "run").argv
+
+    def test_the_declared_repo_directory_is_granted(self) -> None:
+        argv = self._argv("home", executor.CONFIG_WITH_SKILL)
+        self.assertIn(str(self.root / "catalog"), argv)
+
+    def test_the_grant_is_an_add_dir_value(self) -> None:
+        argv = self._argv("home", executor.CONFIG_WITH_SKILL)
+        index = argv.index(str(self.root / "catalog"))
+        self.assertEqual(argv[index - 1], "--add-dir")
+
+    def test_a_skill_declaring_nothing_gets_no_extra_grant(self) -> None:
+        argv = self._argv("alpha", executor.CONFIG_WITH_SKILL)
+        self.assertEqual(argv.count("--add-dir"), 1)
+
+    def test_the_without_skill_leg_gets_no_grant(self) -> None:
+        argv = self._argv("home", executor.CONFIG_WITHOUT_SKILL)
+        self.assertNotIn("--add-dir", argv)
+
+    def test_repo_input_dirs_ignores_links_outside_the_repository(self) -> None:
+        body = "**Dependencies:** see [docs](https://example.com/x.md) and [up](../../../etc/passwd)."
+        self.assertEqual(
+            executor.repo_input_dirs(body, self.root / "skills" / "home", self.root), []
+        )
+
+    def test_repo_input_dirs_ignores_links_outside_the_dependencies_line(self) -> None:
+        body = "Some prose citing [catalog/index.md](../../catalog/index.md).\n"
+        self.assertEqual(
+            executor.repo_input_dirs(body, self.root / "skills" / "home", self.root), []
+        )
+
+    def test_a_link_back_into_the_skill_is_not_repeated(self) -> None:
+        body = "**Dependencies:** [ref](reference.md) only.\n"
+        self.assertEqual(
+            executor.repo_input_dirs(body, self.root / "skills" / "home", self.root), []
+        )
 
 
 if __name__ == "__main__":
