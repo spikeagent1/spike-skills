@@ -126,8 +126,8 @@ skills:
     status: approved
     cohort: research-and-writing
     workshop_proposal: fact-check-20260823-38e00cd72e
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: draft-in-voice
     classification: owned
