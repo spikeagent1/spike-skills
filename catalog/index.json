@@ -1,0 +1,812 @@
+{
+  "generated_by": "tools/build_index.py",
+  "domains": [
+    {
+      "name": "work",
+      "skills": [
+        {
+          "name": "daily-task-manager",
+          "description": "Use when a single task is the ask: capturing or adding one, 'remind me to renew the insurance next Tuesday', listing what is still open, completing, deferring, editing or removing one, or reconciling the list against its provider. Not for a whole-day summary across meetings and mail (briefing).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "provider:read",
+            "provider:write",
+            "delete:external"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "day"
+          ]
+        },
+        {
+          "name": "briefing",
+          "description": "Use when the owner wants the day compiled and cited, read-only: a morning briefing, 'what's happening today', 'what changed overnight', the whole picture across meetings, mail and what's due, or a summary of what the notes already say. Not for changing a task list (daily-task-manager).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "provider:read"
+          ],
+          "hints": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "day",
+            "datastore-readers"
+          ]
+        },
+        {
+          "name": "draft-in-voice",
+          "description": "Use when something has to read as a specific person: draft this as them, make it sound like them before it goes out, turn this note into a post in my voice, ghostwrite a blurb in their voice, or build a voice profile from their own writing. Not for grammar fixes in wording already theirs (publish).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "contract_version": "2",
+          "cluster": []
+        },
+        {
+          "name": "publish",
+          "description": "Use when approved content goes out or comes back: push it live and read the URL back, send this to the list on the release date and confirm the target account before anything goes out, take a post down, or render an encrypted shareable page. Not for drafting and cold review (public-post-workshop).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "fs:write-local",
+            "publish:external",
+            "publish:revoke",
+            "message:send"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "release"
+          ]
+        },
+        {
+          "name": "owner-dream-cycle",
+          "description": "Use when a closed span of the owner's own turns is consolidated into durable records: running last night's reflection, rerunning one for a day nothing changed on, or looking back over what was said about goals this year and where the drift is. Not for importing transcripts (conversation-archive).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "belief:update",
+            "identity:propose",
+            "notify:owner"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "datastore-readers"
+          ]
+        }
+      ],
+      "next": [
+        "calendar-planning",
+        "meeting-preparation-and-follow-up",
+        "project-status-review",
+        "decision-log"
+      ]
+    },
+    {
+      "name": "health",
+      "skills": [
+        {
+          "name": "fitness-coach",
+          "description": "Use when training is the ask: starting a routine with the days, time, and equipment available, working around a sore knee or a lay-off, reviewing the week just trained, or when to add load. Not for sleep habits (sleep-review) or logging doses and symptoms (medication-and-symptom-log).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read"
+          ],
+          "hints": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "contract_version": "2",
+          "cluster": [
+            "health"
+          ]
+        },
+        {
+          "name": "meal-planner",
+          "description": "Use when someone wants meals planned for several days or a week: 'what should we eat this week', meal prep, leftovers, cooking around allergies, budget, or schedule. Not for a single recipe or cooking session (home-cook) or a shopping list from an existing plan (grocery-planner).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read"
+          ],
+          "hints": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "contract_version": "2",
+          "cluster": [
+            "food"
+          ]
+        },
+        {
+          "name": "sleep-review",
+          "description": "Use when sleep is the problem: six broken hours and waking tired, late caffeine or a phone in bed, shift rotation, a wearable sleep score to make sense of, or a bounded experiment to test one change. Not for training load (fitness-coach) or preparing a clinician visit (health-appointment-prep).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read"
+          ],
+          "hints": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "contract_version": "2",
+          "cluster": [
+            "health"
+          ]
+        },
+        {
+          "name": "health-appointment-prep",
+          "description": "Use when a clinical visit is the point: fifteen minutes with a doctor on Thursday, a one-page timeline a clinician can read fast, what to ask about a treatment or a result, what records to bring or verify first. Not for keeping the daily record of doses and symptoms (medication-and-symptom-log).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read"
+          ],
+          "hints": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "contract_version": "2",
+          "cluster": [
+            "health"
+          ]
+        },
+        {
+          "name": "medication-and-symptom-log",
+          "description": "Use when the record itself is the ask: starting a medication or symptom diary, adding today's doses and how the day went, or summarising entries kept so far — what shows up most often, and when. Not for deciding a dose, working out what causes a symptom, or visit questions (health-appointment-prep).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "fs:write-local"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "contract_version": "2",
+          "cluster": [
+            "health"
+          ]
+        }
+      ],
+      "next": []
+    },
+    {
+      "name": "wealth",
+      "skills": [],
+      "next": [
+        "budget-review",
+        "subscription-audit",
+        "portfolio-explainer",
+        "tax-document-checklist",
+        "bill-and-renewal-tracker"
+      ]
+    },
+    {
+      "name": "home-and-lifestyle",
+      "skills": [
+        {
+          "name": "home-cook",
+          "description": "Use when someone is cooking one thing now: what to make from what is in the kitchen, running a recipe, adapting it for an allergy or missing equipment, a technique that keeps failing, or whether an ingredient is still safe. Not for a week of meals (meal-planner) or what to buy (grocery-planner).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read"
+          ],
+          "hints": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "contract_version": "2",
+          "cluster": [
+            "food"
+          ]
+        },
+        {
+          "name": "grocery-planner",
+          "description": "Use when someone needs the shopping list itself: turning a meal plan into what to buy, checking it against the pantry, aisle order, a budget cap, snacks or staples for an allergy or dietary pattern, swaps for an out-of-stock item. Not for choosing meals (meal-planner) or cooking a dish (home-cook).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read"
+          ],
+          "hints": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "contract_version": "2",
+          "cluster": [
+            "food"
+          ]
+        },
+        {
+          "name": "household-maintenance",
+          "description": "Use when a home or an appliance needs upkeep: a quarterly or seasonal maintenance plan, the servicing something will need, what is safe to check before paying a call-out, a write-up for the contractor, or a gas, electrical or carbon-monoxide hazard. Not for choosing what to buy (purchase-research).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read"
+          ],
+          "hints": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "contract_version": "2",
+          "cluster": [
+            "home"
+          ]
+        },
+        {
+          "name": "purchase-research",
+          "description": "Use when something is being bought: which model or part to get, comparing options or links already in hand, working out the requirements first, what goes wrong after the sale — warranty, returns, compatibility, repairability — or total cost. Not for servicing what is owned (household-maintenance).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read"
+          ],
+          "hints": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "contract_version": "2",
+          "cluster": [
+            "home"
+          ]
+        },
+        {
+          "name": "wardrobe-and-packing",
+          "description": "Use when clothes are the question: what goes in the bag for a trip of a given length, outfits built from what is already owned, counts against laundry and a bag limit, layering for weather that moves, or a wardrobe gap that keeps recurring. Not for buying the jacket or the case (purchase-research).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read"
+          ],
+          "hints": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "contract_version": "2",
+          "cluster": [
+            "home"
+          ]
+        }
+      ],
+      "next": []
+    },
+    {
+      "name": "relationships-and-community",
+      "skills": [
+        {
+          "name": "community-management",
+          "description": "Use when an audience should become a community: people react but none of them know each other, contributors already help each other and the next step needs designing and measuring, or a group space is proposed and moderation is the honest question. Not for the posts (`audience-content-engine`).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "provider:read",
+            "message:send"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "social"
+          ]
+        },
+        {
+          "name": "social-agent-practice",
+          "description": "Use when the agent acts in its own voice with identity, consent, or authority at stake: a reply answered in its own words, mail mixing a question and a one-time code, quoting a visitor, facilitator duties, or what requested writing changed. Not for the feed loop (`social-listening-engagement-loop`).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "checkpoint:advance",
+            "provider:read",
+            "message:send",
+            "publish:external",
+            "notify:owner",
+            "belief:update"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "social"
+          ]
+        },
+        {
+          "name": "social-listening-engagement-loop",
+          "description": "Use when a listening or engagement session is run on authorized surfaces: find conversations worth joining, answer due replies and mentions before feed discovery, page past a thin first page, and review what the sessions produced. Not for writing the content itself (`audience-content-engine`).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "checkpoint:advance",
+            "provider:read",
+            "message:send",
+            "publish:external"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "social"
+          ]
+        },
+        {
+          "name": "audience-content-engine",
+          "description": "Use when settled work becomes channel content: turn a shipped artifact into drafts for the connected channels, reshape an approved entry for a professional-network audience without changing what it claims, or plan posts from real work. Not for a first draft's cold review (`public-post-workshop`).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "repo:write"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "social"
+          ]
+        }
+      ],
+      "next": [
+        "relationship-follow-up",
+        "event-hosting",
+        "introduction-preparation"
+      ]
+    },
+    {
+      "name": "learning-and-knowledge",
+      "skills": [
+        {
+          "name": "literature-review",
+          "description": "Use when the ask is what a body of research says: what the research actually says about a topic over the last decade, a scoped review showing what was screened and what made the cut, who argues what, or where the evidence is thinnest. Not for one sentence's truth (fact-check).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "provider:read"
+          ],
+          "hints": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "evidence"
+          ]
+        },
+        {
+          "name": "fact-check",
+          "description": "Use when a claim must be checked before it goes out: fact check this draft, verify the facts against live sources, is this accurate, check the claims one by one, source-check the numbers in this post, or re-derive an output that may be hallucinating. Not for surveying a field (literature-review).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read"
+          ],
+          "hints": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "contract_version": "2",
+          "cluster": [
+            "evidence"
+          ]
+        },
+        {
+          "name": "conversation-archive",
+          "description": "Use when a chat export is imported or the archive is searched: import my ChatGPT or Claude export as pages, when did I first discuss this with any AI assistant, search my Claude and Perplexity conversations for a timeline, or backfill missing threads. Not for goal reflection (owner-dream-cycle).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "checkpoint:advance",
+            "spend",
+            "fs:write-local"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "datastore-readers"
+          ]
+        }
+      ],
+      "next": [
+        "learning-plan",
+        "spaced-review",
+        "course-and-book-notes",
+        "concept-synthesis"
+      ]
+    },
+    {
+      "name": "travel-and-mobility",
+      "skills": [],
+      "next": [
+        "trip-planner",
+        "itinerary-monitor",
+        "travel-document-checklist",
+        "local-outing-planner"
+      ]
+    },
+    {
+      "name": "personal-operations",
+      "skills": [
+        {
+          "name": "owner-context-onboarding",
+          "description": "Use when the working relationship is the ask: setting up how to work together, what is off limits, what may be remembered, talking through what matters with the freedom to stop anywhere, or revising boundaries that no longer fit. Not for picking up after a restart (runtime-handoff-onboarding).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "identity:propose"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "contract_version": "2",
+          "cluster": [
+            "onboarding"
+          ]
+        },
+        {
+          "name": "mcp-connector-onboarding",
+          "description": "Use when a service has to be connected or proven: authorizing it, finishing a setup from a callback URL, settling whether it is really configured or only half-connected, repairing one that stopped answering, or proving it with a read-only check. Not for a restart (runtime-handoff-onboarding).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "credential:manage",
+            "config:write"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "onboarding"
+          ]
+        },
+        {
+          "name": "runtime-handoff-onboarding",
+          "description": "Use when a restart, a redeploy, a migration, or a new maintainer is the situation: what was in the middle of happening, what still works, what silently stopped, or writing the handoff note for whoever picks this up next. Not for revising the boundaries themselves (owner-context-onboarding).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "repo:write",
+            "config:write"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "onboarding"
+          ]
+        },
+        {
+          "name": "social-agent-onboarding",
+          "description": "Use when the agent's own external identity has to exist: creating its inbox and its public accounts, the disclosure that it is an agent, an account that registered but is still unclaimed, or a half-finished setup to pick up. Not for talking to people once accounts exist (social-agent-practice).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "credential:manage",
+            "config:write",
+            "repo:write",
+            "message:send"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "onboarding"
+          ]
+        },
+        {
+          "name": "cron-scheduler",
+          "description": "Use when recurring agent jobs are set up, changed or inspected: what's actually scheduled right now and when does each next run, have that report go out every Monday morning from now on, or move the morning job to eight, not the similarly named one. Not for one dated reminder (daily-task-manager).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "schedule:manage",
+            "delete:external"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": []
+        },
+        {
+          "name": "team-skill-sharing-norm",
+          "description": "Use when a skill package crosses between agents: a teammate announces version 1.2 and what to check before adopting it, announcing ours to the other agents with caveats, acknowledging one, or a shared package pulled over a security issue. Not for this repository's catalog (`skill-library-ops`).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "message:send"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "governance"
+          ]
+        },
+        {
+          "name": "public-post-workshop",
+          "description": "Use when public writing is made before it goes anywhere: write the result up as a journal entry and open it as a review PR, say something honest about a change that is not merged yet, or get a fresh reviewer on the draft before anyone sees it. Not for putting an approved entry live (`publish`).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:read",
+            "datastore:write",
+            "repo:write"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "release"
+          ]
+        },
+        {
+          "name": "skill-library-ops",
+          "description": "Use when this skill repository is itself the work: audit a cohort of packages against the contracts, add eval coverage, fix or bump a catalog entry, get the validator green, and open the branch as an unmerged pull request. Not for a package another agent sent (`team-skill-sharing-norm`).",
+          "version": "2.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "effects": [
+            "datastore:write",
+            "repo:write",
+            "fs:write-local"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          },
+          "contract_version": "2",
+          "cluster": [
+            "governance"
+          ]
+        }
+      ],
+      "next": [
+        "local-backup-and-export",
+        "privacy-review",
+        "dependency-health-check"
+      ]
+    }
+  ],
+  "unassigned": [],
+  "reserved_namespaces": [
+    {
+      "name": "calendar",
+      "status": "reserved",
+      "system_of_record": "provider",
+      "authority": "none yet"
+    },
+    {
+      "name": "inbox",
+      "status": "reserved",
+      "system_of_record": "provider",
+      "authority": "none yet"
+    }
+  ]
+}
