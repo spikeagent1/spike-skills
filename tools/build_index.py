@@ -26,7 +26,6 @@ from __future__ import annotations
 import argparse
 import difflib
 import json
-import re
 import sys
 from typing import Any
 
@@ -58,52 +57,6 @@ def _as_list(value: object) -> list[str]:
 def _required(errors: list[str], rel: str) -> None:
     if errors:
         raise RuntimeError(f"{rel}: {'; '.join(errors)}")
-
-
-def _parse_domains() -> list[dict[str, Any]]:
-    """`catalog/domains.yaml` `domains:` entries, in file order.
-
-    Each entry is `{"name", "released": [...], "next": [...]}`. Indent-aware,
-    mirroring `validate_repo.parse_domain_lists`: a `- name:` line at the
-    domain-list indent starts a new domain and closes whichever list was open,
-    so an empty `next:` cannot swallow the domain that follows it, and the
-    trailing `release_order:` / `selection_rules:` top-level keys (which reuse
-    `- name` shaped indentation for neither) are never mistaken for a domain.
-    """
-    path = validate_repo.ROOT / "catalog" / "domains.yaml"
-    text = path.read_text(encoding="utf-8")
-    domains: list[dict[str, Any]] = []
-    current: dict[str, Any] | None = None
-    active: list[str] | None = None
-    active_indent = -1
-
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        indent = len(line) - len(line.lstrip(" "))
-        name_match = re.match(r"^  - name:\s*(.+)$", line)
-        if name_match:
-            current = {"name": name_match.group(1).strip(), "released": [], "next": []}
-            domains.append(current)
-            active = None
-            continue
-        if current is None:
-            continue
-        if stripped.startswith("released:"):
-            active, active_indent = current["released"], indent
-            continue
-        if stripped.startswith("next:"):
-            active, active_indent = current["next"], indent
-            continue
-        if active is not None and stripped.startswith("- ") and indent > active_indent:
-            active.append(stripped[2:].strip())
-            continue
-        active = None
-
-    if not domains:
-        raise RuntimeError("catalog/domains.yaml: no domains found")
-    return domains
 
 
 def _clusters_by_skill(clusters: dict[str, list[str]]) -> dict[str, list[str]]:
@@ -171,7 +124,9 @@ def collect_index_data() -> dict[str, Any]:
     _required(errors, "contracts/datastore.yaml")
 
     frontmatter = _load_skill_frontmatter()
-    domains = _parse_domains()
+    domains = validate_repo.parse_domains(validate_repo.ROOT / "catalog" / "domains.yaml")
+    if not domains:
+        raise RuntimeError("catalog/domains.yaml: no domains found")
     clusters_by_skill = _clusters_by_skill(clusters)
     capability_entries = validate_repo.effect_enum(capabilities)
     approved_names = {
@@ -182,7 +137,7 @@ def collect_index_data() -> dict[str, Any]:
     domain_entries: list[dict[str, Any]] = []
     for domain in domains:
         rows = []
-        for skill_name in domain["released"]:
+        for skill_name in domain.released:
             if skill_name not in frontmatter or skill_name not in approved_names:
                 continue
             assigned.add(skill_name)
@@ -192,7 +147,7 @@ def collect_index_data() -> dict[str, Any]:
                 )
             )
         domain_entries.append(
-            {"name": domain["name"], "skills": rows, "next": list(domain["next"])}
+            {"name": domain.name, "skills": rows, "next": list(domain.next)}
         )
 
     unassigned_names = sorted((approved_names & set(frontmatter)) - assigned)

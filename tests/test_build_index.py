@@ -190,6 +190,41 @@ class BuildIndexTest(unittest.TestCase):
         self.assertEqual(first, second)
         json.loads(first)  # does not raise
 
+    def test_domain_indent_variation_parses_identically_via_shared_parser(self) -> None:
+        """`build_index` reads domains.yaml through validate_repo.parse_domains,
+        the same ordered parser catalog/domain_lists derives its flat sets from,
+        so a re-indent of the `- name:` markers cannot change what's assigned."""
+        baseline = build_index.collect_index_data()
+
+        self._write(
+            "catalog/domains.yaml",
+            "domains:\n"
+            "    - name: alpha\n"
+            "      outcomes:\n"
+            "        - do alpha things\n"
+            "      released:\n"
+            "        - reader-skill\n"
+            "        - writer-skill\n"
+            "      next:\n"
+            "        - alpha-next-skill\n"
+            "\n"
+            "    - name: beta\n"
+            "      outcomes:\n"
+            "        - do beta things\n"
+            "      released:\n"
+            "        - deleter-skill\n"
+            "      next:\n"
+            "\n"
+            "    - name: gamma\n"
+            "      released: []\n"
+            "      next:\n"
+            "        - gamma-next-skill\n",
+        )
+
+        reindented = build_index.collect_index_data()
+
+        self.assertEqual(reindented, baseline)
+
     # -- shape of the rendered markdown ----------------------------------
 
     def test_render_groups_by_domain_in_file_order_with_reserved_block(self) -> None:
@@ -335,13 +370,21 @@ class BuildIndexTest(unittest.TestCase):
             self.root / "tools" / "build_index.py",
         )
         self._write("catalog/index.md", "# Skill index\n\nstale\n")
+        self._write("catalog/index.json", "{}\n")
 
         errors: list[str] = []
         validate_repo.validate_catalog_index(errors)
 
         self.assertTrue(any("catalog/index.md: out of date" in error for error in errors))
+        self.assertTrue(any("catalog/index.json: out of date" in error for error in errors))
 
         self._write("catalog/index.md", build_index.render())
+        errors = []
+        validate_repo.validate_catalog_index(errors)
+        self.assertTrue(any("catalog/index.json: out of date" in error for error in errors))
+        self.assertFalse(any("catalog/index.md: out of date" in error for error in errors))
+
+        self._write("catalog/index.json", build_index.render_json())
         errors = []
         validate_repo.validate_catalog_index(errors)
         self.assertEqual(errors, [])

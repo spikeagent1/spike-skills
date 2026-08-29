@@ -901,6 +901,48 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertEqual(released, {"approved-skill"})
         self.assertEqual(next_names, {"pending-skill"})
 
+    def test_parse_domains_preserves_file_order_and_backs_parse_domain_lists(self) -> None:
+        """`parse_domains` is the single ordered source `parse_domain_lists` derives
+        its flat sets from, so a `catalog/domains.yaml` re-indent cannot make the
+        two disagree (tools/build_index.py shares this same function)."""
+        self._write(
+            "catalog/domains.yaml",
+            "domains:\n"
+            "  - name: zebra\n"
+            "    released:\n"
+            "      - approved-skill\n"
+            "    next:\n"
+            "      - zebra-next\n"
+            "\n"
+            "  - name: apple\n"
+            "    released: []\n"
+            "    next:\n"
+            "\n"
+            "  - name: mango\n"
+            "    released:\n"
+            "      - pending-skill\n"
+            "    next:\n"
+            "      - mango-next\n",
+        )
+        self._git_add()
+
+        domains = validate_repo.parse_domains(self.root / "catalog" / "domains.yaml")
+
+        self.assertEqual([domain.name for domain in domains], ["zebra", "apple", "mango"])
+        self.assertEqual(domains[0].released, ["approved-skill"])
+        self.assertEqual(domains[0].next, ["zebra-next"])
+        self.assertEqual(domains[1].released, [])
+        self.assertEqual(domains[1].next, [])
+        self.assertEqual(domains[2].released, ["pending-skill"])
+        self.assertEqual(domains[2].next, ["mango-next"])
+
+        errors: list[str] = []
+        released, next_names = validate_repo.parse_domain_lists(errors)
+
+        self.assertEqual(errors, [])
+        self.assertEqual(released, {"approved-skill", "pending-skill"})
+        self.assertEqual(next_names, {"zebra-next", "mango-next"})
+
     def test_cohort_parity_rejects_unlisted_skill_and_unknown_cohort(self) -> None:
         approved = (self.root / "catalog/approved.yaml").read_text(encoding="utf-8")
         self._write(
@@ -2112,9 +2154,14 @@ class ValidateRepoTest(unittest.TestCase):
 
     def test_catalog_index_hook_compares_build_index_render(self) -> None:
         self._write("catalog/index.md", "# Index\n\nstale\n")
+        self._write("catalog/index.json", '{"stale": true}\n')
         self._write(
             "tools/build_index.py",
-            'def render() -> str:\n    return "# Index\\n\\nfresh\\n"\n',
+            "def render() -> str:\n"
+            '    return "# Index\\n\\nfresh\\n"\n'
+            "\n\n"
+            "def render_json() -> str:\n"
+            "    return '{\"fresh\": true}\\n'\n",
         )
         self._git_add()
 
@@ -2122,8 +2169,18 @@ class ValidateRepoTest(unittest.TestCase):
 
         self.assertEqual(code, 1)
         self.assertIn("catalog/index.md: out of date", output)
+        self.assertIn("catalog/index.json: out of date", output)
 
         self._write("catalog/index.md", "# Index\n\nfresh\n")
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertNotIn("catalog/index.md: out of date", output)
+        self.assertIn("catalog/index.json: out of date", output)
+
+        self._write("catalog/index.json", '{"fresh": true}\n')
         self._git_add()
 
         code, output = self._run_validator()

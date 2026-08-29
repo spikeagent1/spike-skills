@@ -278,6 +278,14 @@ class Contracts(NamedTuple):
     adapters: dict[str, dict[str, Any]]
 
 
+class DomainEntry(NamedTuple):
+    """One `catalog/domains.yaml` domain, in file order."""
+
+    name: str
+    released: list[str]
+    next: list[str]
+
+
 def _frontmatter_value(raw: str) -> Any:
     """A frontmatter scalar or flow list (`[a, b]`) from its raw right-hand side."""
     value = raw.strip()
@@ -585,17 +593,21 @@ def parse_source_entries(errors: list[str]) -> dict[str, dict[str, str]]:
     return entries
 
 
-def parse_domain_lists(errors: list[str]) -> tuple[set[str], set[str]]:
-    """The released and next skill names from catalog/domains.yaml.
+def parse_domains(path: Path) -> list[DomainEntry]:
+    """Every `domains:` entry in a domains.yaml-shaped file, in file order.
 
-    Indent-aware: a `- name:` line starts a new domain and closes whichever list
-    was open, so a domain with an empty `next:` no longer swallows the domain
-    that follows it.
+    Indent-aware: a `- name:` line at any indent starts a new domain and
+    closes whichever list was open, so a domain with an empty `next:` cannot
+    swallow the domain that follows it. `parse_domain_lists` below derives its
+    flat sets from this, and `tools/build_index.py` calls it directly for the
+    per-domain grouping the flat sets can't express -- one scan, so a
+    `domains.yaml` re-indent cannot make the two silently disagree.
     """
-    text = (ROOT / "catalog" / "domains.yaml").read_text(encoding="utf-8")
-    released: set[str] = set()
-    next_names: set[str] = set()
-    active: set[str] | None = None
+    text = path.read_text(encoding="utf-8")
+    domains: list[DomainEntry] = []
+    released: list[str] | None = None
+    next_names: list[str] | None = None
+    active: list[str] | None = None
     active_indent = -1
 
     for line in text.splitlines():
@@ -603,8 +615,13 @@ def parse_domain_lists(errors: list[str]) -> tuple[set[str], set[str]]:
         if not stripped:
             continue
         indent = len(line) - len(line.lstrip(" "))
-        if re.match(r"^\s*- name:", line):
+        name_match = re.match(r"^\s*- name:\s*(.*)$", line)
+        if name_match:
+            released, next_names = [], []
+            domains.append(DomainEntry(name_match.group(1).strip(), released, next_names))
             active = None
+            continue
+        if not domains:
             continue
         if stripped.startswith("released:"):
             active, active_indent = released, indent
@@ -612,12 +629,22 @@ def parse_domain_lists(errors: list[str]) -> tuple[set[str], set[str]]:
         if stripped.startswith("next:"):
             active, active_indent = next_names, indent
             continue
-        if active is None:
-            continue
-        if stripped.startswith("- ") and indent > active_indent:
-            active.add(stripped[2:].strip())
+        if active is not None and stripped.startswith("- ") and indent > active_indent:
+            active.append(stripped[2:].strip())
             continue
         active = None
+
+    return domains
+
+
+def parse_domain_lists(errors: list[str]) -> tuple[set[str], set[str]]:
+    """The released and next skill names from catalog/domains.yaml, flattened
+    across every domain from `parse_domains`."""
+    released: set[str] = set()
+    next_names: set[str] = set()
+    for domain in parse_domains(ROOT / "catalog" / "domains.yaml"):
+        released.update(domain.released)
+        next_names.update(domain.next)
 
     if not released:
         add_error(errors, "catalog/domains.yaml: no released skills found")
@@ -1949,7 +1976,11 @@ def validate_listing_budget(
 
 
 def validate_catalog_index(errors: list[str]) -> None:
-    """catalog/index.md against tools/build_index.py; silent until T21 lands it."""
+    """catalog/index.md and catalog/index.json against tools/build_index.py.
+
+    Silent until T21 landed build_index.py; the single drift gate for both
+    generated files (T21 fix round 1 added the index.json half).
+    """
     script = ROOT / "tools" / "build_index.py"
     if not script.exists():
         return
@@ -1960,17 +1991,19 @@ def validate_catalog_index(errors: list[str]) -> None:
     module = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(module)
-        rendered = module.render()
+        rendered_md = module.render()
+        rendered_json = module.render_json()
     except Exception as exc:  # noqa: BLE001 - a broken generator is a validation failure.
         add_error(errors, f"tools/build_index.py: render() failed: {exc}")
         return
-    index = ROOT / "catalog" / "index.md"
-    committed = index.read_text(encoding="utf-8") if index.exists() else ""
-    if rendered != committed:
-        add_error(
-            errors,
-            "catalog/index.md: out of date; regenerate it with tools/build_index.py",
-        )
+    for name, rendered in (("index.md", rendered_md), ("index.json", rendered_json)):
+        path = ROOT / "catalog" / name
+        committed = path.read_text(encoding="utf-8") if path.exists() else ""
+        if rendered != committed:
+            add_error(
+                errors,
+                f"catalog/{name}: out of date; regenerate it with tools/build_index.py",
+            )
 
 
 def validate_skill(
