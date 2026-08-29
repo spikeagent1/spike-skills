@@ -9,18 +9,18 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-29T12:01:58+00:00",
+  "generated_at": "2026-08-29T12:07:21+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
       "audience-content-engine": {
         "ambiguous_pass": 0,
         "cases": 6,
-        "fail": 3,
-        "pass": 3,
-        "pass_rate": 0.5,
+        "fail": 0,
+        "pass": 6,
+        "pass_rate": 1.0,
         "phantom": 0,
-        "strict_pass_rate": 0.5,
+        "strict_pass_rate": 1.0,
         "unanswered": 0
       },
       "briefing": {
@@ -46,21 +46,21 @@
       "conversation-archive": {
         "ambiguous_pass": 0,
         "cases": 7,
-        "fail": 1,
-        "pass": 6,
-        "pass_rate": 0.8571,
+        "fail": 0,
+        "pass": 7,
+        "pass_rate": 1.0,
         "phantom": 0,
-        "strict_pass_rate": 0.8571,
+        "strict_pass_rate": 1.0,
         "unanswered": 0
       },
       "cron-scheduler": {
         "ambiguous_pass": 0,
         "cases": 6,
-        "fail": 2,
-        "pass": 4,
-        "pass_rate": 0.6667,
+        "fail": 0,
+        "pass": 6,
+        "pass_rate": 1.0,
         "phantom": 0,
-        "strict_pass_rate": 0.6667,
+        "strict_pass_rate": 1.0,
         "unanswered": 0
       },
       "daily-task-manager": {
@@ -86,11 +86,11 @@
       "fact-check": {
         "ambiguous_pass": 0,
         "cases": 8,
-        "fail": 6,
-        "pass": 2,
-        "pass_rate": 0.25,
+        "fail": 3,
+        "pass": 5,
+        "pass_rate": 0.625,
         "phantom": 0,
-        "strict_pass_rate": 0.25,
+        "strict_pass_rate": 0.625,
         "unanswered": 0
       },
       "fitness-coach": {
@@ -106,11 +106,11 @@
       "grocery-planner": {
         "ambiguous_pass": 0,
         "cases": 7,
-        "fail": 1,
-        "pass": 6,
-        "pass_rate": 0.8571,
+        "fail": 0,
+        "pass": 7,
+        "pass_rate": 1.0,
         "phantom": 0,
-        "strict_pass_rate": 0.8571,
+        "strict_pass_rate": 1.0,
         "unanswered": 0
       },
       "health-appointment-prep": {
@@ -121,6 +121,16 @@
         "pass_rate": 1.0,
         "phantom": 0,
         "strict_pass_rate": 1.0,
+        "unanswered": 0
+      },
+      "home": {
+        "ambiguous_pass": 0,
+        "cases": 16,
+        "fail": 8,
+        "pass": 8,
+        "pass_rate": 0.5,
+        "phantom": 0,
+        "strict_pass_rate": 0.5,
         "unanswered": 0
       },
       "home-cook": {
@@ -136,31 +146,31 @@
       "household-maintenance": {
         "ambiguous_pass": 0,
         "cases": 6,
-        "fail": 1,
-        "pass": 5,
-        "pass_rate": 0.8333,
+        "fail": 0,
+        "pass": 6,
+        "pass_rate": 1.0,
         "phantom": 0,
-        "strict_pass_rate": 0.8333,
+        "strict_pass_rate": 1.0,
         "unanswered": 0
       },
       "literature-review": {
         "ambiguous_pass": 0,
         "cases": 5,
-        "fail": 3,
-        "pass": 2,
-        "pass_rate": 0.4,
+        "fail": 2,
+        "pass": 3,
+        "pass_rate": 0.6,
         "phantom": 0,
-        "strict_pass_rate": 0.4,
+        "strict_pass_rate": 0.6,
         "unanswered": 0
       },
       "mcp-connector-onboarding": {
         "ambiguous_pass": 0,
         "cases": 6,
-        "fail": 1,
-        "pass": 5,
-        "pass_rate": 0.8333,
+        "fail": 0,
+        "pass": 6,
+        "pass_rate": 1.0,
         "phantom": 0,
-        "strict_pass_rate": 0.8333,
+        "strict_pass_rate": 1.0,
         "unanswered": 0
       },
       "meal-planner": {
@@ -176,21 +186,21 @@
       "medication-and-symptom-log": {
         "ambiguous_pass": 0,
         "cases": 6,
-        "fail": 2,
-        "pass": 4,
-        "pass_rate": 0.6667,
+        "fail": 0,
+        "pass": 6,
+        "pass_rate": 1.0,
         "phantom": 0,
-        "strict_pass_rate": 0.6667,
+        "strict_pass_rate": 1.0,
         "unanswered": 0
       },
       "owner-context-onboarding": {
         "ambiguous_pass": 0,
         "cases": 6,
-        "fail": 2,
-        "pass": 4,
-        "pass_rate": 0.6667,
+        "fail": 0,
+        "pass": 6,
+        "pass_rate": 1.0,
         "phantom": 0,
-        "strict_pass_rate": 0.6667,
+        "strict_pass_rate": 1.0,
         "unanswered": 0
       },
       "owner-dream-cycle": {
@@ -206,21 +216,21 @@
       "public-post-workshop": {
         "ambiguous_pass": 0,
         "cases": 6,
-        "fail": 1,
-        "pass": 5,
-        "pass_rate": 0.8333,
+        "fail": 0,
+        "pass": 6,
+        "pass_rate": 1.0,
         "phantom": 0,
-        "strict_pass_rate": 0.8333,
+        "strict_pass_rate": 1.0,
         "unanswered": 0
       },
       "publish": {
         "ambiguous_pass": 0,
         "cases": 6,
-        "fail": 2,
-        "pass": 4,
-        "pass_rate": 0.6667,
+        "fail": 0,
+        "pass": 6,
+        "pass_rate": 1.0,
         "phantom": 0,
-        "strict_pass_rate": 0.6667,
+        "strict_pass_rate": 1.0,
         "unanswered": 0
       },
       "purchase-research": {
@@ -236,21 +246,21 @@
       "runtime-handoff-onboarding": {
         "ambiguous_pass": 0,
         "cases": 6,
-        "fail": 2,
-        "pass": 4,
-        "pass_rate": 0.6667,
+        "fail": 0,
+        "pass": 6,
+        "pass_rate": 1.0,
         "phantom": 0,
-        "strict_pass_rate": 0.6667,
+        "strict_pass_rate": 1.0,
         "unanswered": 0
       },
       "skill-library-ops": {
         "ambiguous_pass": 0,
         "cases": 5,
-        "fail": 1,
-        "pass": 4,
-        "pass_rate": 0.8,
+        "fail": 0,
+        "pass": 5,
+        "pass_rate": 1.0,
         "phantom": 0,
-        "strict_pass_rate": 0.8,
+        "strict_pass_rate": 1.0,
         "unanswered": 0
       },
       "sleep-review": {
@@ -264,23 +274,23 @@
         "unanswered": 0
       },
       "social-agent-onboarding": {
-        "ambiguous_pass": 1,
+        "ambiguous_pass": 0,
         "cases": 6,
-        "fail": 2,
-        "pass": 3,
-        "pass_rate": 0.6667,
+        "fail": 1,
+        "pass": 5,
+        "pass_rate": 0.8333,
         "phantom": 0,
-        "strict_pass_rate": 0.5,
+        "strict_pass_rate": 0.8333,
         "unanswered": 0
       },
       "social-agent-practice": {
         "ambiguous_pass": 0,
         "cases": 6,
-        "fail": 3,
-        "pass": 3,
-        "pass_rate": 0.5,
+        "fail": 1,
+        "pass": 5,
+        "pass_rate": 0.8333,
         "phantom": 0,
-        "strict_pass_rate": 0.5,
+        "strict_pass_rate": 0.8333,
         "unanswered": 0
       },
       "social-listening-engagement-loop": {
@@ -296,11 +306,11 @@
       "team-skill-sharing-norm": {
         "ambiguous_pass": 0,
         "cases": 5,
-        "fail": 1,
-        "pass": 4,
-        "pass_rate": 0.8,
+        "fail": 0,
+        "pass": 5,
+        "pass_rate": 1.0,
         "phantom": 0,
-        "strict_pass_rate": 0.8,
+        "strict_pass_rate": 1.0,
         "unanswered": 0
       },
       "wardrobe-and-packing": {
@@ -317,7 +327,7 @@
     "mode": "native",
     "phantom_targets": [],
     "repeats": 1,
-    "run_id": "20260828T174809-8fe2907-dirty-baseline"
+    "run_id": "20260829T120213-208b7c1-t22-all"
   },
   "schema_version": 1,
   "skills": {
