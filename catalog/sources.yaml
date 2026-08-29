@@ -140,7 +140,8 @@ sources:
     cohort: research-and-writing
     upstream: https://clawhub.ai/weird-aftertaste/skills/literature-review
     publisher: weird-aftertaste
-    version: 1.2.0
+    version: 2.0.0
+    upstream_version: 1.2.0
     artifact_sha256: 4fc44a5f45ae6820c08adc0a7aa4276aaa640e4eee3bd667059bceead772021e
     skill_file_sha256: c2f51919e7a65e36fb47a18dc09c451f59e046121c51e6bbcc002abfa9167b04
     license: MIT-0
@@ -156,7 +157,11 @@ sources:
       sections, synthetic evals, and attribution limits. Also removed
       skill-card.md (unused by the repository contract) and relocated its
       install provenance artifacts (_meta.json, origin.json) from in-skill
-      files to catalog/provenance/literature-review/.
+      files to catalog/provenance/literature-review/. Rewritten to the
+      canonical contract v2 template (contracts/SKILL.template.md) with
+      metadata.spike-os frontmatter. Patched scripts/lit_search.py: removed the
+      CLAWDBOT_EMAIL fallback for USER_EMAIL, and renamed the User-Agent from
+      Clawdbot/1.0 to literature-review-skill/1.0.
 
   fact-check:
     classification: owned

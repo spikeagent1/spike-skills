@@ -116,8 +116,8 @@ skills:
     status: approved
     cohort: research-and-writing
     workshop_proposal: literature-review-20260823-7f0a9c98c8
-    contract_version: 1
-    version: 1.2.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: fact-check
     classification: owned

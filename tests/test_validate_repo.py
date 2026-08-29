@@ -1406,6 +1406,29 @@ class ValidateRepoTest(unittest.TestCase):
 
         self.assertEqual(code, 0, output)
 
+    def test_provenance_installed_version_follows_upstream_version(self) -> None:
+        """A rewritten adapted skill keeps the installer's upstream version."""
+        self._make_adapted()
+        sources = (self.root / "catalog/sources.yaml").read_text(encoding="utf-8")
+        self._write(
+            "catalog/sources.yaml",
+            sources.replace("    version: 1.0.0\n", "    version: 2.0.0\n    upstream_version: 1.0.0\n", 1),
+        )
+        approved = (self.root / "catalog/approved.yaml").read_text(encoding="utf-8")
+        self._write(
+            "catalog/approved.yaml",
+            approved.replace("    version: 1.0.0\n", "    version: 2.0.0\n", 1),
+        )
+        self._write_json(
+            "catalog/provenance/approved-skill/origin.json",
+            self._origin_json("a" * 64, "b" * 64, "1.0.0"),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+
     def test_vendored_import_exemption_is_field_driven(self) -> None:
         sources = (self.root / "catalog/sources.yaml").read_text(encoding="utf-8")
         vendored = (

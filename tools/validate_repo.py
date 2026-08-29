@@ -760,7 +760,12 @@ def validate_cluster_routing(
 def validate_provenance_artifacts(
     sources: dict[str, dict[str, str]], errors: list[str]
 ) -> None:
-    """Every adapted source's install artifact agrees with catalog/sources.yaml."""
+    """Every adapted source's install artifact agrees with catalog/sources.yaml.
+
+    `version` is the repository's own skill version and moves with
+    catalog/approved.yaml; the upstream package version the installer recorded
+    is `upstream_version` where a rewrite has made the two differ.
+    """
     for name, source in sorted(sources.items()):
         if source.get("classification") != "adapted":
             continue
@@ -783,7 +788,11 @@ def validate_provenance_artifacts(
         checks = (
             ("artifact.sha256", artifact.get("sha256"), "artifact_sha256"),
             ("skillFile.sha256", skill_file.get("sha256"), "skill_file_sha256"),
-            ("installedVersion", data.get("installedVersion"), "version"),
+            (
+                "installedVersion",
+                data.get("installedVersion"),
+                "upstream_version" if source.get("upstream_version") else "version",
+            ),
         )
         for label, actual, field in checks:
             expected = source.get(field, "")
