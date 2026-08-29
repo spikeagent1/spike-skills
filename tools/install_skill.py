@@ -57,7 +57,7 @@ OS_NAME = validate_repo.METADATA_NS
 STAMP_NAME = f".{OS_NAME}.json"
 RUNTIMES = contracts_check.RUNTIMES
 # agentskills.io keeps the portable core; everything else is adapter-emitted.
-COPY_DIRS = ("references", "scripts", "assets")
+COPY_DIRS = ("references", "scripts", "assets", "templates")
 EXCLUDED_NAMES = ("examples", "evals", "routing-eval.jsonl")
 BUNDLE_DIR = "references"
 # Claude Code lists description + when_to_use together under one cap.
@@ -116,6 +116,9 @@ class Rendered:
     text: str
     bundles: tuple[Bundle, ...]
     source_dir: Path
+    # Links out of the skill directory that no declared input covers; reported
+    # rather than silently installed as dead links.
+    dangling_links: tuple[str, ...] = ()
 
 
 @dataclass
@@ -361,6 +364,27 @@ def declared_repo_inputs(body: str) -> list[Bundle]:
     return bundles
 
 
+def undeclared_repo_links(body: str, bundles: Sequence[Bundle]) -> list[str]:
+    """Body links to repository files that are not declared inputs.
+
+    Only `declared_repo_inputs` travels with the install, so any other link out
+    of the skill directory resolves to nothing once the copy is in a `skills
+    dir`. The contract link every skill carries is provenance, not an input, and
+    is left alone the same way `declared_repo_inputs` leaves it.
+    """
+    declared_targets = {bundle.repo_rel for bundle in bundles}
+    dangling: list[str] = []
+    for _, target in LINK_RE.findall(body):
+        if "://" in target or not target.startswith("../"):
+            continue
+        rel = re.sub(r"^(?:\.\./)+", "", target).split("#", 1)[0]
+        if rel.startswith("contracts/") or rel in declared_targets:
+            continue
+        if target not in dangling:
+            dangling.append(target)
+    return dangling
+
+
 def rewrite_links(body: str, bundles: Sequence[Bundle]) -> str:
     """Point the body at the bundled copy, so the installed skill can read it."""
     for bundle in bundles:
@@ -563,6 +587,7 @@ def render_skill(
         text=f"{frontmatter}{rendered_body}\n\n{trailer}",
         bundles=bundles,
         source_dir=skill_source(name),
+        dangling_links=tuple(undeclared_repo_links(body, bundles)),
     )
 
 
@@ -1051,7 +1076,18 @@ def do_install(context: Context, names: Sequence[str], args: argparse.Namespace)
             report.refused.append(str(exc))
 
     report.notes.extend(fallback_warnings(context.adapter, context.vocabulary))
-    written = install_adapter(context.runtime, context.adapter, overrides, args.dry_run, report)
+    if renders:
+        written = install_adapter(
+            context.runtime, context.adapter, overrides, args.dry_run, report
+        )
+    else:
+        # The adapter (and the identity-file line that imports it) exists to serve
+        # installed skills. A run that rendered none of them has nothing to bind,
+        # and must not edit the owner's identity file on its way to exit 1.
+        written = []
+        report.notes.append(
+            "no skill rendered; the adapter files and the identity file are untouched"
+        )
 
     print(f"{context.runtime}: destination {context.dest}")
     for path in written:
@@ -1075,6 +1111,12 @@ def do_install(context: Context, names: Sequence[str], args: argparse.Namespace)
                     f"{rendered.name}: {name} is neither a rendered file, a copied "
                     f"directory ({', '.join(COPY_DIRS)}), nor excluded by name; not installed"
                 )
+        for target in rendered.dangling_links:
+            report.notes.append(
+                f"{rendered.name}: body links {target}, a repository file not "
+                f"declared on the Dependencies line; it is not bundled, so the "
+                f"installed copy cannot read it"
+            )
         report.installed.append(rendered.name)
 
     if report.identity_change is not None:

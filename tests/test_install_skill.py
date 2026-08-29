@@ -399,6 +399,79 @@ class InstallSkillTest(unittest.TestCase):
     def _frontmatter(self, name: str) -> dict:
         return validate_repo.parse_frontmatter(self._installed(name)) or {}
 
+    # -- bundled repository inputs -------------------------------------
+
+    def test_an_undeclared_repo_link_is_reported_rather_than_left_dangling(self) -> None:
+        # Task 25 item 28: only the Dependencies line's files are bundled, so a
+        # body link to any other repository file would not resolve once installed.
+        self._write("catalog/approved.yaml", "skills: []\n")
+        self._write(
+            "skills/fixture-notes/SKILL.md",
+            self._skill_md(
+                "fixture-notes",
+                body_extra=" See [the catalog](../../catalog/approved.yaml).",
+            ),
+        )
+        code, out = self._run("--runtime", "claude-code", "fixture-notes")
+
+        self.assertEqual(code, 0)
+        self.assertIn("../../catalog/approved.yaml", out)
+        self.assertIn("not declared on the Dependencies line", out)
+
+    def test_the_contract_link_every_skill_carries_is_not_reported(self) -> None:
+        self._write("contracts/skill-contract.md", "# Contract\n")
+        self._write(
+            "skills/fixture-notes/SKILL.md",
+            self._skill_md(
+                "fixture-notes",
+                body_extra=(
+                    " Follows [contracts/skill-contract.md]"
+                    "(../../contracts/skill-contract.md)."
+                ),
+            ),
+        )
+        code, out = self._run("--runtime", "claude-code", "fixture-notes")
+
+        self.assertEqual(code, 0)
+        self.assertNotIn("not declared on the Dependencies line", out)
+
+    def test_a_declared_input_is_rewritten_and_not_reported(self) -> None:
+        self._write("catalog/index.md", "# Index\n")
+        self._write(
+            "skills/fixture-notes/SKILL.md",
+            self._skill_md(
+                "fixture-notes",
+                dependencies=(
+                    "**Dependencies:** reads "
+                    "[catalog/index.md](../../catalog/index.md)."
+                ),
+            ),
+        )
+        code, out = self._run("--runtime", "claude-code", "fixture-notes")
+
+        self.assertEqual(code, 0)
+        self.assertNotIn("not declared on the Dependencies line", out)
+        self.assertIn("(references/index.md)", self._installed("fixture-notes"))
+
+    # -- copied directories --------------------------------------------
+
+    def test_a_templates_directory_is_installed_rather_than_skipped(self) -> None:
+        # Task 25 item 31: `templates/` is loaded content a skill links, so it
+        # travels with the install like references/ and scripts/.
+        self._write("skills/fixture-notes/templates/entry.yaml", "name: example\n")
+        self._write(
+            "skills/fixture-notes/SKILL.md",
+            self._skill_md(
+                "fixture-notes",
+                body_extra=" Shape: `templates/entry.yaml`.",
+            ),
+        )
+        code, out = self._run("--runtime", "claude-code", "fixture-notes")
+
+        self.assertEqual(code, 0)
+        self.assertTrue((self.dest / "fixture-notes" / "templates" / "entry.yaml").is_file())
+        self.assertNotIn("is neither a rendered file", out)
+
     # -- the validator gate --------------------------------------------
 
     def test_refuses_to_install_when_the_validator_fails(self) -> None:
@@ -659,6 +732,30 @@ class InstallSkillTest(unittest.TestCase):
         after_second = claude_md.read_text(encoding="utf-8")
         self.assertEqual(after_first, after_second)
         self.assertEqual(after_second.count("@~/.claude/spike-os/ADAPTER.md"), 1)
+
+    def test_a_fully_refused_run_leaves_the_identity_file_alone(self) -> None:
+        # Task 25 item 27: the adapter is delivered for the skills it serves; a
+        # run that renders none of them has nothing to bind.
+        claude_md = self.home / ".claude" / "CLAUDE.md"
+        claude_md.parent.mkdir(parents=True, exist_ok=True)
+        original = "# Owner instructions\n\n- keep this line\n"
+        claude_md.write_text(original, encoding="utf-8")
+
+        code, out = self._run("--runtime", "claude-code", "no-such-skill")
+
+        self.assertEqual(code, 1)
+        self.assertEqual(claude_md.read_text(encoding="utf-8"), original)
+        self.assertIn("no skill rendered", out)
+
+    def test_a_fully_refused_run_writes_no_adapter_files(self) -> None:
+        code, _ = self._run("--runtime", "claude-code", "no-such-skill")
+        self.assertEqual(code, 1)
+        self.assertFalse((self.home / ".claude" / "spike-os" / "ADAPTER.md").exists())
+
+    def test_one_successful_render_still_delivers_the_adapter(self) -> None:
+        code, _ = self._run("--runtime", "claude-code", "fixture-notes", "no-such-skill")
+        self.assertEqual(code, 1)
+        self.assertTrue((self.home / ".claude" / "spike-os" / "ADAPTER.md").is_file())
 
     def test_identity_import_line_is_repaired_inside_existing_markers(self) -> None:
         claude_md = self.home / ".claude" / "CLAUDE.md"
