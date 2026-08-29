@@ -5416,6 +5416,26 @@ class RepoInputGrantTest(unittest.TestCase):
         argv = self._argv("home", executor.CONFIG_WITHOUT_SKILL)
         self.assertNotIn("--add-dir", argv)
 
+    def test_the_granted_directory_is_named_in_the_system_prompt(self) -> None:
+        # A grant the model cannot find is not coverage: the first run looked for
+        # `catalog/index.md` relative to the empty sandbox and reported it missing.
+        case = _behavioral_case(skill="home")
+        args = _run_args(repo_root=str(self.root), sandbox_root=str(self.root / "sandbox"))
+        argv = executor.build_request(
+            case, executor.CONFIG_WITH_SKILL, args, [], self.root / "run"
+        ).argv
+        prompt = argv[argv.index("--append-system-prompt") + 1]
+        self.assertIn(str(self.root / "catalog"), prompt)
+
+    def test_a_skill_declaring_nothing_gets_no_repo_input_sentence(self) -> None:
+        case = _behavioral_case(skill="alpha")
+        args = _run_args(repo_root=str(self.root), sandbox_root=str(self.root / "sandbox"))
+        argv = executor.build_request(
+            case, executor.CONFIG_WITH_SKILL, args, [], self.root / "run"
+        ).argv
+        prompt = argv[argv.index("--append-system-prompt") + 1]
+        self.assertNotIn("declares as inputs", prompt)
+
     def test_repo_input_dirs_ignores_links_outside_the_repository(self) -> None:
         body = "**Dependencies:** see [docs](https://example.com/x.md) and [up](../../../etc/passwd)."
         self.assertEqual(

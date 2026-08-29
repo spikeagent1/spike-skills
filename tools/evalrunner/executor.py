@@ -39,6 +39,13 @@ SKILL_HEADER = (
     "The following skill is active for this task. Supporting files referenced below are "
     "readable under `{path}`.\n\n"
 )
+# The absolute paths of the granted repository directories, stated because the
+# model runs from an empty sandbox: a relative link it cannot resolve reads as a
+# missing file, and the branch that reads it never gets exercised.
+REPO_INPUT_HEADER = (
+    "Repository files this skill declares as inputs are readable under {paths}; a "
+    "relative link in the body resolves from the skill directory named above.\n\n"
+)
 # The canonical template's Dependencies line is where a skill declares the
 # repository files it reads; nothing outside that line grants anything.
 DEPENDENCIES_LINE_RE = re.compile(r"^\s*\*\*Dependencies:\*\*.*$", re.MULTILINE)
@@ -227,13 +234,19 @@ def build_request(
     ]
     if body is not None:
         skill_dir = root / "skills" / case.skill
+        extra_dirs = repo_input_dirs(body, skill_dir, root)
+        header = SKILL_HEADER.format(path=skill_dir)
+        if extra_dirs:
+            header += REPO_INPUT_HEADER.format(
+                paths=", ".join(f"`{path}`" for path in extra_dirs)
+            )
         argv += [
             "--append-system-prompt",
-            SKILL_HEADER.format(path=skill_dir) + body,
+            header + body,
             "--add-dir",
             str(skill_dir),
         ]
-        for extra in repo_input_dirs(body, skill_dir, root):
+        for extra in extra_dirs:
             argv += ["--add-dir", str(extra)]
     argv += list(isolation_flags)
 
