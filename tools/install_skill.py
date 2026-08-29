@@ -457,7 +457,6 @@ def render_frontmatter(
     runtime: str,
     adapter: dict[str, Any],
     hints: dict[str, bool],
-    bundles: Sequence[Bundle],
     vocabulary: dict[str, Any] | None = None,
     datastore: dict[str, Any] | None = None,
 ) -> str:
@@ -536,7 +535,7 @@ def render_skill(
     version = str(os_block(meta).get("version", ""))
     bundles = tuple(declared_repo_inputs(body))
     frontmatter = render_frontmatter(
-        name, meta, body, runtime, adapter, hints, bundles, vocabulary, datastore
+        name, meta, body, runtime, adapter, hints, vocabulary, datastore
     )
     rendered_body = rewrite_links(body, bundles).rstrip("\n")
     trailer = render_trailer(runtime, adapter, commit, version)
@@ -690,20 +689,33 @@ def stamped_installs(dest: Path) -> list[Path]:
 
 
 def write_skill(rendered: Rendered, dest: Path, runtime: str, adapter: dict[str, Any],
-                commit: str) -> list[Path]:
-    """Replace the stamped directory with this render; report every path written."""
+                commit: str, skipped: list[str] | None = None) -> list[Path]:
+    """Replace the stamped directory with this render; report every path written.
+
+    `skipped` collects any entry the skill carries that is neither rendered,
+    copied, nor excluded by name, so an unexpected file is reported rather than
+    dropped in silence.
+    """
+    skipped = [] if skipped is None else skipped
     target = dest / rendered.name
+    if target.is_symlink():
+        raise InstallError(f"{target}: is a symlink; refusing to remove or write through it")
     if target.exists():
         shutil.rmtree(target)
     target.mkdir(parents=True)
     written = [target / "SKILL.md"]
     (target / "SKILL.md").write_text(rendered.text, encoding="utf-8")
 
-    for name in COPY_DIRS:
-        source = rendered.source_dir / name
-        if source.is_dir():
-            shutil.copytree(source, target / name)
-            written.extend(sorted(path for path in (target / name).rglob("*") if path.is_file()))
+    for source in sorted(rendered.source_dir.iterdir()):
+        if source.name == "SKILL.md" or source.name in EXCLUDED_NAMES:
+            continue  # rendered above, or eval material the install never carries
+        if source.is_dir() and source.name in COPY_DIRS:
+            shutil.copytree(source, target / source.name)
+            written.extend(
+                sorted(path for path in (target / source.name).rglob("*") if path.is_file())
+            )
+        else:
+            skipped.append(source.name)
     for bundle in rendered.bundles:
         destination = target / bundle.installed_rel
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -730,23 +742,88 @@ def write_skill(rendered: Rendered, dest: Path, runtime: str, adapter: dict[str,
 # -- adapter delivery ---------------------------------------------------
 
 
-def marker_block(adapter: dict[str, Any]) -> str:
+def marker_block(adapter: dict[str, Any]) -> list[str]:
+    """The three lines the identity file carries: begin, the import, end."""
     imports = adapter.get("identity_import") or {}
-    return f"{imports['begin_marker']}\n{imports['line']}\n{imports['end_marker']}"
+    return [str(imports["begin_marker"]), str(imports["line"]), str(imports["end_marker"])]
+
+
+def marker_lines(lines: Sequence[str], marker: str) -> list[int]:
+    """1-based line numbers where a line is exactly this marker."""
+    return [number for number, line in enumerate(lines, 1) if line.strip() == marker]
+
+
+def locate_block(lines: Sequence[str], begin: str, end: str) -> tuple[int, int] | None:
+    """The one well-formed marker pair as 0-based indices, or None when absent.
+
+    Anything else is refused rather than repaired. A begin without its end has
+    no block to replace: appending one would swallow every owner line between
+    the two markers, and the next run would delete them as ours.
+    """
+    begins, ends = marker_lines(lines, begin), marker_lines(lines, end)
+    if not begins and not ends:
+        return None
+    if len(begins) > 1 or len(ends) > 1:
+        raise InstallError(
+            f"identity file carries more than one {OS_NAME} block: "
+            f"{begin!r} at line {begins}, {end!r} at line {ends}; "
+            "leave exactly one and re-run"
+        )
+    if not begins or not ends:
+        marker, numbers = (begin, begins) if begins else (end, ends)
+        raise InstallError(
+            f"identity file carries an unpaired marker {marker!r} at line "
+            f"{numbers[0]}; the block is not ours to repair, so nothing was written"
+        )
+    if ends[0] < begins[0]:
+        raise InstallError(
+            f"identity file carries {end!r} (line {ends[0]}) before {begin!r} "
+            f"(line {begins[0]}); nothing was written"
+        )
+    return begins[0] - 1, ends[0] - 1
 
 
 def apply_identity_import(text: str, adapter: dict[str, Any]) -> str:
-    """The import line between its markers, and not one other byte changed."""
+    """The import line between its markers, and not one other line changed.
+
+    A bare import line loose in the file is removed, so exactly one survives:
+    the one inside the block, where an uninstall can find it again.
+    """
     imports = adapter.get("identity_import") or {}
     begin, end = str(imports["begin_marker"]), str(imports["end_marker"])
+    import_line = str(imports["line"])
     block = marker_block(adapter)
-    pattern = re.compile(
-        rf"{re.escape(begin)}.*?{re.escape(end)}", re.DOTALL
-    )
-    if pattern.search(text):
-        return pattern.sub(lambda _: block, text, count=1)
-    separator = "" if text.endswith("\n\n") else ("\n" if text.endswith("\n") else "\n\n")
-    return f"{text}{separator}{block}\n"
+    lines = text.splitlines()
+    found = locate_block(lines, begin, end)
+
+    def without_stray(rows: Sequence[str]) -> list[str]:
+        return [row for row in rows if row.strip() != import_line]
+
+    if found is not None:
+        first, last = found
+        kept = without_stray(lines[:first]) + block + without_stray(lines[last + 1:])
+    else:
+        kept = without_stray(lines)
+        while kept and not kept[-1].strip():
+            kept.pop()
+        kept = kept + ([""] if kept else []) + block
+    return "\n".join(kept) + "\n"
+
+
+def write_text_atomically(path: Path, text: str) -> None:
+    """Write through a temporary file in the same directory, then rename over.
+
+    The identity file is the owner's, and a half-written CLAUDE.md is worse
+    than an unwritten one.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.parent / f".{path.name}.{OS_NAME}.tmp"
+    try:
+        temporary.write_text(text, encoding="utf-8")
+        os.replace(temporary, path)
+    except OSError as exc:
+        temporary.unlink(missing_ok=True)
+        raise InstallError(f"{display_path(str(path))}: not written ({exc})") from exc
 
 
 def install_adapter(
@@ -762,11 +839,14 @@ def install_adapter(
     written: list[Path] = []
 
     if not overrides_path.is_file():
-        report.notes.append(f"created {overrides_path} with {len(names)} placeholder keys")
+        report.notes.append(
+            f"{'would create' if dry_run else 'created'} {overrides_path} with "
+            f"{len(names)} placeholder keys"
+        )
+        written.append(overrides_path)
         if not dry_run:
             overrides_path.parent.mkdir(parents=True, exist_ok=True)
             overrides_path.write_text(local_overrides_template(runtime, names), encoding="utf-8")
-            written.append(overrides_path)
     else:
         absent = [name for name in names if name not in values]
         if absent:
@@ -816,7 +896,11 @@ def bind_identity_file(adapter: dict[str, Any], dry_run: bool, report: Report) -
 
     path = expand(raw)
     before = path.read_text(encoding="utf-8") if path.is_file() else ""
-    after = apply_identity_import(before, adapter)
+    try:
+        after = apply_identity_import(before, adapter)
+    except InstallError as exc:
+        report.refused.append(f"{display_path(str(path))}: {exc}")
+        return []
     if after == before:
         report.notes.append(f"{display_path(str(path))} already carries the import line")
         return []
@@ -827,8 +911,7 @@ def bind_identity_file(adapter: dict[str, Any], dry_run: bool, report: Report) -
         f"{OS_NAME} markers"
     )
     if not dry_run:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(after, encoding="utf-8")
+        write_text_atomically(path, after)
     return [path]
 
 
@@ -882,7 +965,8 @@ def runtime_skills(runtime: str) -> list[str]:
     for directory in sorted(path for path in skills.iterdir() if path.is_dir()):
         try:
             meta, _, _ = read_skill(directory.name)
-        except InstallError:
+        except InstallError as exc:
+            print(f"note: {directory.name} is not installable: {exc}")
             continue
         if runtime in declared(meta, "runtime"):
             names.append(directory.name)
@@ -917,6 +1001,12 @@ def do_install(context: Context, names: Sequence[str], args: argparse.Namespace)
             report.refused.extend(refusals)
             continue
         target = context.dest / name
+        if target.is_symlink():
+            report.refused.append(
+                f"{name}: {target} is a symlink; refusing to write through it "
+                "and never following it to whatever it points at"
+            )
+            continue
         if target.exists() and read_stamp(target) is None:
             report.refused.append(
                 f"{name}: {target} exists and was not installed by {OS_NAME} "
@@ -954,9 +1044,15 @@ def do_install(context: Context, names: Sequence[str], args: argparse.Namespace)
                 print(f"  would write {context.dest / rendered.name / bundle.installed_rel}")
             print(f"  would write {stamp_path(context.dest / rendered.name)}")
         else:
+            skipped: list[str] = []
             for path in write_skill(rendered, context.dest, context.runtime, context.adapter,
-                                    context.commit):
+                                    context.commit, skipped):
                 print(f"  wrote {path}")
+            for name in skipped:
+                report.notes.append(
+                    f"{rendered.name}: {name} is neither a rendered file, a copied "
+                    f"directory ({', '.join(COPY_DIRS)}), nor excluded by name; not installed"
+                )
         report.installed.append(rendered.name)
 
     if identity_path and str(identity_path) != str(repo_root()):
@@ -985,12 +1081,18 @@ def finish(context: Context, report: Report, args: argparse.Namespace) -> int:
     identity = context.adapter.get("identity_import") or {}
     raw = str(identity.get("file") or "")
     if raw.startswith(("~", "/")) or PLACEHOLDER_RE.search(raw):
-        target = expand(raw).parent
+        identity_file = expand(raw)
+        target = identity_file.parent
         print(
             f"\nRun this yourself if {display_path(str(target))} is a git repository "
             "(the installer never commits):"
         )
-        print(f'  git -C {display_path(str(target))} commit -am "registry: {OS_NAME} adapter"')
+        # Path-scoped on purpose: `-am` would sweep in whatever else the owner
+        # has modified in that repository.
+        print(
+            f'  git -C {display_path(str(target))} commit '
+            f'-m "registry: {OS_NAME} adapter" -- {identity_file.name}'
+        )
     if context.runtime == "openclaw":
         staging = expand(str(context.adapter["adapter_file"])).parent
         print("\nCopy the staging tree onto the runtime volume, then reload it:")

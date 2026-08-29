@@ -631,8 +631,10 @@ class InstallSkillTest(unittest.TestCase):
         after_first = claude_md.read_text(encoding="utf-8")
         self.assertTrue(after_first.startswith(original))
         self.assertIn("<!-- spike-os:begin -->\n@~/.claude/spike-os/ADAPTER.md\n<!-- spike-os:end -->", after_first)
-        self.assertIn('git -C', out)
-        self.assertIn('registry: spike-os adapter', out)
+        self.assertIn(
+            'git -C ~/.claude commit -m "registry: spike-os adapter" -- CLAUDE.md', out
+        )
+        self.assertNotIn("-am", out)
 
         self._run("--runtime", "claude-code", "fixture-launcher")
         after_second = claude_md.read_text(encoding="utf-8")
@@ -660,9 +662,103 @@ class InstallSkillTest(unittest.TestCase):
     def test_the_git_commit_command_is_printed_and_not_run(self) -> None:
         with mock.patch.object(install_skill.subprocess, "run") as run:
             _, out = self._run("--runtime", "claude-code", "fixture-notes")
-        self.assertIn('git -C', out)
+        self.assertIn(
+            'git -C ~/.claude commit -m "registry: spike-os adapter" -- CLAUDE.md', out
+        )
         for call in run.call_args_list:
             self.assertNotIn("commit", call.args[0])
+
+    def _claude_md(self, text: str) -> Path:
+        path = self.home / ".claude" / "CLAUDE.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def test_an_orphan_begin_marker_is_refused_and_the_file_is_untouched(self) -> None:
+        """A begin with no end has no block to replace: appending one would put
+        every owner line between the two markers inside our block, and the next
+        run would delete them."""
+        original = (
+            "# Owner\n\n<!-- spike-os:begin -->\n\n- keep this line\n- and this one\n"
+        )
+        path = self._claude_md(original)
+        code, out = self._run("--runtime", "claude-code", "fixture-notes")
+        self.assertEqual(code, 1)
+        self.assertIn("spike-os:begin", out)
+        self.assertIn("line 3", out)
+        self.assertEqual(path.read_text(encoding="utf-8"), original)
+
+    def test_a_second_marker_block_is_refused_and_the_file_is_untouched(self) -> None:
+        original = (
+            "# Owner\n"
+            "<!-- spike-os:begin -->\n@~/.claude/spike-os/ADAPTER.md\n<!-- spike-os:end -->\n"
+            "- keep this line\n"
+            "<!-- spike-os:begin -->\n@~/.claude/spike-os/ADAPTER.md\n<!-- spike-os:end -->\n"
+        )
+        path = self._claude_md(original)
+        code, out = self._run("--runtime", "claude-code", "fixture-notes")
+        self.assertEqual(code, 1)
+        self.assertIn("more than one", out)
+        self.assertEqual(path.read_text(encoding="utf-8"), original)
+
+    def test_an_end_marker_before_its_begin_is_refused(self) -> None:
+        original = "# Owner\n<!-- spike-os:end -->\n<!-- spike-os:begin -->\n"
+        path = self._claude_md(original)
+        code, _ = self._run("--runtime", "claude-code", "fixture-notes")
+        self.assertEqual(code, 1)
+        self.assertEqual(path.read_text(encoding="utf-8"), original)
+
+    def test_a_stray_import_line_outside_the_block_is_collapsed_into_one(self) -> None:
+        path = self._claude_md(
+            "# Owner\n@~/.claude/spike-os/ADAPTER.md\n\n- keep this line\n"
+        )
+        code, _ = self._run("--runtime", "claude-code", "fixture-notes")
+        self.assertEqual(code, 0)
+        text = path.read_text(encoding="utf-8")
+        self.assertEqual(text.count("@~/.claude/spike-os/ADAPTER.md"), 1)
+        self.assertIn(
+            "<!-- spike-os:begin -->\n@~/.claude/spike-os/ADAPTER.md\n<!-- spike-os:end -->",
+            text,
+        )
+        self.assertIn("- keep this line", text)
+        self.assertIn("# Owner", text)
+
+    def test_a_stray_import_line_after_the_block_is_removed_too(self) -> None:
+        self._claude_md(
+            "# Owner\n"
+            "<!-- spike-os:begin -->\n@~/.claude/spike-os/ADAPTER.md\n<!-- spike-os:end -->\n"
+            "- keep this line\n@~/.claude/spike-os/ADAPTER.md\n"
+        )
+        code, _ = self._run("--runtime", "claude-code", "fixture-notes")
+        self.assertEqual(code, 0)
+        text = (self.home / ".claude" / "CLAUDE.md").read_text(encoding="utf-8")
+        self.assertEqual(text.count("@~/.claude/spike-os/ADAPTER.md"), 1)
+        self.assertIn("- keep this line", text)
+
+    def test_a_failed_identity_write_leaves_the_original_bytes(self) -> None:
+        original = "# Owner\n\n- keep this line\n"
+        path = self._claude_md(original)
+        with mock.patch.object(install_skill.os, "replace", side_effect=OSError("disk full")):
+            code, out = self._run("--runtime", "claude-code", "fixture-notes")
+        self.assertEqual(code, 1)
+        self.assertEqual(path.read_text(encoding="utf-8"), original)
+        self.assertEqual(
+            [entry.name for entry in path.parent.iterdir() if entry.name != "CLAUDE.md"
+             and entry.is_file()],
+            [],
+        )
+
+    def test_install_refuses_a_symlinked_destination_directory(self) -> None:
+        real = Path(self.tmp.name) / "elsewhere"
+        real.mkdir()
+        (real / "keep.txt").write_text("keep\n", encoding="utf-8")
+        self.dest.mkdir(parents=True, exist_ok=True)
+        (self.dest / "fixture-notes").symlink_to(real, target_is_directory=True)
+        code, out = self._run("--runtime", "claude-code", "fixture-notes")
+        self.assertEqual(code, 1)
+        self.assertIn("symlink", out)
+        self.assertTrue((self.dest / "fixture-notes").is_symlink())
+        self.assertTrue((real / "keep.txt").is_file())
 
     # -- UNCONFIRMED refusal -------------------------------------------
 
@@ -804,9 +900,29 @@ class InstallSkillTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("when_to_use:", out)
         self.assertIn(str(self.dest / "fixture-notes" / "SKILL.md"), out)
+        overrides = self.home / ".config" / "spike-os" / "claude-code.local.yaml"
+        self.assertIn(f"would write {overrides}", out)
+        self.assertNotIn("created", out)
         self.assertFalse(self.dest.exists())
         self.assertFalse((self.home / ".claude" / "spike-os").exists())
         self.assertFalse((self.home / ".config" / "spike-os").exists())
+
+    def test_an_unexpected_supporting_entry_is_reported_and_not_copied(self) -> None:
+        """`examples/`, `evals/` and `routing-eval.jsonl` are excluded by name;
+        anything else the installer does not carry is named rather than dropped
+        in silence."""
+        self._write("skills/fixture-launcher/notes/scratch.md", "scratch\n")
+        code, out = self._run("--runtime", "claude-code", "fixture-launcher")
+        self.assertEqual(code, 0)
+        self.assertIn("notes", out)
+        self.assertFalse((self.dest / "fixture-launcher" / "notes").exists())
+        self.assertNotIn("examples", out)
+        self.assertNotIn("routing-eval.jsonl", out)
+
+    def test_a_skill_the_installer_cannot_read_is_named_not_swallowed(self) -> None:
+        self._write("skills/fixture-broken/SKILL.md", "no frontmatter here\n")
+        code, out = self._run("--runtime", "claude-code", "--all")
+        self.assertIn("fixture-broken", out)
 
     def test_all_installs_every_skill_the_runtime_carries(self) -> None:
         code, out = self._run("--runtime", "claude-code", "--all")
