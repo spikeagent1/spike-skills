@@ -6,7 +6,7 @@ metadata:
     version: 2.0.0
     runtime: [openclaw, claude-code]
     reads_from: [profile]
-    writes_to: [journal]
+    writes_to: [journal, effects]
     effects: [datastore:read, datastore:write, fs:write-local]
 ---
 

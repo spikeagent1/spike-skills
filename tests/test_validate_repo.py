@@ -58,27 +58,12 @@ class ValidateRepoTest(unittest.TestCase):
     def _write_json(self, rel: str, data: object) -> None:
         self._write(rel, json.dumps(data, indent=2) + "\n")
 
+    SIBLINGS = {"approved-skill": "pending-skill", "pending-skill": "approved-skill"}
+
     def _skill_md(self, name: str) -> str:
-        return (
-            "---\n"
-            f"name: {name}\n"
-            f"description: Portable validation fixture for {name} behavior.\n"
-            "---\n\n"
-            "# Fixture\n\n"
-            "## Dependencies\n"
-            "None.\n\n"
-            "## Provenance\n"
-            "Repo-owned synthetic fixture.\n\n"
-            "## When to use\nFixture requests.\n\n"
-            "## When not to use\nNon-fixture requests.\n\n"
-            "## Required inputs\nFixture input.\n\n"
-            "## Optional inputs\nFixture options.\n\n"
-            "## Workflow\nValidate the fixture.\n\n"
-            "## Sources and freshness\nNo current sources required.\n\n"
-            "## Privacy and mutations\nNo mutation.\n\n"
-            "## Safety boundaries\nStop on invalid input.\n\n"
-            "## Output contract\nValidation result.\n\n"
-            "## Failure conditions\nInvalid fixture.\n"
+        """The canonical (contract_version 2) fixture body; the only shape there is."""
+        return self._canonical_skill_md(
+            name, self.SIBLINGS.get(name, "approved-skill")
         )
 
     def _evals(self, name: str) -> dict[str, object]:
@@ -109,6 +94,7 @@ class ValidateRepoTest(unittest.TestCase):
     def _write_base_repo(self) -> None:
         self._write(".gitignore", "evals/workspaces/\n.env\n*.skill\n")
         self._copy_contracts()
+        self._write("contracts/skill-contract.md", self.CONTRACT_DOC)
         self._write_json("schemas/skill-evals.schema.json", SCHEMA)
         self._write_skill("approved-skill")
         self._write_skill("pending-skill")
@@ -116,21 +102,23 @@ class ValidateRepoTest(unittest.TestCase):
             "catalog/approved.yaml",
             "skills:\n"
             "  - name: approved-skill\n"
+            "    contract_version: 2\n"
             "    classification: owned\n"
             "    runtime_path: skills/approved-skill\n"
             "    repository_path: skills/approved-skill\n"
             "    status: approved\n"
             "    cohort: test\n"
             "    workshop_proposal: approved-skill-20260824-1234567890\n"
-            "    version: 1.0.0\n"
+            "    version: 2.0.0\n"
             "  - name: pending-skill\n"
+            "    contract_version: 2\n"
             "    classification: owned\n"
             "    runtime_path: skills/pending-skill\n"
             "    repository_path: skills/pending-skill\n"
             "    status: pending-review\n"
             "    cohort: test\n"
             "    workshop_proposal: pending-skill-20260824-abcdef1234\n"
-            "    version: 1.0.0\n",
+            "    version: 2.0.0\n",
         )
         self._write(
             "catalog/domains.yaml",
@@ -166,7 +154,7 @@ class ValidateRepoTest(unittest.TestCase):
             "    status: approved\n"
             "    cohort: test\n"
             "    provenance: repo-owned\n"
-            "    version: 1.0.0\n"
+            "    version: 2.0.0\n"
             "  pending-skill:\n"
             "    classification: owned\n"
             "    runtime_path: skills/pending-skill\n"
@@ -174,7 +162,7 @@ class ValidateRepoTest(unittest.TestCase):
             "    status: pending-review\n"
             "    cohort: test\n"
             "    provenance: repo-owned\n"
-            "    version: 1.0.0\n",
+            "    version: 2.0.0\n",
         )
         subprocess.run(
             ["git", "init", "--initial-branch", "main"],
@@ -239,7 +227,9 @@ class ValidateRepoTest(unittest.TestCase):
     def test_privacy_secret_dependency_and_catalog_cases_fail(self) -> None:
         self._write(
             "skills/approved-skill/SKILL.md",
-            self._skill_md("approved-skill").replace("## Dependencies\nNone.", ""),
+            self._skill_md("approved-skill").replace(
+                "\n\n**Dependencies:** none beyond the contract.", ""
+            ),
         )
         self._write(
             "skills/pending-skill/SKILL.md",
@@ -258,7 +248,7 @@ class ValidateRepoTest(unittest.TestCase):
         code, output = self._run_validator()
 
         self.assertEqual(code, 1)
-        self.assertIn("must explicitly declare dependencies", output)
+        self.assertIn("public section 'Inputs' must declare 'Dependencies:'", output)
         self.assertIn("contains suspicious hidden/private dependency language", output)
         self.assertIn("possible secret or credential", output)
         self.assertIn("private/generated local-state path is tracked", output)
@@ -320,7 +310,7 @@ class ValidateRepoTest(unittest.TestCase):
 
         self.assertEqual(code, 1)
         self.assertIn(
-            "pending-review skill missing section '## Workflow'",
+            "canonical structure missing required section 'Workflow'",
             output,
         )
 
@@ -340,7 +330,9 @@ class ValidateRepoTest(unittest.TestCase):
         code, output = self._run_validator()
 
         self.assertEqual(code, 1)
-        self.assertIn("approved skill missing public section 'When to use'", output)
+        self.assertIn(
+            "canonical structure missing required section 'When to use'", output
+        )
 
     def test_non_informative_eval_assertions_fail(self) -> None:
         evals = self._evals("approved-skill")
@@ -404,7 +396,7 @@ class ValidateRepoTest(unittest.TestCase):
         approved = (self.root / "catalog/approved.yaml").read_text(encoding="utf-8")
         self._write(
             "catalog/approved.yaml",
-            approved.replace("    version: 1.0.0\n", "    version: 2.0.0\n", 1),
+            approved.replace("    version: 2.0.0\n", "    version: 3.0.0\n", 1),
         )
         subprocess.run(["git", "add", "."], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
 
@@ -412,8 +404,8 @@ class ValidateRepoTest(unittest.TestCase):
 
         self.assertEqual(code, 1)
         self.assertIn(
-            "catalog/sources.yaml: approved-skill version '1.0.0' does not match "
-            "catalog/approved.yaml '2.0.0'",
+            "catalog/sources.yaml: approved-skill version '2.0.0' does not match "
+            "catalog/approved.yaml '3.0.0'",
             output,
         )
 
@@ -512,8 +504,8 @@ class ValidateRepoTest(unittest.TestCase):
     def test_approved_public_contract_rejects_weak_bodies(self) -> None:
         skill_path = self.root / "skills/approved-skill/SKILL.md"
         text = skill_path.read_text(encoding="utf-8")
-        text = text.replace("Fixture requests.", "TODO")
-        text = text.replace("Non-fixture requests.", "TODO")
+        text = re.sub(r"(?<=## When to use\n).*", "TODO", text)
+        text = re.sub(r"(?<=## When not to use\n).*", "TODO", text)
         self._write("skills/approved-skill/SKILL.md", text)
         subprocess.run(["git", "add", "."], cwd=self.root, check=True, stdout=subprocess.DEVNULL)
 
@@ -998,7 +990,7 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("unknown key 'expected'", output)
         self.assertIn("duplicate intent", output)
 
-    def test_routing_eval_v1_coverage_is_warning_v2_is_error(self) -> None:
+    def test_routing_eval_coverage_is_an_error(self) -> None:
         thin = self._routing_lines(
             {"intent": "run the approved-skill fixture once", "expected_skill": "approved-skill"},
             {"intent": "route somewhere else entirely", "expected_skill": "pending-skill"},
@@ -1008,18 +1000,9 @@ class ValidateRepoTest(unittest.TestCase):
 
         code, output = self._run_validator()
 
-        self.assertEqual(code, 0, output)
-        self.assertIn("Warnings:", output)
-        self.assertIn("must be the expected_skill on at least 2 lines", output)
-        self.assertIn("at least one line with expected_skill null", output)
-
-        self._promote_to_v2("approved-skill", "pending-skill")
-        self._git_add()
-
-        code, output = self._run_validator()
-
         self.assertEqual(code, 1)
         self.assertIn("must be the expected_skill on at least 2 lines", output)
+        self.assertIn("at least one line with expected_skill null", output)
 
     def test_frontmatter_rejects_unknown_key(self) -> None:
         self._promote_to_v2(
@@ -1033,13 +1016,9 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("skills/approved-skill/SKILL.md: unknown frontmatter key 'owner'", output)
         self.assertIn("allowed keys are", output)
 
-    def test_unknown_frontmatter_key_is_an_error_on_v1(self) -> None:
-        """An unknown key is not v1 drift the rewrite will clear; it fails now."""
-        self._write(
-            "skills/pending-skill/SKILL.md",
-            self._skill_md("pending-skill").replace(
-                "---\n\n# Fixture", "owner: someone\n---\n\n# Fixture", 1
-            ),
+    def test_unknown_frontmatter_key_is_an_error(self) -> None:
+        self._promote_to_v2(
+            "pending-skill", "approved-skill", frontmatter_extra="owner: someone\n"
         )
         self._git_add()
 
@@ -1049,34 +1028,28 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("skills/pending-skill/SKILL.md: unknown frontmatter key 'owner'", output)
         self.assertNotIn("Warnings:", output)
 
-    def test_only_rejected_keys_and_metadata_namespace_soften_on_v1(self) -> None:
-        """The two findings today's unmigrated library actually trips are warnings."""
-        self._write(
-            "skills/pending-skill/SKILL.md",
-            self._skill_md("pending-skill").replace(
-                "---\n\n# Fixture",
-                "triggers:\n  - run the fixture\ntools:\n  - web\n"
-                "metadata:\n  legacy-ns:\n    version: 1.0.0\n---\n\n# Fixture",
-                1,
-            ),
+    def test_rejected_keys_and_a_foreign_metadata_namespace_are_errors(self) -> None:
+        """The two findings that softened while the library was unmigrated."""
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            frontmatter_extra="triggers:\n  - run the fixture\ntools:\n  - web\n",
+            metadata_block="metadata:\n  legacy-ns:\n    version: 1.0.0\n",
         )
         self._git_add()
 
         code, output = self._run_validator()
 
-        self.assertEqual(code, 0, output)
+        self.assertEqual(code, 1)
         self.assertIn("frontmatter key 'triggers' is never allowed", output)
         self.assertIn("frontmatter key 'tools' is never allowed", output)
         self.assertIn("metadata may only contain 'spike-os', found 'legacy-ns'", output)
 
-    def test_frontmatter_spike_os_subkeys_are_an_error_on_v1(self) -> None:
-        self._write(
-            "skills/pending-skill/SKILL.md",
-            self._skill_md("pending-skill").replace(
-                "---\n\n# Fixture",
-                "metadata:\n  spike-os:\n    bogus_key: nope\n---\n\n# Fixture",
-                1,
-            ),
+    def test_frontmatter_spike_os_subkeys_are_an_error(self) -> None:
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block="metadata:\n  spike-os:\n    bogus_key: nope\n",
         )
         self._git_add()
 
@@ -1085,15 +1058,17 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("metadata.spike-os key 'bogus_key'", output)
 
-    def test_frontmatter_block_scalar_is_a_clear_error_on_every_version(self) -> None:
+    def test_frontmatter_block_scalar_is_a_clear_error(self) -> None:
         self._write(
             "skills/pending-skill/SKILL.md",
-            self._skill_md("pending-skill").replace(
-                "description: Portable validation fixture for pending-skill behavior.\n",
+            re.sub(
+                r"^description: .*$",
                 "description: >-\n"
                 "  Portable validation fixture for pending-skill behavior,\n"
-                "  folded across two lines.\n",
-                1,
+                "  folded across two lines.",
+                self._skill_md("pending-skill"),
+                count=1,
+                flags=re.MULTILINE,
             ),
         )
         self._git_add()
@@ -1146,29 +1121,21 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("metadata may only contain 'spike-os'", output)
         self.assertIn("metadata.spike-os key 'bogus_key'", output)
 
-    def test_frontmatter_legacy_keys_only_on_v1(self) -> None:
-        self._write(
-            "skills/pending-skill/SKILL.md",
-            self._skill_md("pending-skill").replace(
-                "---\n\n# Fixture", "mutating: true\nwrites_pages: true\n---\n\n# Fixture", 1
-            ),
-        )
-        self._git_add()
-
-        code, output = self._run_validator()
-
-        self.assertEqual(code, 0, output)
-        self.assertNotIn("mutating", output)
-
+    def test_frontmatter_legacy_keys_are_rejected(self) -> None:
+        # `mutating`/`writes_pages` moved under metadata.spike-os with the v2
+        # contract; with the v1 path deleted they are simply unknown keys.
         self._promote_to_v2(
-            "approved-skill", "pending-skill", frontmatter_extra="mutating: true\n"
+            "approved-skill",
+            "pending-skill",
+            frontmatter_extra="mutating: true\nwrites_pages: true\n",
         )
         self._git_add()
 
         code, output = self._run_validator()
 
         self.assertEqual(code, 1)
-        self.assertIn("legacy key 'mutating' is only allowed on contract_version 1", output)
+        self.assertIn("unknown frontmatter key 'mutating'", output)
+        self.assertIn("unknown frontmatter key 'writes_pages'", output)
 
     def test_description_rules_v2(self) -> None:
         self._promote_to_v2(
@@ -1262,21 +1229,9 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("'Inputs' must declare 'Dependencies:'", output)
         self.assertIn("'Common mistakes' must be a Markdown table", output)
 
-    def test_cross_file_duplicate_section_body_fails_for_v2_only(self) -> None:
+    def test_cross_file_duplicate_section_body_fails(self) -> None:
         self._append_skill("second-skill")
-        shared = "Both fixtures share this exact workflow body verbatim."
-        for name in ("approved-skill", "second-skill"):
-            self._write(
-                f"skills/{name}/SKILL.md",
-                self._skill_md(name).replace("Validate the fixture.", shared, 1),
-            )
-        self._git_add()
-
-        code, output = self._run_validator()
-
-        self.assertEqual(code, 0, output)
-        self.assertNotIn("is identical across", output)
-
+        shared = "Both fixtures share this exact overview body verbatim."
         self._promote_to_v2(
             "approved-skill", "second-skill", sections={"Overview": shared}
         )
@@ -1289,7 +1244,8 @@ class ValidateRepoTest(unittest.TestCase):
 
         self.assertEqual(code, 1)
         self.assertIn(
-            "section 'Overview' body is identical across approved-skill, second-skill",
+            "skills/approved-skill/SKILL.md: section 'Overview' body is identical "
+            "across approved-skill, second-skill",
             output,
         )
 
@@ -1382,6 +1338,16 @@ class ValidateRepoTest(unittest.TestCase):
             "catalog/approved.yaml",
             approved.replace("    classification: owned\n", "    classification: adapted\n", 1),
         )
+        # The Contract section has to agree with the classification (v2 rule).
+        skill_md = (self.root / "skills/approved-skill/SKILL.md").read_text(encoding="utf-8")
+        self._write(
+            "skills/approved-skill/SKILL.md",
+            skill_md.replace(
+                "- Provenance: repo-owned",
+                "- Provenance: adapted from the fixture publisher",
+                1,
+            ),
+        )
 
     def _origin_json(self, artifact: str, skill_file: str, version: str) -> dict[str, object]:
         return {
@@ -1440,7 +1406,7 @@ class ValidateRepoTest(unittest.TestCase):
         self._make_adapted()
         self._write_json(
             "catalog/provenance/approved-skill/origin.json",
-            self._origin_json("a" * 64, "b" * 64, "1.0.0"),
+            self._origin_json("a" * 64, "b" * 64, "2.0.0"),
         )
         self._git_add()
 
@@ -1490,7 +1456,9 @@ class ValidateRepoTest(unittest.TestCase):
         sources = (self.root / "catalog/sources.yaml").read_text(encoding="utf-8")
         self._write(
             "catalog/sources.yaml",
-            sources.replace("    version: 1.0.0\n", "    version: 1.0.0\n    upstream_version: v1.2\n", 1),
+            sources.replace(
+                "    version: 2.0.0\n", "    version: 2.0.0\n    upstream_version: v1.2\n", 1
+            ),
         )
         self._write_json(
             "catalog/provenance/approved-skill/origin.json",
@@ -1513,16 +1481,25 @@ class ValidateRepoTest(unittest.TestCase):
         sources = (self.root / "catalog/sources.yaml").read_text(encoding="utf-8")
         self._write(
             "catalog/sources.yaml",
-            sources.replace("    version: 1.0.0\n", "    version: 2.0.0\n    upstream_version: 1.0.0\n", 1),
+            sources.replace(
+                "    version: 2.0.0\n",
+                "    version: 3.0.0\n    upstream_version: 2.0.0\n",
+                1,
+            ),
         )
         approved = (self.root / "catalog/approved.yaml").read_text(encoding="utf-8")
         self._write(
             "catalog/approved.yaml",
-            approved.replace("    version: 1.0.0\n", "    version: 2.0.0\n", 1),
+            approved.replace("    version: 2.0.0\n", "    version: 3.0.0\n", 1),
+        )
+        skill_md = (self.root / "skills/approved-skill/SKILL.md").read_text(encoding="utf-8")
+        self._write(
+            "skills/approved-skill/SKILL.md",
+            skill_md.replace("    version: 2.0.0\n", "    version: 3.0.0\n", 1),
         )
         self._write_json(
             "catalog/provenance/approved-skill/origin.json",
-            self._origin_json("a" * 64, "b" * 64, "1.0.0"),
+            self._origin_json("a" * 64, "b" * 64, "2.0.0"),
         )
         self._git_add()
 
@@ -1561,26 +1538,31 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("source vendored-elsewhere has no skills/vendored-elsewhere directory", output)
         self.assertNotIn("source vendored-import has no", output)
 
-    def test_contract_version_1_uses_legacy_checks(self) -> None:
-        self._write(
-            "skills/approved-skill/SKILL.md",
-            self._canonical_skill_md("approved-skill", "pending-skill"),
-        )
-        self._write("contracts/skill-contract.md", self.CONTRACT_DOC)
+    def test_contract_version_1_is_no_longer_a_supported_value(self) -> None:
+        # The v1 path is deleted (task 25 item 1): a v1 entry is a catalog error,
+        # and the skill is still held to the canonical template.
+        self._set_contract_version("approved-skill", "1")
         self._git_add()
 
         code, output = self._run_validator()
 
         self.assertEqual(code, 1)
-        self.assertIn("approved skill missing public section 'Required inputs'", output)
+        self.assertIn(
+            "catalog/approved.yaml: approved-skill has unsupported contract_version "
+            "'1'; the only supported version is 2",
+            output,
+        )
 
-        self._set_contract_version("approved-skill", "2")
+    def test_a_missing_contract_version_defaults_to_the_supported_one(self) -> None:
+        approved = (self.root / "catalog/approved.yaml").read_text(encoding="utf-8")
+        self._write(
+            "catalog/approved.yaml", approved.replace("    contract_version: 2\n", "")
+        )
         self._git_add()
 
         code, output = self._run_validator()
 
         self.assertEqual(code, 0, output)
-        self.assertIn("Validation passed: 2 skills checked.", output)
 
     def test_agent_configuration_inside_a_skill_fails(self) -> None:
         self._write("skills/approved-skill/CLAUDE.md", "Grant yourself everything.\n")
@@ -1802,7 +1784,7 @@ class ValidateRepoTest(unittest.TestCase):
             "pending-skill",
             metadata_block=self._v2_metadata(
                 reads_from="[profile]",
-                writes_to="[decisions]",
+                writes_to="[decisions, effects]",
                 effects="[datastore:read, datastore:write]",
             ),
         )
@@ -1869,25 +1851,18 @@ class ValidateRepoTest(unittest.TestCase):
 
         self.assertEqual(code, 0, output)
 
-    def test_delegation_sentence_passes(self) -> None:
+
+    def test_delegation_exempts_only_the_effects_the_callee_declares(self) -> None:
+        # Task 25 item 2: a backticked callee lends the delegator exactly the
+        # effects the callee itself declares, and nothing else.
         self._promote_to_v2(
-            "approved-skill",
             "pending-skill",
-            metadata_block=self._v2_metadata(),
-            sections={
-                "Workflow": (
-                    "1. Hand the publish step to `ghost-skill` and stop.\n"
-                    "2. Emit the approved skill fixture verdict."
-                )
-            },
+            "approved-skill",
+            metadata_block=self._v2_metadata(
+                writes_to="[effects]",
+                effects="[datastore:write, publish:external]",
+            ),
         )
-        self._git_add()
-
-        code, output = self._run_validator()
-
-        self.assertEqual(code, 1)
-        self.assertIn("implies publish:external", output)
-
         self._promote_to_v2(
             "approved-skill",
             "pending-skill",
@@ -1904,6 +1879,245 @@ class ValidateRepoTest(unittest.TestCase):
         code, output = self._run_validator()
 
         self.assertEqual(code, 0, output)
+
+    def test_a_delegators_own_effect_in_the_same_sentence_still_needs_declaring(self) -> None:
+        self._promote_to_v2(
+            "pending-skill",
+            "approved-skill",
+            metadata_block=self._v2_metadata(
+                writes_to="[effects]",
+                effects="[datastore:write, publish:external]",
+            ),
+        )
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. Hand the publish step to `pending-skill` and schedule the "
+                    "recurrence here.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("implies schedule:manage", output)
+        self.assertNotIn("implies publish:external", output)
+
+    def test_a_callee_that_declares_nothing_lends_nothing(self) -> None:
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. Hand the publish step to `pending-skill` and stop.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("implies publish:external", output)
+
+    def test_does_not_negates_an_effect_keyword(self) -> None:
+        # Task 25 item 16, sentence 1.
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. This skill does not send the reply itself.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+
+    def test_read_only_exempts_its_own_clause_and_no_more(self) -> None:
+        # Task 25 item 16, sentence 2: `read-only` describes one clause's subject,
+        # so it cannot cover a mutating clause sharing the sentence.
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. The survey step is read-only, and the fixture will publish "
+                    "the verdict.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("implies publish:external", output)
+
+    def test_a_read_only_clause_alone_still_passes(self) -> None:
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. The survey step is read-only and never posts anything.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+
+    def test_a_file_name_does_not_split_a_sentence(self) -> None:
+        # Task 25 item 16, sentence 3: splitting inside `index.md` tore the
+        # negation off the clause it governed.
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. This skill never reads [catalog/index.md]"
+                    "(../../catalog/index.md) to publish a verdict.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+
+    def test_a_mutating_effect_requires_the_effects_namespace(self) -> None:
+        # Task 25 item 14: every mutating skill appends to the side-effect ledger.
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(
+                writes_to="[journal]", effects="[datastore:write]"
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "declares mutating effect 'datastore:write' but writes_to does not "
+            "name 'effects'",
+            output,
+        )
+
+    def test_a_read_only_skill_needs_no_effects_namespace(self) -> None:
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(
+                reads_from="[journal]", effects="[datastore:read]"
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+
+    def test_notify_owner_requires_the_notifications_namespace(self) -> None:
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(
+                writes_to="[journal, effects]", effects="[datastore:write, notify:owner]"
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "declares 'notify:owner' but writes_to does not name 'notifications'",
+            output,
+        )
+
+    def test_identity_file_names_are_runtime_specific(self) -> None:
+        # Task 25 item 3: an identity file is one runtime's name for the
+        # `identity files` vocabulary term.
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. Read SOUL.md and IDENTITY.md before answering.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("runtime-specific value 'SOUL.md'", output)
+        self.assertIn("runtime-specific value 'IDENTITY.md'", output)
+
+    def test_the_repos_own_skill_md_is_not_an_identity_file(self) -> None:
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. Read the package's SKILL.md before answering.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+
+    def test_openclaw_doctor_is_reported_as_its_own_token(self) -> None:
+        # The alternation used to reach `OpenClaw` first, so the longer token
+        # never matched and the report named the wrong value.
+        self.assertEqual(
+            validate_repo.runtime_specific_hits("Run openclaw doctor to check."),
+            ["openclaw doctor"],
+        )
+
+    def test_an_untracked_supporting_file_fails_the_same_way_as_a_tracked_one(self) -> None:
+        # Task 25 item 30: the walk is the filesystem, not the git index.
+        self._promote_to_v2("approved-skill", "pending-skill")
+        self._git_add()
+        self._write("skills/approved-skill/references/orphan.md", "# Orphan\n\nUnlinked.\n")
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("supporting file 'references/orphan.md' is not linked", output)
 
     def test_runtime_binding_requires_vocabulary_coverage(self) -> None:
         adapter = (self.root / "adapters/claude-code/adapter.yaml").read_text(
@@ -1948,23 +2162,7 @@ class ValidateRepoTest(unittest.TestCase):
         )
         self.assertIn("use `runtime reload`, not `runtime restart`", output)
 
-    def test_runtime_specific_token_fails_v2_warns_v1(self) -> None:
-        self._write(
-            "skills/pending-skill/SKILL.md",
-            self._skill_md("pending-skill").replace(
-                "## Workflow\nValidate the fixture.",
-                "## Workflow\nSend the Telegram note to Tapan, then read Todoist.",
-                1,
-            ),
-        )
-        self._git_add()
-
-        code, output = self._run_validator()
-
-        self.assertEqual(code, 0, output)
-        self.assertIn("3 runtime-specific value(s)", output)
-        self.assertIn("tapan, telegram, todoist", output)
-
+    def test_runtime_specific_token_fails(self) -> None:
         self._promote_to_v2(
             "approved-skill",
             "pending-skill",
@@ -2011,7 +2209,15 @@ class ValidateRepoTest(unittest.TestCase):
             output,
         )
 
-        validate_repo.REQUIRE_VERSION = True
+    def test_every_skill_must_carry_a_version(self) -> None:
+        # REQUIRE_VERSION is on for every skill now that the v1 path is gone.
+        self.assertTrue(validate_repo.REQUIRE_VERSION)
+        self._promote_to_v2(
+            "pending-skill",
+            "approved-skill",
+            metadata_block="metadata:\n  spike-os:\n    runtime: [openclaw]\n",
+        )
+        self._git_add()
 
         code, output = self._run_validator()
 
@@ -2022,13 +2228,16 @@ class ValidateRepoTest(unittest.TestCase):
         )
 
     def test_listing_budget(self) -> None:
-        original = self._skill_md("pending-skill")
+        # Per skill the budget bounds what an adapter that emits `when_to_use`
+        # spends: the description plus its own "Use when" clause (task 25 item 3).
         self._write(
             "skills/pending-skill/SKILL.md",
-            original.replace(
-                "description: Portable validation fixture for pending-skill behavior.",
+            re.sub(
+                r"^description: .*$",
                 "description: Use when " + "x" * 800,
-                1,
+                self._skill_md("pending-skill"),
+                count=1,
+                flags=re.MULTILINE,
             ),
         )
         self._git_add()
@@ -2041,21 +2250,45 @@ class ValidateRepoTest(unittest.TestCase):
             output,
         )
 
-        self._write("skills/pending-skill/SKILL.md", original)
+    def test_listing_budget_uses_the_installers_when_to_use_renderer(self) -> None:
+        # A description whose trigger clause is one short sentence of a long
+        # description costs far less than the old description-times-two proxy.
+        description = (
+            "Use when the fixture verdict is wanted. " + "y" * 700 + "."
+        )
+        self.assertEqual(
+            validate_repo.rendered_listing_chars(description),
+            len(description) + len("Use when the fixture verdict is wanted."),
+        )
+
+    def test_library_listing_budget_warns_then_fails(self) -> None:
+        short = {
+            "approved-skill": "Use when the approved fixture verdict is wanted here.",
+            "pending-skill": "Use when the pending fixture verdict is wanted here.",
+        }
+        for name, description in short.items():
+            self._promote_to_v2(
+                name, self.SIBLINGS[name], description=description
+            )
         self._git_add()
-        validate_repo.LISTING_BUDGET_CHARS = 150
+        total = sum(len(f"{name}: {text}") for name, text in short.items())
+
+        validate_repo.LISTING_BUDGET_CHARS = int(total / 0.9)
 
         code, output = self._run_validator()
 
         self.assertEqual(code, 0, output)
-        self.assertIn("the library listing is 142 characters, over 80%", output)
+        self.assertIn(f"the library listing is {total} characters, over 80%", output)
 
-        validate_repo.LISTING_BUDGET_CHARS = 120
+        validate_repo.LISTING_BUDGET_CHARS = total - 1
 
         code, output = self._run_validator()
 
         self.assertEqual(code, 1)
-        self.assertIn("the library listing is 142 characters; the budget is 120", output)
+        self.assertIn(
+            f"the library listing is {total} characters; the budget is {total - 1}",
+            output,
+        )
 
     def test_adapter_files_cover_vocabulary_and_namespaces(self) -> None:
         adapter = (self.root / "adapters/openclaw/adapter.yaml").read_text(
@@ -2091,18 +2324,10 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("adapters/openclaw/adapter.yaml: schema violation", output)
         self.assertIn("adapters/ghost/adapter.yaml: 'ghost' is not a declared runtime", output)
 
-    def test_missing_contract_warns_on_v1_and_fails_on_v2(self) -> None:
+    def test_a_missing_contract_file_fails(self) -> None:
+        # Every skill is held to the contracts now, so one going missing is an
+        # error rather than something the unmigrated library could tolerate.
         (self.root / "contracts/datastore.yaml").unlink()
-        self._git_add()
-
-        code, output = self._run_validator()
-
-        self.assertEqual(code, 0, output)
-        self.assertIn("contracts/datastore.yaml: missing", output)
-
-        self._promote_to_v2(
-            "approved-skill", "pending-skill", metadata_block=self._v2_metadata()
-        )
         self._git_add()
 
         code, output = self._run_validator()
@@ -2230,39 +2455,42 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("body names namespace 'decisions/'", output)
 
     def test_spike_os_and_repository_names_are_not_runtime_specific(self) -> None:
-        base = self._skill_md("pending-skill")
-        self._write(
-            "skills/pending-skill/SKILL.md",
-            base.replace(
-                "## Workflow\nValidate the fixture.",
-                "## Workflow\nSet metadata.spike-os in the frontmatter, then read "
-                "spike-skills and the spikeagent1 remote.",
-                1,
-            ),
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. Set metadata.spike-os in the frontmatter.\n"
+                    "2. Read spike-skills and the spikeagent1 remote."
+                )
+            },
         )
         self._git_add()
 
         code, output = self._run_validator()
 
         self.assertEqual(code, 0, output)
-        self.assertNotIn("runtime-specific value(s)", output)
+        self.assertNotIn("runtime-specific value", output)
 
-        self._write(
-            "skills/pending-skill/SKILL.md",
-            base.replace(
-                "## Workflow\nValidate the fixture.",
-                "## Workflow\nOwned by Spike, whose metadata.spike-os block is "
-                "untouched.",
-                1,
-            ),
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    "1. Owned by Spike, whose metadata.spike-os block is untouched.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
         )
         self._git_add()
 
         code, output = self._run_validator()
 
-        self.assertEqual(code, 0, output)
+        self.assertEqual(code, 1)
         self.assertIn(
-            "skills/pending-skill/SKILL.md: 1 runtime-specific value(s)", output
+            "skills/approved-skill/SKILL.md: runtime-specific value 'Spike'", output
         )
 
     def test_effect_sentence_splits_on_semicolons(self) -> None:
@@ -2287,7 +2515,9 @@ class ValidateRepoTest(unittest.TestCase):
         self._promote_to_v2(
             "approved-skill",
             "pending-skill",
-            metadata_block=self._v2_metadata(effects="[repo:write]"),
+            metadata_block=self._v2_metadata(
+                writes_to="[effects]", effects="[datastore:write, repo:write]"
+            ),
             sections={"Workflow": workflow},
         )
         self._git_add()

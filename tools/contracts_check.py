@@ -215,11 +215,21 @@ def adapter_markdown_terms(runtime: str, root: Path | None = None) -> dict[str, 
 
 
 def missing_terms(adapter: dict[str, Any], vocabulary: dict[str, Any]) -> list[str]:
-    """Vocabulary keys the adapter does not bind."""
+    """Vocabulary keys the adapter does not bind to a real value.
+
+    A binding present but empty is missing: the schema leg enforces `value`
+    minLength 1, and the fallback leg has to reach the same verdict or a blank
+    binding passes on a host without jsonschema installed.
+    """
     bound = adapter.get("vocabulary") or {}
-    return [
-        entry["key"] for entry in (vocabulary.get("terms") or []) if entry["key"] not in bound
-    ]
+
+    def unbound(key: str) -> bool:
+        binding = bound.get(key)
+        if not isinstance(binding, dict):
+            return True
+        return not str(binding.get("value") or "").strip()
+
+    return [entry["key"] for entry in (vocabulary.get("terms") or []) if unbound(entry["key"])]
 
 
 def extra_terms(adapter: dict[str, Any], vocabulary: dict[str, Any]) -> list[str]:

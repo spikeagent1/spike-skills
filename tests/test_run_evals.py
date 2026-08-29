@@ -3479,29 +3479,54 @@ class EndToEndRunTest(unittest.TestCase):
         path.write_text(text, encoding="utf-8")
 
     def _skill_md(self, name: str) -> str:
+        """The canonical (contract_version 2) shape the validator holds every skill to."""
         return (
             "---\n"
             f"name: {name}\n"
-            f"description: Portable validation fixture for {name} behavior.\n"
+            f"description: Use when the caller asks for the {name} fixture verdict "
+            f"or a harness regression case. Not for anything else.\n"
+            "metadata:\n"
+            "  spike-os:\n"
+            "    version: 2.0.0\n"
+            "    runtime: [openclaw, claude-code]\n"
             "---\n\n"
-            "# Fixture\n\n"
-            "## Dependencies\nNone.\n\n"
-            "## Provenance\nRepo-owned synthetic fixture.\n\n"
-            "## When to use\nFixture requests.\n\n"
-            "## When not to use\nNon-fixture requests.\n\n"
-            "## Required inputs\nFixture input.\n\n"
-            "## Optional inputs\nFixture options.\n\n"
-            "## Workflow\nValidate the fixture.\n\n"
-            "## Sources and freshness\nNo current sources required.\n\n"
-            "## Privacy and mutations\nNo mutation.\n\n"
-            "## Safety boundaries\nStop on invalid input.\n\n"
-            "## Output contract\nValidation result.\n\n"
-            "## Failure conditions\nInvalid fixture.\n"
+            f"# {name}\n\n"
+            f"## Overview\nProduces the {name} fixture verdict from one request.\n\n"
+            f"## When to use\n- The caller names the {name} fixture.\n\n"
+            f"## When not to use\n- The caller wants something other than {name}.\n\n"
+            "## Inputs\n"
+            "| Input | Required | If missing |\n"
+            "| --- | --- | --- |\n"
+            f"| {name} request | yes | Ask for the missing request |\n\n"
+            "**Dependencies:** none beyond the contract.\n\n"
+            f"## Workflow\n1. Read the {name} request.\n2. Emit the verdict.\n\n"
+            "## Output contract\nReport the request, the checks run, and the verdict.\n\n"
+            f"## Failure conditions\nStop when the {name} request names no target.\n\n"
+            "## Common mistakes\n"
+            "| Mistake | Why wrong | Do instead |\n"
+            "| --- | --- | --- |\n"
+            "| Guessing the verdict | Fabricates a result | Ask first |\n\n"
+            "## Contract\n"
+            "Follows [contracts/skill-contract.md](../../contracts/skill-contract.md) v1.\n"
+            "- Provenance: repo-owned\n"
         )
 
     def _build_repo(self) -> None:
         self._write(".gitignore", "evals/workspaces/\n.env\n*.skill\n")
         self._write("schemas/skill-evals.schema.json", json.dumps(self.SCHEMA))
+        repo = Path(__file__).resolve().parents[1]
+        for rel in [
+            *sorted(path.relative_to(repo).as_posix() for path in repo.glob("contracts/*.yaml")),
+            "adapters/vocabulary.yaml",
+            "adapters/adapter.schema.json",
+            *sorted(path.relative_to(repo).as_posix() for path in repo.glob("adapters/*/adapter.yaml")),
+        ]:
+            self._write(rel, (repo / rel).read_text(encoding="utf-8"))
+        self._write(
+            "contracts/skill-contract.md",
+            "# Skill contract v1\n<!-- contract-version: 1 -->\n\n"
+            "## D. Dependencies\nD1 explicit-only: only what the request names.\n",
+        )
         self._write(
             "skills/alpha/SKILL.md", self._skill_md("alpha")
         )
@@ -3526,13 +3551,14 @@ class EndToEndRunTest(unittest.TestCase):
             "catalog/approved.yaml",
             "skills:\n"
             "  - name: alpha\n"
+            "    contract_version: 2\n"
             "    classification: owned\n"
             "    runtime_path: skills/alpha\n"
             "    repository_path: skills/alpha\n"
             "    status: approved\n"
             "    cohort: test\n"
             "    workshop_proposal: alpha-20260824-1234567890\n"
-            "    version: 1.0.0\n",
+            "    version: 2.0.0\n",
         )
         self._write(
             "catalog/domains.yaml",
@@ -3566,7 +3592,7 @@ class EndToEndRunTest(unittest.TestCase):
             "    status: approved\n"
             "    cohort: test\n"
             "    provenance: repo-owned\n"
-            "    version: 1.0.0\n",
+            "    version: 2.0.0\n",
         )
         subprocess.run(
             ["git", "init", "--initial-branch", "main"], cwd=self.root, check=True,

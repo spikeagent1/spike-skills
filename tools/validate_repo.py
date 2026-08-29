@@ -39,30 +39,9 @@ HIDDEN_DEP_RE = re.compile(
     r"\b(spike internal|private endpoint|production database|personal transcript)\b",
     re.IGNORECASE,
 )
-PENDING_REVIEW_SECTIONS = (
-    "## When to use",
-    "## Required inputs",
-    "## Workflow",
-    "## Sources and freshness",
-    "## Privacy and mutations",
-    "## Safety boundaries",
-    "## Output contract",
-    "## Failure conditions",
-)
-# Today's (contract_version 1) public contract. Deleted once every skill is v2.
-PUBLIC_SKILL_SECTIONS_V1 = (
-    "When to use",
-    "When not to use",
-    "Required inputs",
-    "Optional inputs",
-    "Workflow",
-    "Sources and freshness",
-    "Privacy and mutations",
-    "Safety boundaries",
-    "Output contract",
-    "Failure conditions",
-)
-# The contract_version 2 template (design-hygiene 1).
+# The contract_version 2 template (design-hygiene 1); the only shape the
+# validator knows. `contract_version` stays a catalog field so a future bump has
+# somewhere to declare itself.
 CANONICAL_MANDATORY = (
     "Overview",
     "When to use",
@@ -102,8 +81,6 @@ FRONTMATTER_ALLOWED_KEYS = frozenset(
 )
 METADATA_NS = "spike-os"
 METADATA_KEYS = frozenset({"version", "runtime", "reads_from", "writes_to", "effects"})
-# Tolerated only while a skill is still at contract_version 1.
-FRONTMATTER_LEGACY_KEYS = frozenset({"mutating", "writes_to", "writes_pages"})
 # Never valid: runtime coupling and a second version source of truth.
 FRONTMATTER_REJECTED_KEYS = frozenset({"triggers", "tools", "version"})
 FRONTMATTER_PARSE_ERRORS = "__parse_errors__"
@@ -176,6 +153,11 @@ NON_INFORMATIVE_ASSERTIONS = {
 # The contract_version 2 rules below read the machine-readable contracts through
 # tools/contracts_check.py (design-os-foundations 8).
 DATASTORE_CONTRACT = "contracts/datastore.yaml"
+# The two namespaces contracts/datastore.yaml binds to an effect rather than to a
+# skill's own subject matter.
+EFFECTS_LEDGER_NS = "effects"
+NOTIFICATIONS_NS = "notifications"
+NOTIFY_EFFECT = "notify:owner"
 CAPABILITIES_CONTRACT = "contracts/capabilities.yaml"
 VOCABULARY_CONTRACT = "adapters/vocabulary.yaml"
 ADAPTERS_DIR = "adapters"
@@ -193,12 +175,18 @@ ADAPTER_REQUIRED_KEYS = (
     "render",
     "local_overrides_file",
 )
-# Flipped to True in T25, once every skill carries metadata.spike-os.version.
-REQUIRE_VERSION = False
+# Every skill carries metadata.spike-os.version; flipped on in T25 with the v1
+# path's deletion.
+REQUIRE_VERSION = True
+# The only contract the validator knows how to check.
+SUPPORTED_CONTRACT_VERSION = "2"
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
 # A runtime lists a skill as `name: description`, and OpenClaw caps the whole
-# listing at maxSkillsPromptChars; 12,000 is the budget the library competes for.
-LISTING_BUDGET_CHARS = 12000
+# listing at its configured maxSkillsPromptChars. Raised from 12,000 in T25: the
+# 31-skill library at the 300-character description cap is 9,912 characters, so a
+# 12,000 budget declared the library nearly full at its designed size; 16,000
+# warns at 12,800, about nine more max-length skills away.
+LISTING_BUDGET_CHARS = 16000
 LISTING_BUDGET_WARN_RATIO = 0.8
 SKILL_LISTING_MAX_CHARS = 1536
 BACKTICKED_RE = re.compile(r"`([^`\n]+)`")
@@ -208,9 +196,28 @@ BACKTICKED_RE = re.compile(r"`([^`\n]+)`")
 NAMESPACE_BOUNDARY = r"(?:^|[\s(\[`\"'])"
 SKILL_NAME_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 SENTENCE_SPLIT_RE = re.compile(r"[.;\n]")
-EFFECT_NEGATION_RE = re.compile(
-    r"\b(do not|never|must not|refuse|read-only|is not|not authorized)\b", re.IGNORECASE
+# A comma or semicolon ends a clause; `read-only` describes the subject of the
+# clause it sits in, not of every clause sharing the sentence.
+CLAUSE_SPLIT_RE = re.compile(r"[;,]")
+# Spans whose dots are part of a name, not a sentence end: a Markdown link (label
+# and target), a backticked span, and a bare file name.
+PROTECTED_SPAN_RE = re.compile(
+    r"\[[^\]\n]*\]\([^)\s]*\)"
+    r"|`[^`\n]+`"
+    r"|[\w/.-]+\.(?:md|py|json|jsonl|yaml|yml|txt|sh)\b"
 )
+PROTECTED_DOT = "\x00"
+EFFECT_NEGATION_RE = re.compile(
+    r"\b(do not|does not|doesn't|cannot|can't|never|must not|refuse|is not|"
+    r"not authorized)\b",
+    re.IGNORECASE,
+)
+# Scoped to its own clause rather than the whole sentence.
+CLAUSE_NEGATION_RE = re.compile(r"\bread-only\b", re.IGNORECASE)
+# Text that is not the skill's own verb: a backticked span names another package
+# or a vocabulary term (`public-post-workshop` is not a post), and a quoted span
+# is the owner's phrasing a routing table matches on, not an action taken here.
+NON_PREDICATE_SPAN_RE = re.compile(r"`[^`\n]+`|\"[^\"\n]*\"|\u201c[^\u201d\n]*\u201d")
 # design-os-foundations 4.3: a body keyword and the effects that would cover it.
 CAPABILITY_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("post|publish|upload", ("publish:external",)),
@@ -248,15 +255,24 @@ RUNTIME_SPECIFIC_TOKENS = (
     "Skill Workshop",
     "Spike",
     "Tapan",
+    # One runtime's name for the `identity files` vocabulary term. `SKILL.md` is
+    # deliberately absent: it is this repository's own filename, not a runtime's.
+    "SOUL.md",
+    "IDENTITY.md",
+    "USER.md",
+    "MEMORY.md",
 )
 # `spike-os` is the metadata namespace every v2 skill declares and `spike-skills`
 # is this repository; neither is a runtime value a skill should stop naming.
 RUNTIME_SPECIFIC_EXCLUSIONS = {"Spike": r"(?!-os\b|-skills\b)"}
+# Longest first: `re` takes the first alternative that matches, so `OpenClaw`
+# ahead of `openclaw doctor` would make the longer token unreachable and report
+# the wrong value.
 RUNTIME_SPECIFIC_RE = re.compile(
     "|".join(
         rf"(?<![0-9A-Za-z_]){re.escape(token)}"
         rf"{RUNTIME_SPECIFIC_EXCLUSIONS.get(token, '')}(?![0-9A-Za-z_])"
-        for token in RUNTIME_SPECIFIC_TOKENS
+        for token in sorted(RUNTIME_SPECIFIC_TOKENS, key=len, reverse=True)
     ),
     re.IGNORECASE,
 )
@@ -887,10 +903,6 @@ def eval_files(skill_dir: Path) -> list[Path]:
     return [path for path in candidates if path.exists()]
 
 
-def has_heading(text: str, heading: str) -> bool:
-    return re.search(rf"^##+\s+{re.escape(heading)}\s*$", text, re.MULTILINE) is not None
-
-
 def section_body(text: str, heading: str) -> str | None:
     match = re.search(
         rf"^##+\s+{re.escape(heading)}\s*$\n(.*?)(?=^##+\s+|\Z)",
@@ -909,42 +921,23 @@ def normalized_body(text: str) -> str:
 def validate_frontmatter(
     rel: Path,
     meta: dict[str, Any],
-    contract_version: str,
     errors: list[str],
 ) -> None:
-    """The frontmatter carries only the agentskills.io keys plus metadata.spike-os.
-
-    Unknown top-level keys and parse problems are errors at every contract
-    version. Exactly two findings soften to warnings while a skill is still at
-    contract_version 1, because today's library still trips them and the rewrite
-    batches clear them: a key in `FRONTMATTER_REJECTED_KEYS` (social-listening's
-    `triggers`/`tools`) and a `metadata` namespace other than `METADATA_NS`
-    (community-management's `metadata.version`). Legacy OS keys are simply
-    allowed at version 1 and rejected at 2.
-    """
+    """The frontmatter carries only the agentskills.io keys plus metadata.spike-os."""
     for problem in meta.get(FRONTMATTER_PARSE_ERRORS, []):
         add_error(errors, f"{rel}/SKILL.md: frontmatter {problem}")
 
-    allowed = set(FRONTMATTER_ALLOWED_KEYS)
-    if contract_version == "1":
-        allowed |= FRONTMATTER_LEGACY_KEYS
     allowlist = ", ".join(sorted(FRONTMATTER_ALLOWED_KEYS))
-    legacy_sink = warnings if contract_version == "1" else errors
 
     for key in sorted(k for k in meta if k != FRONTMATTER_PARSE_ERRORS):
         if key in FRONTMATTER_REJECTED_KEYS:
-            legacy_sink.append(
-                f"{rel}/SKILL.md: frontmatter key {key!r} is never allowed; "
-                f"allowed keys are {allowlist}"
-            )
-        elif key in allowed:
-            continue
-        elif key in FRONTMATTER_LEGACY_KEYS:
             add_error(
                 errors,
-                f"{rel}/SKILL.md: frontmatter legacy key {key!r} is only allowed on "
-                f"contract_version 1; move it under metadata.{METADATA_NS}",
+                f"{rel}/SKILL.md: frontmatter key {key!r} is never allowed; "
+                f"allowed keys are {allowlist}",
             )
+        elif key in FRONTMATTER_ALLOWED_KEYS:
+            continue
         else:
             add_error(
                 errors,
@@ -960,9 +953,10 @@ def validate_frontmatter(
         return
     for namespace in sorted(metadata):
         if namespace != METADATA_NS:
-            legacy_sink.append(
+            add_error(
+                errors,
                 f"{rel}/SKILL.md: frontmatter metadata may only contain "
-                f"{METADATA_NS!r}, found {namespace!r}"
+                f"{METADATA_NS!r}, found {namespace!r}",
             )
             continue
         block = metadata[namespace]
@@ -1047,7 +1041,6 @@ def validate_public_section_bodies(
     rel: Path,
     text: str,
     sections: tuple[str, ...] | list[str],
-    contract_version: str,
     errors: list[str],
 ) -> dict[str, str]:
     """Body-quality checks for the public sections; returns their normalized bodies.
@@ -1077,18 +1070,17 @@ def validate_public_section_bodies(
         bodies[heading] = normalized
         if len(normalized) < 12 or PLACEHOLDER_RE.search(normalized):
             add_error(errors, f"{rel}/SKILL.md: public section {heading!r} is placeholder text")
-        if contract_version == "2":
-            if heading == "Inputs" and "dependencies:" not in normalized:
-                add_error(
-                    errors,
-                    f"{rel}/SKILL.md: public section 'Inputs' must declare 'Dependencies:'",
-                )
-            if heading == "Common mistakes" and not MARKDOWN_TABLE_ROW_RE.search(body):
-                add_error(
-                    errors,
-                    f"{rel}/SKILL.md: public section 'Common mistakes' must be a "
-                    f"Markdown table",
-                )
+        if heading == "Inputs" and "dependencies:" not in normalized:
+            add_error(
+                errors,
+                f"{rel}/SKILL.md: public section 'Inputs' must declare 'Dependencies:'",
+            )
+        if heading == "Common mistakes" and not MARKDOWN_TABLE_ROW_RE.search(body):
+            add_error(
+                errors,
+                f"{rel}/SKILL.md: public section 'Common mistakes' must be a "
+                f"Markdown table",
+            )
         previous = seen.get(normalized)
         if previous is not None:
             add_error(
@@ -1177,26 +1169,34 @@ def validate_cross_file_duplicates(
             groups.setdefault((heading, body), []).append(skill)
 
     for heading, _body in sorted(groups, key=lambda key: (key[0], key[1])):
-        skills = groups[(heading, _body)]
+        skills = sorted(groups[(heading, _body)])
         if len(skills) >= 2:
+            # Prefixed with a file the way every other finding is, so the report
+            # sorts and greps by path instead of hiding one class of error.
             add_error(
                 errors,
-                f"section {heading!r} body is identical across {', '.join(sorted(skills))}",
+                f"skills/{skills[0]}/SKILL.md: section {heading!r} body is "
+                f"identical across {', '.join(skills)}",
             )
 
 
-def validate_supporting_files(
-    skill_dir: Path, text: str, tracked_paths: list[Path], errors: list[str]
-) -> None:
-    """Every tracked supporting file is linked from SKILL.md, one level deep."""
-    rel = skill_dir.relative_to(ROOT)
-    prefix = rel.as_posix() + "/"
+def validate_supporting_files(skill_dir: Path, text: str, errors: list[str]) -> None:
+    """Every supporting file on disk is linked from SKILL.md, one level deep.
 
-    for path in tracked_paths:
-        relative = path.relative_to(ROOT).as_posix()
-        if not relative.startswith(prefix):
+    The walk is the filesystem, not `git ls-files`: a new reference file that has
+    not been staged yet is exactly the one an author forgets to link, and reading
+    the index would let it pass locally and fail in CI. Dot-entries are skipped
+    -- they are tooling artefacts, not content the skill loads.
+    """
+    rel = skill_dir.relative_to(ROOT)
+
+    for path in sorted(skill_dir.rglob("*")):
+        if not path.is_file():
             continue
-        sub = relative[len(prefix):]
+        relative_parts = path.relative_to(skill_dir).parts
+        if any(part.startswith(".") for part in relative_parts):
+            continue
+        sub = "/".join(relative_parts)
         if sub in SUPPORTING_FILE_EXEMPT:
             continue
         if sub not in text:
@@ -1204,15 +1204,15 @@ def validate_supporting_files(
                 errors,
                 f"{rel}/SKILL.md: supporting file {sub!r} is not linked from SKILL.md",
             )
-        if not sub.startswith("references/") or not path.exists():
+        if not sub.startswith("references/"):
             continue
         reference = path.read_text(encoding="utf-8", errors="ignore")
         for pattern in ("](references/", "](scripts/"):
             if pattern in reference:
                 add_error(
                     errors,
-                    f"{relative}: reference file links {pattern!r}; supporting files "
-                    f"must be reachable one level deep from SKILL.md",
+                    f"{rel.as_posix()}/{sub}: reference file links {pattern!r}; "
+                    f"supporting files must be reachable one level deep from SKILL.md",
                 )
 
 
@@ -1237,13 +1237,12 @@ def validate_routing_eval(
     lines: list[str],
     skill_names: set[str],
     errors: list[str],
-    warnings: list[str],
-    contract_version: str = "1",
 ) -> None:
     """Shape and coverage of a `routing-eval.jsonl` fixture.
 
-    Coverage (own skill twice, one null) is a warning while the skill is at
-    contract_version 1 and an error once it is rewritten to 2.
+    Coverage -- the owning skill expected on at least two lines and at least one
+    null line -- is an error: without both, the fixture measures nothing about
+    over- or under-triggering.
     """
     skill = Path(rel).parent.name
     expected_counts: dict[str | None, int] = {}
@@ -1315,14 +1314,14 @@ def validate_routing_eval(
         if "expect_question" in case and not isinstance(case["expect_question"], bool):
             add_error(errors, f"{rel}:{index}: expect_question must be a boolean")
 
-    sink = errors if contract_version == "2" else warnings
     own = expected_counts.get(skill, 0)
     if own < 2:
-        sink.append(
-            f"{rel}: {skill} must be the expected_skill on at least 2 lines, found {own}"
+        add_error(
+            errors,
+            f"{rel}: {skill} must be the expected_skill on at least 2 lines, found {own}",
         )
     if expected_counts.get(None, 0) < 1:
-        sink.append(f"{rel}: needs at least one line with expected_skill null")
+        add_error(errors, f"{rel}: needs at least one line with expected_skill null")
 
 
 def validate_source_catalog(
@@ -1450,7 +1449,6 @@ def validate_eval_file(
     schema: dict[str, Any] | None,
     errors: list[str],
     skill_names: set[str] | None = None,
-    contract_version: str = "1",
 ) -> None:
     rel = path.relative_to(ROOT)
 
@@ -1459,9 +1457,7 @@ def validate_eval_file(
         if not lines:
             add_error(errors, f"{rel}: routing eval file is empty")
             return
-        validate_routing_eval(
-            rel, lines, skill_names or set(), errors, warnings, contract_version
-        )
+        validate_routing_eval(rel, lines, skill_names or set(), errors)
         return
 
     data = load_json(path, errors)
@@ -1687,6 +1683,42 @@ def _is_delegation(token: str) -> bool:
     return bool(SKILL_NAME_RE.fullmatch(token)) and (SKILLS / token).is_dir()
 
 
+def declared_effects(skill: str) -> set[str]:
+    """`metadata.spike-os.effects` of another skill, read from its frontmatter."""
+    path = SKILLS / skill / "SKILL.md"
+    try:
+        meta = parse_frontmatter(path.read_text(encoding="utf-8"))
+    except OSError:
+        return set()
+    return set(_declared_list(spike_os_block(meta or {}).get("effects")))
+
+
+def delegated_effects(sentence: str) -> set[str]:
+    """Effects the skills a sentence backticks declare for themselves.
+
+    A delegator inherits the callee's authority only for what the callee actually
+    declares: naming `publish` does not license the delegator's own scheduling in
+    the same sentence.
+    """
+    lent: set[str] = set()
+    for token in BACKTICKED_RE.findall(sentence):
+        if _is_delegation(token):
+            lent |= declared_effects(token)
+    return lent
+
+
+def split_sentences(body: str) -> list[str]:
+    """Sentences of a SKILL.md body, with file names and Markdown links kept whole.
+
+    Splitting on every `.` cut `catalog/index.md` in half and tore a negation off
+    the clause it governed; the dots inside a protected span are masked first.
+    """
+    masked = PROTECTED_SPAN_RE.sub(
+        lambda match: match.group(0).replace(".", PROTECTED_DOT), body
+    )
+    return [part.replace(PROTECTED_DOT, ".") for part in SENTENCE_SPLIT_RE.split(masked)]
+
+
 def runtime_specific_hits(body: str) -> list[str]:
     """Runtime-specific values in a SKILL.md body, in file order."""
     return [match.group(0) for match in RUNTIME_SPECIFIC_RE.finditer(body)]
@@ -1751,6 +1783,41 @@ def validate_namespaces(
                 f"{effect} is not declared in metadata.{METADATA_NS}.effects",
             )
 
+    validate_effect_ledgers(rel, effects, writes, errors)
+
+
+def validate_effect_ledgers(
+    rel: Path, effects: Sequence[str], writes: Sequence[str], errors: list[str]
+) -> None:
+    """The two namespaces an effect obliges a skill to declare it writes.
+
+    `contracts/datastore.yaml` gives the `effects` namespace the authority "every
+    mutating skill appends" and the `notifications` namespace "holders of
+    notify:owner". A skill that declares the effect but not the namespace would
+    be installed without the grant its own ledger write needs.
+    """
+    entries = capability_entries()
+    written = set(writes)
+    mutating = [
+        name
+        for name in effects
+        if name in entries and not entries[name].get("readOnlyHint")
+    ]
+    if mutating and EFFECTS_LEDGER_NS not in written:
+        add_error(
+            errors,
+            f"{rel}/SKILL.md: metadata.{METADATA_NS} declares mutating effect "
+            f"{mutating[0]!r} but writes_to does not name {EFFECTS_LEDGER_NS!r}; "
+            f"{DATASTORE_CONTRACT} has every mutating skill append to it",
+        )
+    if NOTIFY_EFFECT in effects and NOTIFICATIONS_NS not in written:
+        add_error(
+            errors,
+            f"{rel}/SKILL.md: metadata.{METADATA_NS} declares {NOTIFY_EFFECT!r} but "
+            f"writes_to does not name {NOTIFICATIONS_NS!r}, the namespace "
+            f"{DATASTORE_CONTRACT} gives its holders",
+        )
+
 
 def validate_effects(
     rel: Path,
@@ -1763,8 +1830,10 @@ def validate_effects(
 
     The keyword scan runs per sentence so one mutating sentence cannot be hidden
     inside a read-only section. A sentence that negates the effect states a
-    boundary rather than performing it, and a sentence naming another skill in
-    backticks delegates: neither inherits the callee's effects.
+    boundary rather than performing it; `read-only` is narrower and covers only
+    the clause it sits in. A sentence naming another skill in backticks delegates,
+    but only for the effects that callee declares for itself -- the delegator's
+    own effect keywords in the same sentence still need declaring.
     """
     declared = _declared_list(spike_os_block(meta).get("effects"))
     for name in declared:
@@ -1776,23 +1845,28 @@ def validate_effects(
                 f"{', '.join(sorted(effects_enum))}",
             )
 
-    for sentence in SENTENCE_SPLIT_RE.split(skill_body(text)):
+    for sentence in split_sentences(skill_body(text)):
         stripped = sentence.strip()
         if not stripped or EFFECT_NEGATION_RE.search(stripped):
             continue
-        if any(_is_delegation(token) for token in BACKTICKED_RE.findall(stripped)):
-            continue
-        for pattern, implied in CAPABILITY_HINT_RULES:
-            if not pattern.search(stripped):
+        lent = delegated_effects(stripped)
+        reported: set[tuple[str, ...]] = set()
+        for clause in CLAUSE_SPLIT_RE.split(stripped):
+            if CLAUSE_NEGATION_RE.search(clause):
                 continue
-            if any(effect in declared for effect in implied):
-                continue
-            snippet = stripped if len(stripped) <= 120 else stripped[:117] + "..."
-            add_error(
-                errors,
-                f"{rel}/SKILL.md: sentence implies {' or '.join(implied)}, which "
-                f"metadata.{METADATA_NS}.effects does not declare: {snippet!r}",
-            )
+            scannable = NON_PREDICATE_SPAN_RE.sub(" ", clause)
+            for pattern, implied in CAPABILITY_HINT_RULES:
+                if implied in reported or not pattern.search(scannable):
+                    continue
+                if any(effect in declared or effect in lent for effect in implied):
+                    continue
+                reported.add(implied)
+                snippet = stripped if len(stripped) <= 120 else stripped[:117] + "..."
+                add_error(
+                    errors,
+                    f"{rel}/SKILL.md: sentence implies {' or '.join(implied)}, which "
+                    f"metadata.{METADATA_NS}.effects does not declare: {snippet!r}",
+                )
 
 
 def validate_runtime_binding(
@@ -1934,14 +2008,36 @@ def validate_version(
         )
 
 
+def installer_module() -> Any:
+    """`tools/install_skill.py`, imported lazily.
+
+    It imports this module, so the import cannot sit at the top of the file.
+    """
+    return importlib.import_module("tools.install_skill")
+
+
+def rendered_listing_chars(description: str) -> int:
+    """Characters an adapter that emits `when_to_use` spends listing one skill.
+
+    The renderer is the installer's, not a proxy for it: the field is the
+    description's own "Use when" clause, so twice the description was an
+    over-estimate for a long description and an under-estimate for none at all.
+    """
+    try:
+        clause = installer_module().trigger_clause(description)
+    except (ImportError, AttributeError):  # pragma: no cover - installer present
+        clause = None
+    return len(description) + len(clause or "")
+
+
 def validate_listing_budget(
-    inventory: dict[str, dict[str, str]], errors: list[str], warnings: list[str]
+    inventory: dict[str, dict[str, str]], errors: list[str], warning_sink: list[str]
 ) -> None:
     """Each skill's launcher listing, and the library total, against the budget.
 
-    A runtime lists a skill as `name: description`, and an adapter that emits a
-    separate `when_to_use` field repeats the description's "Use when" clause;
-    until `tools/install_skill.py` emits it, twice the description bounds it.
+    A runtime lists a skill as `name: description`; an adapter that emits a
+    separate `when_to_use` field also spends the description's "Use when" clause,
+    and that pair is what the per-skill cap bounds.
     """
     total = 0
     for name in sorted(inventory):
@@ -1952,7 +2048,7 @@ def validate_listing_budget(
         description = meta.get("description")
         if not isinstance(description, str):
             continue
-        listing = len(description) * 2
+        listing = rendered_listing_chars(description)
         if listing > SKILL_LISTING_MAX_CHARS:
             add_error(
                 errors,
@@ -1968,7 +2064,7 @@ def validate_listing_budget(
             f"the budget is {LISTING_BUDGET_CHARS}",
         )
     elif total > LISTING_BUDGET_CHARS * LISTING_BUDGET_WARN_RATIO:
-        warnings.append(
+        warning_sink.append(
             f"catalog/approved.yaml: the library listing is {total} characters, over "
             f"{int(LISTING_BUDGET_WARN_RATIO * 100)}% of the "
             f"{LISTING_BUDGET_CHARS}-character budget"
@@ -2014,18 +2110,18 @@ def validate_skill(
     schema: dict[str, Any] | None,
     errors: list[str],
     sources: dict[str, dict[str, str]] | None = None,
-    tracked_paths: list[Path] | None = None,
     skill_names: set[str] | None = None,
     contracts: Contracts | None = None,
 ) -> tuple[str, dict[str, str]]:
     """Validate one skill; returns its contract version and its section bodies.
 
-    `contract_version` comes from catalog/approved.yaml and defaults to "1", the
-    shape every skill has before the hygiene rewrite. Version 1 keeps today's
-    checks; version 2 is held to the canonical template.
+    `contract_version` comes from catalog/approved.yaml and defaults to the only
+    version the validator knows. It stays a field so a future contract bump has
+    somewhere to declare itself; a value that is not that version is an error,
+    and the skill is still held to the canonical template so the report names the
+    real structural gaps alongside it.
     """
     rel = skill_dir.relative_to(ROOT)
-    tracked_paths = tracked_paths or []
     skill_names = skill_names or set()
 
     validate_skill_config(skill_dir, errors)
@@ -2033,25 +2129,29 @@ def validate_skill(
     skill_md = skill_dir / "SKILL.md"
     if not skill_md.exists():
         add_error(errors, f"{rel}: missing SKILL.md")
-        return "1", {}
+        return SUPPORTED_CONTRACT_VERSION, {}
 
     text = skill_md.read_text(encoding="utf-8")
     meta = parse_frontmatter(text)
     if meta is None:
         add_error(errors, f"{rel}/SKILL.md: missing or invalid frontmatter")
-        return "1", {}
+        return SUPPORTED_CONTRACT_VERSION, {}
 
     entry = inventory.get(skill_dir.name)
-    contract_version = str((entry or {}).get("contract_version", "1")).strip() or "1"
-    if contract_version not in {"1", "2"}:
+    contract_version = (
+        str((entry or {}).get("contract_version", SUPPORTED_CONTRACT_VERSION)).strip()
+        or SUPPORTED_CONTRACT_VERSION
+    )
+    if contract_version != SUPPORTED_CONTRACT_VERSION:
         add_error(
             errors,
             f"catalog/approved.yaml: {skill_dir.name} has unsupported "
-            f"contract_version {contract_version!r}",
+            f"contract_version {contract_version!r}; the only supported version is "
+            f"{SUPPORTED_CONTRACT_VERSION}",
         )
-        contract_version = "1"
+        contract_version = SUPPORTED_CONTRACT_VERSION
 
-    validate_frontmatter(rel, meta, contract_version, errors)
+    validate_frontmatter(rel, meta, errors)
 
     name = meta.get("name")
     description = meta.get("description")
@@ -2060,47 +2160,29 @@ def validate_skill(
     if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name):
         add_error(errors, f"{rel}/SKILL.md: name must be kebab-case")
 
-    if contract_version == "2":
-        validate_description(rel, description, errors)
-        validate_contract_section(
-            rel, text, skill_dir, (sources or {}).get(skill_dir.name), errors
+    validate_description(rel, description, errors)
+    validate_contract_section(
+        rel, text, skill_dir, (sources or {}).get(skill_dir.name), errors
+    )
+    # Each rule is skipped when its contract failed to load, so a missing
+    # contract reports once instead of cascading through every skill.
+    if contracts is not None and contracts.datastore:
+        validate_namespaces(
+            rel, meta, text, namespace_statuses(contracts.datastore), errors
         )
-        # Each rule is skipped when its contract failed to load, so a missing
-        # contract reports once instead of cascading through every skill.
-        if contracts is not None and contracts.datastore:
-            validate_namespaces(
-                rel, meta, text, namespace_statuses(contracts.datastore), errors
-            )
-        if contracts is not None and contracts.capabilities:
-            validate_effects(
-                rel, meta, text, effect_enum(contracts.capabilities), errors
-            )
-        if contracts is not None and contracts.adapters and contracts.vocabulary:
-            validate_runtime_binding(
-                rel,
-                meta,
-                text,
-                contracts.adapters,
-                vocabulary_view(contracts.vocabulary),
-                errors,
-            )
+    if contracts is not None and contracts.capabilities:
+        validate_effects(rel, meta, text, effect_enum(contracts.capabilities), errors)
+    if contracts is not None and contracts.adapters and contracts.vocabulary:
+        validate_runtime_binding(
+            rel,
+            meta,
+            text,
+            contracts.adapters,
+            vocabulary_view(contracts.vocabulary),
+            errors,
+        )
+    if REQUIRE_VERSION:
         validate_version(rel, meta, entry, errors)
-    else:
-        if REQUIRE_VERSION:
-            validate_version(rel, meta, entry, errors)
-        hits = runtime_specific_hits(skill_body(text))
-        if hits:
-            warnings.append(
-                f"{rel}/SKILL.md: {len(hits)} runtime-specific value(s) for the "
-                f"contract_version 2 rewrite to replace with vocabulary terms: "
-                f"{', '.join(sorted({hit.lower() for hit in hits}))}"
-            )
-        if not isinstance(description, str) or len(description.strip()) < 24:
-            add_error(errors, f"{rel}/SKILL.md: description must be a useful string")
-        if "dependencies" not in text.lower():
-            add_error(errors, f"{rel}/SKILL.md: must explicitly declare dependencies")
-        if "provenance" not in text.lower():
-            add_error(errors, f"{rel}/SKILL.md: must include provenance/attribution")
     if HIDDEN_DEP_RE.search(text):
         add_error(errors, f"{rel}/SKILL.md: contains suspicious hidden/private dependency language")
 
@@ -2137,29 +2219,10 @@ def validate_skill(
                     f"{rel}: pending-review skill must have a real workshop_proposal ID",
                 )
 
-        if status in {"approved", "pending-review"} and contract_version == "2":
+        if status in {"approved", "pending-review"}:
             headings = validate_canonical_structure(rel, text, errors)
-            section_bodies = validate_public_section_bodies(
-                rel, text, headings, contract_version, errors
-            )
-            validate_supporting_files(skill_dir, text, tracked_paths, errors)
-        elif status == "approved":
-            for heading in PUBLIC_SKILL_SECTIONS_V1:
-                if not has_heading(text, heading):
-                    add_error(
-                        errors,
-                        f"{rel}/SKILL.md: approved skill missing public section {heading!r}",
-                    )
-            section_bodies = validate_public_section_bodies(
-                rel, text, PUBLIC_SKILL_SECTIONS_V1, contract_version, errors
-            )
-        elif status == "pending-review":
-            for heading in PENDING_REVIEW_SECTIONS:
-                if not has_heading(text, heading.removeprefix("## ")):
-                    add_error(
-                        errors,
-                        f"{rel}/SKILL.md: pending-review skill missing section {heading!r}",
-                    )
+            section_bodies = validate_public_section_bodies(rel, text, headings, errors)
+            validate_supporting_files(skill_dir, text, errors)
 
     files = eval_files(skill_dir)
     if not files:
@@ -2172,9 +2235,7 @@ def validate_skill(
                 f"{rel}: needs at least 4 synthetic eval cases, found {total_eval_cases}",
             )
     for path in files:
-        validate_eval_file(
-            skill_dir.name, path, schema, errors, skill_names, contract_version
-        )
+        validate_eval_file(skill_dir.name, path, schema, errors, skill_names)
     return contract_version, section_bodies
 
 
@@ -2227,20 +2288,15 @@ def main(argv: list[str] | None = None) -> int:
     cohorts = parse_cohorts(errors)
     clusters = parse_routing_clusters(errors)
     tracked_paths = git_files()
-    # The contracts are required as soon as one skill is held to them.
-    has_v2 = any(
-        str(entry.get("contract_version", "1")).strip() == "2"
-        for entry in inventory.values()
-    )
-    contracts = load_contracts(errors, has_v2)
+    # Every skill is held to the canonical contract, so the contracts are always
+    # required.
+    contracts = load_contracts(errors, True)
     skill_dirs = sorted(path for path in SKILLS.iterdir() if path.is_dir())
     skill_names = {path.name for path in skill_dirs}
 
-    # Only contract_version 2 bodies are compared across files: the unmigrated
-    # library shares many verbatim boilerplate bodies by design.
     canonical_bodies: dict[str, dict[str, str]] = {}
     for skill_dir in skill_dirs:
-        contract_version, section_bodies = validate_skill(
+        _contract_version, section_bodies = validate_skill(
             skill_dir,
             inventory,
             released,
@@ -2248,12 +2304,10 @@ def main(argv: list[str] | None = None) -> int:
             schema,
             errors,
             sources,
-            tracked_paths,
             skill_names,
             contracts,
         )
-        if contract_version == "2":
-            canonical_bodies[skill_dir.name] = section_bodies
+        canonical_bodies[skill_dir.name] = section_bodies
 
     for name in sorted(set(inventory) - skill_names):
         add_error(errors, f"catalog/approved.yaml: {name} has no skills/{name} directory")

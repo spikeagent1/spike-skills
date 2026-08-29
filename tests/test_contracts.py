@@ -306,6 +306,22 @@ class CoverageGapTest(unittest.TestCase):
         del broken["vocabulary"]["scheduler"]
         self.assertEqual(contracts_check.missing_terms(broken, VOCABULARY), ["scheduler"])
 
+    def test_a_blank_value_counts_as_missing(self) -> None:
+        # Parity with the jsonschema leg, which enforces minLength 1 on `value`.
+        broken = {"vocabulary": dict(ADAPTERS["openclaw"]["vocabulary"])}
+        broken["vocabulary"]["scheduler"] = {"value": "   "}
+        self.assertEqual(contracts_check.missing_terms(broken, VOCABULARY), ["scheduler"])
+
+    def test_a_binding_with_no_value_key_counts_as_missing(self) -> None:
+        broken = {"vocabulary": dict(ADAPTERS["openclaw"]["vocabulary"])}
+        broken["vocabulary"]["scheduler"] = {"note": "still to decide"}
+        self.assertEqual(contracts_check.missing_terms(broken, VOCABULARY), ["scheduler"])
+
+    def test_a_non_mapping_binding_counts_as_missing(self) -> None:
+        broken = {"vocabulary": dict(ADAPTERS["openclaw"]["vocabulary"])}
+        broken["vocabulary"]["scheduler"] = "cron"
+        self.assertEqual(contracts_check.missing_terms(broken, VOCABULARY), ["scheduler"])
+
     def test_extra_terms_reports_an_unknown_binding(self) -> None:
         broken = {"vocabulary": dict(ADAPTERS["openclaw"]["vocabulary"])}
         broken["vocabulary"]["invented_term"] = {"value": "x"}
