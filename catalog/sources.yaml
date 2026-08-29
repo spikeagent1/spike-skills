@@ -54,16 +54,17 @@ sources:
     cohort: audience-and-community
     upstream: https://clawhub.ai/social-media-skills/skills/community-management
     publisher: social-media-skills
-    version: 1.0.1
+    version: 2.0.0
+    upstream_version: 1.0.1
     artifact_sha256: b9fdf15a26afa4b2e71c99a7c013947d897409fb592ac41cab9762c416a6c405
     skill_file_sha256: 0b1be214f6b67bc184935fd54e46256835148fcb92c0c0c9e6f1239fddc603d1
     license: MIT-0
     license_source: >-
       Checked https://clawhub.ai/social-media-skills/skills/community-management
       on 2026-08-28 (HTTP 200, 10s timeout curl -sL): the page's sidebar License
-      field reads MIT-0. The imported SKILL.md frontmatter's own `license: MIT`
-      line disagrees and is kept as-is (out of scope for this catalog fix); this
-      catalog entry now records the live upstream page's value.
+      field reads MIT-0. The imported SKILL.md frontmatter carried `license: MIT`,
+      which disagreed with the live page; the contract v2 rewrite corrects the
+      skill's own frontmatter to MIT-0, so the two now agree.
     local_modifications: >-
       Adapted imported community-management package to this repository's
       public portable contract: removed unavailable companion-service assumptions,
@@ -77,6 +78,14 @@ sources:
       building-belonging.md, superfans-and-honest-scope.md,
       where-community-lives.md) and the local rituals.md, none of which
       SKILL.md links to; outcomes.md and surfaces.md remain, both linked.
+      Rewritten to the canonical contract v2 template
+      (contracts/SKILL.template.md) with metadata.spike-os frontmatter, which
+      is why version is 2.0.0 and the installed upstream number moves to
+      upstream_version; the frontmatter license line is corrected from MIT to
+      the MIT-0 the live upstream page states; nine runtime-specific values are
+      replaced with adapters/vocabulary.yaml terms in SKILL.md and both
+      references; and the separate Refusals list is merged into the single
+      Safety boundaries list.
 
   publish:
     classification: owned

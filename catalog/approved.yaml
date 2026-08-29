@@ -46,8 +46,8 @@ skills:
     status: approved
     cohort: audience-and-community
     workshop_proposal: community-management-20260823-28c336d429
-    contract_version: 1
-    version: 1.0.1
+    contract_version: 2
+    version: 2.0.0
 
   - name: publish
     classification: owned
