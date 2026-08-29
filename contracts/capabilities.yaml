@@ -41,8 +41,8 @@ effects:
     openWorldHint: false
     approval: turn_scoped
     resource_class: classified
-    derived_from: [skills/owner-context-onboarding/SKILL.md:105, skills/daily-task-manager/SKILL.md:89]
-    note: owner-context-onboarding:105 argues preview_then_explicit; turn_scoped chosen because daily-task-manager:89 authorizes the exact mutation the owner named this turn
+    derived_from: [skills/owner-context-onboarding/SKILL.md:103, skills/daily-task-manager/SKILL.md:92]
+    note: owner-context-onboarding:103 argues preview_then_explicit; turn_scoped chosen because daily-task-manager:92 authorizes the exact mutation the owner named this turn
     summary: Write or supersede a record in a declared namespace, with readback.
   - name: checkpoint:advance
     readOnlyHint: false
@@ -51,7 +51,7 @@ effects:
     openWorldHint: false
     approval: preview_then_explicit
     resource_class: classified
-    derived_from: [skills/briefing/SKILL.md:12, skills/briefing/SKILL.md:93]
+    derived_from: [skills/briefing/SKILL.md:53, skills/briefing/SKILL.md:104]
     summary: Move one cursor in checkpoints/ after terminal verification.
   - name: belief:update
     readOnlyHint: false
@@ -78,7 +78,7 @@ effects:
     openWorldHint: false
     approval: never_autonomous
     resource_class: classified
-    derived_from: [skills/owner-dream-cycle/SKILL.md:14, skills/social-agent-practice/SKILL.md:143]
+    derived_from: [skills/owner-dream-cycle/SKILL.md:46, skills/social-agent-practice/SKILL.md:143]
     summary: Apply an owner-confirmed change to identity files.
   - name: provider:read
     readOnlyHint: true
@@ -87,7 +87,7 @@ effects:
     openWorldHint: true
     approval: never_require
     resource_class: network
-    derived_from: [skills/daily-task-manager/SKILL.md:22, skills/briefing/SKILL.md:37]
+    derived_from: [skills/daily-task-manager/SKILL.md:22, skills/briefing/SKILL.md:46]
     summary: Read state from an authorized external provider.
   - name: provider:write
     readOnlyHint: false
@@ -96,7 +96,7 @@ effects:
     openWorldHint: true
     approval: turn_scoped
     resource_class: network
-    derived_from: [skills/daily-task-manager/SKILL.md:34, skills/daily-task-manager/SKILL.md:89]
+    derived_from: [skills/daily-task-manager/SKILL.md:56, skills/daily-task-manager/SKILL.md:92]
     summary: Create or update an object in an external provider, with readback.
   - name: delete:external
     readOnlyHint: false
@@ -187,7 +187,7 @@ effects:
     openWorldHint: true
     approval: preview_then_explicit
     resource_class: classified
-    derived_from: [skills/mcp-connector-onboarding/SKILL.md:28]
+    derived_from: [skills/mcp-connector-onboarding/SKILL.md:58]
     summary: Store, rotate, or revoke a secret; values are never echoed anywhere.
   - name: config:write
     readOnlyHint: false

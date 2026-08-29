@@ -6,9 +6,10 @@ ROUTING_MODE ?= native
 
 validate: test
 	python3 tools/validate_repo.py
+	python3 tools/check_citations.py
 
 test:
-	python3 -m py_compile tools/validate_repo.py tools/validators/*.py tools/run_evals.py tools/contracts_check.py tools/build_index.py tools/install_skill.py tools/installer/*.py tools/check_staging.py tools/evalrunner/*.py tests/test_validate_repo.py tests/test_run_evals.py tests/test_contracts.py tests/test_build_index.py tests/test_install_skill.py tests/test_check_staging.py
+	python3 -m py_compile tools/validate_repo.py tools/validators/*.py tools/run_evals.py tools/contracts_check.py tools/build_index.py tools/install_skill.py tools/installer/*.py tools/check_staging.py tools/check_citations.py tools/evalrunner/*.py tests/test_validate_repo.py tests/test_run_evals.py tests/test_contracts.py tests/test_build_index.py tests/test_install_skill.py tests/test_check_staging.py tests/test_check_citations.py
 	python3 -m unittest discover -s tests
 
 # Stages every OpenClaw-eligible skill into dist/, then verifies the staged

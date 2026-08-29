@@ -47,7 +47,7 @@ true (`skills/fact-check/SKILL.md:60`), so no reader may promote it to a
 clinical fact.
 
 Record keys: `journal/` dream-report is `<local-date>--<corpus-hash-8>`
-(`skills/owner-dream-cycle/SKILL.md:49`); `jobs/` job-spec is the stable job key
+(`skills/owner-dream-cycle/SKILL.md:52`); `jobs/` job-spec is the stable job key
 and occurrence is `<job-key>@<scheduled-instant>`
 (`skills/cron-scheduler/SKILL.md:58`); `checkpoints/` cursor is
 `<skill>/<channel-or-source>` (`skills/social-listening-engagement-loop/SKILL.md:89`);
@@ -69,10 +69,10 @@ reach. Adding a state is a change to this enum, never a local extension
 
 Identity and authority files — the runtime's `identity files` term — are outside
 it and are reached only through `identity:propose` and `identity:write`
-(`skills/owner-dream-cycle/SKILL.md:14`). Adapter-local vault trees that hold no
+(`skills/owner-dream-cycle/SKILL.md:46`). Adapter-local vault trees that hold no
 namespace (an adapter's own global, interests, or timeline folders) are not
 datastore records. Credentials live in the `credential store`, never here
-(`skills/mcp-connector-onboarding/SKILL.md:28`).
+(`skills/mcp-connector-onboarding/SKILL.md:58`).
 
 ## Record envelope
 
@@ -113,11 +113,11 @@ and `status: confirmed` — the adapter maps it; records are never renamed here.
 
 ## Write invariants
 
-1. One claim per record (`skills/owner-dream-cycle/SKILL.md:36`).
-2. A correction supersedes; it never overwrites (`skills/owner-context-onboarding/SKILL.md:50`).
+1. One claim per record (`skills/owner-dream-cycle/SKILL.md:55`).
+2. A correction supersedes; it never overwrites (`skills/owner-context-onboarding/SKILL.md:60`).
 3. A skill never relabels `agent-inference` as `owner-stated` (`skills/owner-dream-cycle/SKILL.md:33`).
 4. Only consolidation — `owner-dream-cycle` — writes curated `profile/` and `decisions/` records (`skills/owner-dream-cycle/SKILL.md:43`, `docs/related-work.md` §(a)7).
-5. A session whose `session_kind` is `cron`, `heartbeat`, or `sub-agent` may write only `journal/`, `effects/`, `checkpoints/`, `notifications/`, and `jobs/`, and may never promote a candidate (`skills/owner-dream-cycle/SKILL.md:12`, `docs/related-work.md` §(a)7).
+5. A session whose `session_kind` is `cron`, `heartbeat`, or `sub-agent` may write only `journal/`, `effects/`, `checkpoints/`, `notifications/`, and `jobs/`, and may never promote a candidate (`skills/owner-dream-cycle/SKILL.md:57`, `docs/related-work.md` §(a)7).
 6. Provenance is structured frontmatter, never prose (`skills/owner-dream-cycle/SKILL.md:38`).
 7. No credentials, OTPs, email addresses, or raw sensitive excerpts, in any namespace (`skills/owner-dream-cycle/SKILL.md:38`).
 8. Every write is followed by a readback that compares envelope and body (M4).
@@ -135,7 +135,7 @@ and `status: confirmed` — the adapter maps it; records are never renamed here.
 | `supersede(ns, old, new)` | yes | Write both records; the old one keeps its content and gains `status: superseded`. |
 
 No verb advances a cursor. Cursor movement is a `write` to `checkpoints/` under
-`checkpoint:advance` (`skills/briefing/SKILL.md:12`).
+`checkpoint:advance` (`skills/briefing/SKILL.md:53`).
 
 ## The conversations partition
 
