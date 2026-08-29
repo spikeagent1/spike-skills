@@ -86,8 +86,8 @@ skills:
     status: approved
     cohort: owner-operations
     workshop_proposal: daily-task-manager-20260823-fb9880c5d2
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: briefing
     classification: owned
