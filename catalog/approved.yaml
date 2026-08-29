@@ -166,8 +166,8 @@ skills:
     status: approved
     cohort: onboarding
     workshop_proposal: owner-context-onboarding-20260824-2e38551b72
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: mcp-connector-onboarding
     classification: owned
