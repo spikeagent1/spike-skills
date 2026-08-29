@@ -56,8 +56,8 @@ skills:
     status: approved
     cohort: safety-and-mutation
     workshop_proposal: publish-20260823-5bf547c82d
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: cron-scheduler
     classification: owned
