@@ -44,6 +44,11 @@ DEFAULT_RUN_BUDGET_USD = 0.50
 DEFAULT_WORKERS = 4
 DEFAULT_ROUTING_REPEATS = 3
 
+# Distinct from `--fail-on-regression`'s exit 1: an ungraded run measured
+# nothing for some assertions, which is a harness failure, not a regression
+# finding, and a caller branching on the exit code needs to tell them apart.
+EXIT_UNGRADED = 3
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -116,6 +121,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--fail-on-regression", action="store_true",
         help="Exit 1 when --compare-baseline finds a regression (implies --compare-baseline).",
     )
+    run_parser.add_argument(
+        "--fail-on-ungraded", action="store_true",
+        help=f"Exit {EXIT_UNGRADED} when any grading in this run is not status=ok "
+        "(grader_error, no_response).",
+    )
     run_parser.set_defaults(handler=cmd_run)
 
     grade_parser = subparsers.add_parser(
@@ -127,7 +137,9 @@ def build_parser() -> argparse.ArgumentParser:
     grade_parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_S)
     grade_parser.add_argument("--no-cache", action="store_true")
     grade_parser.add_argument(
-        "--regrade", action="store_true", help="Re-grade runs that already have a grading.json."
+        "--regrade", action="store_true",
+        help="Re-grade every run, including ones already graded status=ok "
+        "(default: re-grade only runs with a missing grading.json or status != ok).",
     )
     grade_parser.set_defaults(handler=cmd_grade)
 
@@ -169,6 +181,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     baseline_update.add_argument(
         "--require-clean", action="store_true", help="Refuse when the source run was recorded dirty."
+    )
+    baseline_update.add_argument(
+        "--allow-ungraded", action="store_true",
+        help="Merge a skill whose run has ungraded > 0 anyway (the entry still records the count).",
     )
     baseline_update.set_defaults(handler=cmd_baseline_update)
 
@@ -485,6 +501,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     _write_run_json(run_json_path, run_json)
 
     graded = [o for o in outcomes if o["grading_status"] == grader.STATUS_OK]
+    ungraded = [o for o in outcomes if o["grading_status"] != grader.STATUS_OK]
     print(f"run id     : {run_id}")
     print(f"runs       : {len(outcomes)} ({store.hits} cache hits)")
     print(f"graded     : {len(graded)}/{len(outcomes)}")
@@ -493,7 +510,14 @@ def cmd_run(args: argparse.Namespace) -> int:
         total = sum(o["total"] for o in rows)
         passed = sum(o["passed"] for o in rows)
         rate = f"{passed / total:.0%}" if total else "n/a"
-        print(f"  {config:26} {passed}/{total} assertions passed ({rate})")
+        line = f"  {config:26} {passed}/{total} graded ({rate})"
+        # A grader_error/no_response grading is excluded from the denominator
+        # above rather than scored as a fail — silent exclusion is exactly the
+        # near-miss this line exists to prevent, so it has to say so inline.
+        config_ungraded = sum(o["total"] for o in ungraded if o["config"] == config)
+        if config_ungraded:
+            line += f" — {config_ungraded} UNGRADED (excluded from denominator)"
+        print(line)
     print(f"cost (usd) : {run_json['cost_usd_total']} attributed "
           f"/ {run_json['spend_usd_total']} spent this run (lower bound)")
 
@@ -503,6 +527,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(f"wrote      : {run_root} (results.json, report.md)")
 
     exit_code = 0
+    if args.fail_on_ungraded and ungraded:
+        print(
+            f"fail-on-ungraded: {len(ungraded)} of {len(outcomes)} run(s) are not status=ok",
+            file=sys.stderr,
+        )
+        exit_code = EXIT_UNGRADED
     if args.compare_baseline or args.fail_on_regression:
         baseline = report.load_baseline()
         if baseline is None:
@@ -510,7 +540,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         else:
             comparison = analysis.compare(baseline, results, skills=skill_filter)
             _print_compare(comparison, label_a="baseline", label_b=run_id)
-            if args.fail_on_regression and comparison["regressions"] > 0:
+            # An ungraded-run failure already says something is broken about
+            # this run itself; do not let a regression exit code (1) mask it.
+            if args.fail_on_regression and comparison["regressions"] > 0 and exit_code == 0:
                 exit_code = 1
     return exit_code
 
@@ -932,8 +964,27 @@ def _case_from_metadata(path: Path, skill: str) -> Optional[cases.BehavioralCase
     )
 
 
+def _grading_status(path: Path) -> Optional[str]:
+    """`status` of an existing `grading.json`, or None when missing/unreadable.
+
+    None (not the string "ungraded") is what a missing or corrupt file reports:
+    a status compared with `!= grader.STATUS_OK` must not accidentally equal it.
+    """
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, ValueError):
+        return None
+    return payload.get("status") if isinstance(payload, dict) else None
+
+
 def cmd_grade(args: argparse.Namespace) -> int:
-    """Grade every ungraded run in a run directory (or all of them with --regrade)."""
+    """Grade every run whose grading is missing or not status=ok; --regrade does all.
+
+    Re-aggregates and rewrites `results.json`/`report.md` for the run
+    unconditionally at the end: `baseline update` reads `results.json`, not
+    the individual `grading.json` files, so a regrade that stopped short of
+    that rewrite would never reach the baseline.
+    """
     doctor_json, problem = load_doctor(args.claude_bin)
     if doctor_json is None:
         print(f"run_evals.py grade: {problem}", file=sys.stderr)
@@ -960,7 +1011,10 @@ def cmd_grade(args: argparse.Namespace) -> int:
         if case is None or not case.assertions:
             continue
         for run_dir in sorted(eval_dir.glob("*/run-*")):
-            if (run_dir / "grading.json").is_file() and not args.regrade:
+            # Missing entirely (harness crashed before grading) and present-
+            # but-not-ok (grader_error, no_response) both need a fresh grade
+            # by default; only a prior status=ok grading is left alone.
+            if not args.regrade and _grading_status(run_dir / "grading.json") == grader.STATUS_OK:
                 skipped += 1
                 continue
             response = grader.read_response(run_dir)
@@ -988,7 +1042,14 @@ def cmd_grade(args: argparse.Namespace) -> int:
                 f"{summary.get('passed', 0)}/{summary.get('total', 0)}"
             )
 
-    print(f"graded     : {graded} run(s); {skipped} already had grading.json")
+    print(f"graded     : {graded} run(s); {skipped} already had a status=ok grading.json")
+
+    results = analysis.aggregate_run(run_root)
+    (run_root / "results.json").write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
+    (run_root / "report.md").write_text(
+        report.render_run_report(results, _run_meta(run_root)), encoding="utf-8"
+    )
+    print(f"wrote      : {run_root} (results.json, report.md)")
     return 0
 
 
@@ -1018,6 +1079,8 @@ def _print_compare(comparison: Dict[str, Any], *, label_a: str, label_b: str) ->
         delta = skill["with_pass_rate_delta"]
         delta_str = f"{delta:+.4f}" if delta is not None else "n/a"
         flag = " REGRESSION" if skill["regression"] else (" (noise)" if skill["noise"] else "")
+        if skill.get("no_signal"):
+            flag += f" (ungraded a={skill.get('ungraded_a', 0)} b={skill.get('ungraded_b', 0)})"
         print(f"  {skill['skill']:26} with_pass_rate_delta={delta_str}{flag}")
     for flip in comparison["flips"]:
         print(f"  {flip['direction']:10} {flip['skill']}: {flip['assertion']}")
@@ -1025,6 +1088,8 @@ def _print_compare(comparison: Dict[str, Any], *, label_a: str, label_b: str) ->
         print(f"  signal_lost  {entry['skill']}: {entry['assertion']}")
     for entry in comparison.get("signal_gained") or []:
         print(f"  signal_gained {entry['skill']}: {entry['assertion']}")
+    for entry in comparison.get("no_signal") or []:
+        print(f"  no_signal    {entry['skill']}: {entry['assertion']} (ungraded on one side)")
     if comparison.get("no_baseline"):
         print(f"  no_baseline (in {label_b} only): {', '.join(comparison['no_baseline'])}")
     if comparison.get("not_in_run"):
@@ -1110,6 +1175,45 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _ungraded_skills(results: Dict[str, Any]) -> List[Tuple[str, int]]:
+    """`(skill, ungraded-count)` for every skill in `results` with ungraded > 0."""
+    return [
+        (name, int(full.get("ungraded") or 0))
+        for name, full in sorted((results.get("skills") or {}).items())
+        if int(full.get("ungraded") or 0) > 0
+    ]
+
+
+def _ungraded_case_keys(run_root: Path) -> Dict[str, List[str]]:
+    """Case keys under `run_root` with at least one non-ok `grading.json`, by skill.
+
+    Lets a `baseline update` refusal name the actual case, not just a count.
+    """
+    by_skill: Dict[str, set] = {}
+    for metadata_path in sorted(run_root.glob("*/eval-*/eval_metadata.json")):
+        eval_dir = metadata_path.parent
+        skill = eval_dir.parent.name
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, ValueError):
+            continue
+        key = str(metadata.get("key") or f"{skill}:{eval_dir.name}")
+        for grading_path in eval_dir.glob("*/run-*/grading.json"):
+            if _grading_status(grading_path) != grader.STATUS_OK:
+                by_skill.setdefault(skill, set()).add(key)
+    return {name: sorted(keys) for name, keys in by_skill.items()}
+
+
+def _ungraded_refusal_message(offending: List[Tuple[str, int]], run_root: Path) -> str:
+    case_hint = _ungraded_case_keys(run_root)
+    parts = []
+    for name, count in offending:
+        keys = case_hint.get(name) or []
+        example = f", e.g. {keys[0]}" if keys else ""
+        parts.append(f"{name} ({count} ungraded{example})")
+    return ", ".join(parts)
+
+
 def cmd_baseline_update(args: argparse.Namespace) -> int:
     """Merge a behavioral run, a routing run, or both into evals/baseline.json."""
     if not args.from_run and not args.routing_from:
@@ -1118,6 +1222,7 @@ def cmd_baseline_update(args: argparse.Namespace) -> int:
 
     run_root: Optional[Path] = None
     run_meta: Dict[str, Any] = {}
+    results: Optional[Dict[str, Any]] = None
     if args.from_run:
         run_root = workspace.WORKSPACE / "runs" / args.from_run
         if not run_root.is_dir():
@@ -1126,6 +1231,7 @@ def cmd_baseline_update(args: argparse.Namespace) -> int:
         run_json_path = run_root / "run.json"
         if run_json_path.is_file():
             run_meta = json.loads(run_json_path.read_text(encoding="utf-8"))
+        results = analysis.aggregate_run(run_root)
     if args.require_clean and run_meta.get("dirty"):
         print(
             "run_evals.py baseline update: --require-clean was set and the source run "
@@ -1133,6 +1239,19 @@ def cmd_baseline_update(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
+    if results is not None and not args.allow_ungraded:
+        offending = _ungraded_skills(results)
+        if offending:
+            # A degraded entry (some assertions never actually graded) must
+            # not merge silently — the near-miss this task exists to close.
+            print(
+                "run_evals.py baseline update: refusing to merge a degraded baseline "
+                f"entry for {_ungraded_refusal_message(offending, run_root)}; pass "
+                "--allow-ungraded to merge it anyway (the entry will record the "
+                "ungraded count)",
+                file=sys.stderr,
+            )
+            return 2
     routing_block = None
     if args.routing_from:
         routing_block, routing_error = _load_routing_block(args.routing_from)
@@ -1155,7 +1274,6 @@ def cmd_baseline_update(args: argparse.Namespace) -> int:
         merged["routing"] = routing_block
         merged["generated_at"] = workspace.utc_iso()
     else:
-        results = analysis.aggregate_run(run_root)
         merged = report.merge_baseline(
             existing, results, run_meta, routing=routing_block, root=workspace.ROOT
         )

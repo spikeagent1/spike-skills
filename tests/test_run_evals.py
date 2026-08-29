@@ -2449,6 +2449,12 @@ class AllUngradedConfigTest(unittest.TestCase):
         merged = report.merge_baseline(None, run_results, run_meta, root=Path(self.tmp.name))
         self.assertIsNone(merged["skills"]["briefing"]["with_skill"]["pass_rate"])
 
+    def test_report_scorecard_flags_the_ungraded_count_loudly(self) -> None:
+        # A bare "ungraded" word reads as a minor caveat; a run that silently
+        # dropped assertions from its denominator needs the count spelled out.
+        text = report.render_run_report(self.results, {"run_id": "r1"})
+        self.assertIn("1 UNGRADED (excluded from denominator)", text)
+
 
 class CompareTest(unittest.TestCase):
     """`compare`'s regression signal is the with_skill pass rate, `b` minus `a`
@@ -2579,6 +2585,43 @@ class CompareTest(unittest.TestCase):
         b = {"skills": {"briefing": self._skill(with_rate=0.9, assertions=10)}}
         result = analysis.compare(a, b)
         self.assertEqual(result["signal_gained"], [{"skill": "briefing", "assertion": "examples:1/1 Z"}])
+
+    def test_an_assertion_that_became_ungraded_is_no_signal_not_a_gain(self) -> None:
+        # `broken` in `a`, absent from `b`'s list only because `b`'s grading
+        # errored — not because the skill got fixed. A plain set diff would
+        # read the disappearance as a gain; it must land in `no_signal` instead.
+        a = {"skills": {"briefing": self._skill(with_rate=0.9, assertions=10, broken=["examples:1/1 X"])}}
+        b = dict(self._skill(with_rate=0.9, assertions=10), ungraded=1)
+        result = analysis.compare(a, {"skills": {"briefing": b}})
+        self.assertEqual(result["flips"], [])
+        self.assertEqual(result["gains"], 0)
+        self.assertEqual(result["no_signal"], [{"skill": "briefing", "assertion": "examples:1/1 X"}])
+        self.assertTrue(result["skills"][0]["no_signal"])
+
+    def test_an_assertion_that_became_ungraded_is_no_signal_not_a_regression(self) -> None:
+        # Same trap in the other direction: a newly-ungraded `b` must not read
+        # as `a`'s clean assertion having broken.
+        a_skill = self._skill(with_rate=0.9, assertions=10)
+        b = dict(self._skill(with_rate=0.9, assertions=10, broken=["examples:1/1 X"]), ungraded=1)
+        result = analysis.compare({"skills": {"briefing": a_skill}}, {"skills": {"briefing": b}})
+        self.assertEqual(result["flips"], [])
+        self.assertEqual(result["regressions"], 0)
+        self.assertEqual(result["no_signal"], [{"skill": "briefing", "assertion": "examples:1/1 X"}])
+
+    def test_ungraded_on_the_a_side_alone_still_suppresses_the_diff(self) -> None:
+        a = dict(self._skill(with_rate=0.9, assertions=10, non_discriminating=["examples:1/2 Y"]), ungraded=2)
+        b = {"skills": {"briefing": self._skill(with_rate=0.9, assertions=10)}}
+        result = analysis.compare({"skills": {"briefing": a}}, b)
+        self.assertEqual(result["signal_gained"], [])
+        self.assertEqual(result["no_signal"], [{"skill": "briefing", "assertion": "examples:1/2 Y"}])
+
+    def test_no_ungraded_on_either_side_is_unaffected(self) -> None:
+        a = {"skills": {"briefing": self._skill(with_rate=0.9, assertions=10)}}
+        b = {"skills": {"briefing": self._skill(with_rate=0.9, assertions=10, broken=["examples:1/1 X"])}}
+        result = analysis.compare(a, b)
+        self.assertEqual(result["no_signal"], [])
+        self.assertFalse(result["skills"][0]["no_signal"])
+        self.assertEqual(result["regressions"], 1)
 
     def test_skill_filter_restricts_the_comparison(self) -> None:
         a = {
@@ -2977,6 +3020,283 @@ class BaselineCLITest(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()):
             code = run_evals.main(["baseline", "update", "--from", "r1", "--require-clean"])
         self.assertEqual(code, 2)
+
+    def test_a_fully_graded_run_is_not_refused(self) -> None:
+        # This fixture's run has zero ungraded assertions; the new refusal
+        # check must not misfire on the ordinary, healthy path.
+        self.assertEqual(self._main_quietly(["baseline", "update", "--from", "r1"]), 0)
+
+
+def _write_response(run_dir: Path, text: str = "A graded response.") -> None:
+    outputs = Path(run_dir) / "outputs"
+    outputs.mkdir(parents=True, exist_ok=True)
+    (outputs / "response.md").write_text(text, encoding="utf-8")
+
+
+class UngradedHarnessTest(unittest.TestCase):
+    """Task 13x fixture: run `r1` has one clean case, one `grader_error` case,
+    and one case whose `with_skill` grading.json is missing entirely (the
+    harness-crashed-before-grading shape) — the near-miss batch 1c found: a
+    grader_error silently dropped from the printed denominator, `grade --run`
+    a no-op on it by default, and `--regrade` never reaching `results.json`
+    (which `baseline update` reads).
+    """
+
+    ASSERTIONS = {1: ["A1", "A2"], 2: ["B1", "B2"], 3: ["C1", "C2"]}
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self._saved_ws = run_evals.workspace.WORKSPACE
+        self._saved_root = run_evals.workspace.ROOT
+        run_evals.workspace.WORKSPACE = self.root / "evals" / "workspaces"
+        run_evals.workspace.ROOT = self.root
+        _write_skill_tree(
+            self.root, "alpha",
+            examples={"evals": [{"id": i, "prompt": "p", "assertions": a} for i, a in self.ASSERTIONS.items()]},
+        )
+
+        script = FakeClaudeScript(self.root, 'echo "9.9.9 (Claude Code)"\n')
+        self.claude_bin = str(script.path)
+        _write_json(
+            run_evals.workspace.WORKSPACE / "doctor.json",
+            {
+                "strategy": "project-sources",
+                "claude_code_version": "9.9.9",
+                "structured_output_field": "structured_output",
+                "checked_at": "2026-08-28T00:00:00+00:00",
+                "context_leak_ok": True,
+            },
+        )
+
+        self.run_root = run_evals.workspace.WORKSPACE / "runs" / "r1"
+        _write_json(self.run_root / "run.json", {"run_id": "r1", "repeats": 1, "commit": "abc1234", "dirty": False})
+
+        eval1 = self.run_root / "alpha" / "eval-1"
+        _write_eval_metadata(eval1, eval_id=1, key="alpha:examples:1", assertions=self.ASSERTIONS[1])
+        _write_timing(eval1 / "with_skill" / "run-1")
+        _write_response(eval1 / "with_skill" / "run-1")
+        _write_grading(eval1 / "with_skill" / "run-1", self.ASSERTIONS[1], [True, True])
+        _write_timing(eval1 / "without_skill" / "run-1")
+        _write_response(eval1 / "without_skill" / "run-1")
+        _write_grading(eval1 / "without_skill" / "run-1", self.ASSERTIONS[1], [True, False])
+
+        eval2 = self.run_root / "alpha" / "eval-2"
+        _write_eval_metadata(eval2, eval_id=2, key="alpha:examples:2", assertions=self.ASSERTIONS[2])
+        _write_timing(eval2 / "with_skill" / "run-1")
+        _write_response(eval2 / "with_skill" / "run-1")
+        _write_ungraded(eval2 / "with_skill" / "run-1", self.ASSERTIONS[2])
+        _write_timing(eval2 / "without_skill" / "run-1")
+        _write_response(eval2 / "without_skill" / "run-1")
+        _write_grading(eval2 / "without_skill" / "run-1", self.ASSERTIONS[2], [True, True])
+
+        eval3 = self.run_root / "alpha" / "eval-3"
+        _write_eval_metadata(eval3, eval_id=3, key="alpha:examples:3", assertions=self.ASSERTIONS[3])
+        _write_timing(eval3 / "with_skill" / "run-1")
+        _write_response(eval3 / "with_skill" / "run-1")  # grading.json deliberately absent
+        _write_timing(eval3 / "without_skill" / "run-1")
+        _write_response(eval3 / "without_skill" / "run-1")
+        _write_grading(eval3 / "without_skill" / "run-1", self.ASSERTIONS[3], [True, True])
+
+    def tearDown(self) -> None:
+        run_evals.workspace.WORKSPACE = self._saved_ws
+        run_evals.workspace.ROOT = self._saved_root
+        self.tmp.cleanup()
+
+    def _patch_runner(self, fake: "FakeClaudeRunner") -> None:
+        run_evals.SubprocessClaudeRunner = lambda claude_bin: fake
+
+    def _grading(self, *parts: str) -> dict:
+        path = self.run_root.joinpath(*parts) / "grading.json"
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def test_default_grade_regrades_only_missing_or_non_ok_gradings(self) -> None:
+        fake = FakeClaudeRunner(
+            [
+                _grader_result(_grading_payload(self.ASSERTIONS[2], [True, False])),
+                _grader_result(_grading_payload(self.ASSERTIONS[3], [True, True])),
+            ]
+        )
+        self._patch_runner(fake)
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            code = run_evals.main(["--claude-bin", self.claude_bin, "grade", "--run", "r1", "--no-cache"])
+        self.assertEqual(code, 0)
+
+        # Exactly the two broken run-dirs were regraded — the already-ok
+        # eval-1 pair never called the (scripted, order-sensitive) runner.
+        self.assertEqual(len(fake.requests), 2)
+
+        case1_with = self._grading("alpha", "eval-1", "with_skill", "run-1")
+        self.assertEqual([e["passed"] for e in case1_with["expectations"]], [True, True])
+
+        case2_with = self._grading("alpha", "eval-2", "with_skill", "run-1")
+        self.assertEqual(case2_with["status"], grader.STATUS_OK)
+        self.assertEqual([e["passed"] for e in case2_with["expectations"]], [True, False])
+
+        case3_with = self._grading("alpha", "eval-3", "with_skill", "run-1")
+        self.assertEqual(case3_with["status"], grader.STATUS_OK)
+        self.assertEqual([e["passed"] for e in case3_with["expectations"]], [True, True])
+
+        # `results.json`/`report.md` are rewritten from the freshly-graded
+        # data, not left stale from before the regrade.
+        results = json.loads((self.run_root / "results.json").read_text(encoding="utf-8"))
+        self.assertEqual(results["skills"]["alpha"]["ungraded"], 0)
+        self.assertTrue((self.run_root / "report.md").is_file())
+
+    def test_regrade_flag_regrades_every_run_dir_including_ok_ones(self) -> None:
+        fake = FakeClaudeRunner(
+            [
+                _grader_result(_grading_payload(self.ASSERTIONS[1], [True, True])),
+                _grader_result(_grading_payload(self.ASSERTIONS[1], [False, False])),
+                _grader_result(_grading_payload(self.ASSERTIONS[2], [True, False])),
+                _grader_result(_grading_payload(self.ASSERTIONS[2], [True, True])),
+                _grader_result(_grading_payload(self.ASSERTIONS[3], [True, True])),
+                _grader_result(_grading_payload(self.ASSERTIONS[3], [True, True])),
+            ]
+        )
+        self._patch_runner(fake)
+        with contextlib.redirect_stdout(io.StringIO()):
+            code = run_evals.main(
+                ["--claude-bin", self.claude_bin, "grade", "--run", "r1", "--regrade", "--no-cache"]
+            )
+        self.assertEqual(code, 0)
+        self.assertEqual(len(fake.requests), 6)
+        # The previously-clean case1/without_skill grading was overwritten too.
+        case1_without = self._grading("alpha", "eval-1", "without_skill", "run-1")
+        self.assertEqual([e["passed"] for e in case1_without["expectations"]], [False, False])
+
+    def test_baseline_update_refuses_a_run_with_ungraded_assertions(self) -> None:
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr), contextlib.redirect_stdout(io.StringIO()):
+            code = run_evals.main(["baseline", "update", "--from", "r1"])
+        self.assertEqual(code, 2)
+        message = stderr.getvalue()
+        self.assertIn("alpha", message)
+        self.assertIn("ungraded", message.lower())
+        self.assertFalse((run_evals.workspace.ROOT / "evals" / "baseline.json").is_file())
+
+    def test_baseline_update_allow_ungraded_merges_with_the_count(self) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            code = run_evals.main(["baseline", "update", "--from", "r1", "--allow-ungraded"])
+        self.assertEqual(code, 0)
+        baseline = json.loads((run_evals.workspace.ROOT / "evals" / "baseline.json").read_text(encoding="utf-8"))
+        self.assertEqual(baseline["skills"]["alpha"]["ungraded"], 1)
+
+
+class RunSummaryUngradedTest(unittest.TestCase):
+    """`cmd_run`'s own printed summary line and `--fail-on-ungraded` exit code.
+
+    A scripted `grader_error` on case 2's `with_skill` grading must show up
+    inline in the per-config summary line (not just silently shrink the
+    denominator), and `--fail-on-ungraded` must turn that into a distinct
+    non-zero exit code without misfiring on a fully-graded run.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self._saved = {
+            "workspace.WORKSPACE": workspace.WORKSPACE,
+            "workspace.ROOT": workspace.ROOT,
+            "cases.ROOT": cases.ROOT,
+            "cases.SKILLS": cases.SKILLS,
+            "executor.ROOT": executor.ROOT,
+            "run_evals.SubprocessClaudeRunner": run_evals.SubprocessClaudeRunner,
+        }
+        run_evals.workspace.WORKSPACE = self.root / "evals" / "workspaces"
+        run_evals.workspace.ROOT = self.root
+        cases.ROOT = self.root
+        cases.SKILLS = self.root / "skills"
+        executor.ROOT = self.root
+
+        _write_skill_tree(
+            self.root, "alpha",
+            examples={
+                "evals": [
+                    {"id": 1, "prompt": "Case one.", "assertions": ["A1", "A2"]},
+                    {"id": 2, "prompt": "Case two.", "assertions": ["B1", "B2"]},
+                ]
+            },
+        )
+
+        script = FakeClaudeScript(self.root, 'echo "9.9.9 (Claude Code)"\n')
+        self.claude_bin = str(script.path)
+        _write_json(
+            run_evals.workspace.WORKSPACE / "doctor.json",
+            {
+                "strategy": "project-sources",
+                "claude_code_version": "9.9.9",
+                "structured_output_field": "structured_output",
+                "checked_at": "2026-08-28T00:00:00+00:00",
+                "context_leak_ok": True,
+            },
+        )
+
+    def tearDown(self) -> None:
+        for name, value in self._saved.items():
+            module_name, attr = name.split(".")
+            setattr(
+                {"workspace": workspace, "cases": cases, "executor": executor, "run_evals": run_evals}[module_name],
+                attr,
+                value,
+            )
+        self.tmp.cleanup()
+
+    def _patch_runner(self, fake: "FakeClaudeRunner") -> None:
+        run_evals.SubprocessClaudeRunner = lambda claude_bin: fake
+
+    def _scripted(self, *, case2_grader_error: bool) -> list:
+        # Job order: case1/with, case1/without, case2/with, case2/without;
+        # each job is one executor call followed by one grader call.
+        scripted = [
+            _ok_result("Response 1 with", cost=0.01),
+            _grader_result(_grading_payload(["A1", "A2"], [True, True]), cost=0.002),
+            _ok_result("Response 1 without", cost=0.01),
+            _grader_result(_grading_payload(["A1", "A2"], [False, True]), cost=0.002),
+            _ok_result("Response 2 with", cost=0.01),
+        ]
+        if case2_grader_error:
+            scripted.append(_grader_result(None, text="I refuse.", cost=0.001))
+        else:
+            scripted.append(_grader_result(_grading_payload(["B1", "B2"], [True, True]), cost=0.002))
+        scripted += [
+            _ok_result("Response 2 without", cost=0.01),
+            _grader_result(_grading_payload(["B1", "B2"], [True, True]), cost=0.002),
+        ]
+        return scripted
+
+    def _run(self, extra_args: list, *, case2_grader_error: bool = True) -> tuple:
+        fake = FakeClaudeRunner(self._scripted(case2_grader_error=case2_grader_error))
+        self._patch_runner(fake)
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            code = run_evals.main(
+                [
+                    "--claude-bin", self.claude_bin,
+                    "run", "--skill", "alpha", "--model", "sonnet", "--grader-model", "sonnet",
+                    "--workers", "1", "--no-cache",
+                    *extra_args,
+                ]
+            )
+        return code, stream.getvalue()
+
+    def test_summary_line_carries_ungraded_inline_and_exits_zero_by_default(self) -> None:
+        code, out = self._run(["--label", "ge1"])
+        self.assertEqual(code, 0)
+        # with_skill: case1 graded (2/2), case2 ungraded (2 assertions) — the
+        # exclusion must be spelled out inline, not just a smaller denominator.
+        self.assertIn("2/2 graded", out)
+        self.assertIn("2 UNGRADED (excluded from denominator)", out)
+
+    def test_fail_on_ungraded_exits_with_the_distinct_code(self) -> None:
+        code, _ = self._run(["--label", "ge2", "--fail-on-ungraded"])
+        self.assertEqual(code, run_evals.EXIT_UNGRADED)
+        self.assertNotEqual(run_evals.EXIT_UNGRADED, 1)  # distinct from --fail-on-regression's exit 1
+
+    def test_fail_on_ungraded_does_not_misfire_on_a_fully_graded_run(self) -> None:
+        code, out = self._run(["--label", "ge3", "--fail-on-ungraded"], case2_grader_error=False)
+        self.assertEqual(code, 0)
+        self.assertNotIn("UNGRADED", out)
 
 
 class EndToEndRunTest(unittest.TestCase):

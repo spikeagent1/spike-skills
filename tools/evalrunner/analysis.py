@@ -363,6 +363,14 @@ def compare(
     `signal_lost`/`signal_gained` — informational, never a regression on their
     own, since there is no stored identity for the residual `discriminating`
     class to confirm what an assertion moved *from*.
+
+    When either side's skill entry carries `ungraded > 0`, its label-set diffs
+    are skipped entirely and reported in `no_signal` instead: an assertion can
+    drop out of `broken`/`non_discriminating` because its grading errored, not
+    because it passed, and a plain set diff cannot tell "fixed" apart from
+    "unmeasured". The `with_pass_rate` regression signal is untouched — it is
+    already computed from graded rows only, so an ungraded run just shrinks its
+    sample rather than skewing it.
     """
     skills_a = a.get("skills") or {}
     skills_b = b.get("skills") or {}
@@ -379,10 +387,15 @@ def compare(
     flips: List[Dict[str, Any]] = []
     signal_lost: List[Dict[str, Any]] = []
     signal_gained: List[Dict[str, Any]] = []
+    no_signal: List[Dict[str, Any]] = []
     regressions = 0
 
     for name in names_both:
         sa, sb = skills_a[name], skills_b[name]
+        ungraded_a = int(sa.get("ungraded") or 0)
+        ungraded_b = int(sb.get("ungraded") or 0)
+        has_ungraded = ungraded_a > 0 or ungraded_b > 0
+
         with_a, with_b = _with_pass_rate(sa), _with_pass_rate(sb)
         n_assertions = int(sb.get("assertions") or sa.get("assertions") or 0)
         with_delta = None
@@ -398,17 +411,21 @@ def compare(
 
         fail_a = set(sa.get("broken") or []) | set(sa.get("harmful") or [])
         fail_b = set(sb.get("broken") or []) | set(sb.get("harmful") or [])
-        for label in sorted(fail_b - fail_a):
-            flips.append({"skill": name, "assertion": label, "direction": "regression"})
-        for label in sorted(fail_a - fail_b):
-            flips.append({"skill": name, "assertion": label, "direction": "gain"})
-
         soft_a = set(sa.get("non_discriminating") or []) | set(sa.get("flaky") or [])
         soft_b = set(sb.get("non_discriminating") or []) | set(sb.get("flaky") or [])
-        for label in sorted(soft_b - soft_a):
-            signal_lost.append({"skill": name, "assertion": label})
-        for label in sorted(soft_a - soft_b):
-            signal_gained.append({"skill": name, "assertion": label})
+
+        if has_ungraded:
+            for label in sorted((fail_a ^ fail_b) | (soft_a ^ soft_b)):
+                no_signal.append({"skill": name, "assertion": label})
+        else:
+            for label in sorted(fail_b - fail_a):
+                flips.append({"skill": name, "assertion": label, "direction": "regression"})
+            for label in sorted(fail_a - fail_b):
+                flips.append({"skill": name, "assertion": label, "direction": "gain"})
+            for label in sorted(soft_b - soft_a):
+                signal_lost.append({"skill": name, "assertion": label})
+            for label in sorted(soft_a - soft_b):
+                signal_gained.append({"skill": name, "assertion": label})
 
         per_skill.append(
             {
@@ -419,6 +436,9 @@ def compare(
                 "assertions": n_assertions,
                 "noise": noise,
                 "regression": regression,
+                "no_signal": has_ungraded,
+                "ungraded_a": ungraded_a,
+                "ungraded_b": ungraded_b,
             }
         )
 
@@ -429,6 +449,7 @@ def compare(
         "flips": flips,
         "signal_lost": signal_lost,
         "signal_gained": signal_gained,
+        "no_signal": no_signal,
         "regressions": regressions,
         "gains": gains,
         "no_baseline": only_b,

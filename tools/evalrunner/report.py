@@ -45,8 +45,12 @@ def _pct(skill: Dict[str, Any], config: str) -> str:
 def _flags(skill: Dict[str, Any]) -> str:
     classes = skill.get("classes") or {}
     flags = []
-    if (skill.get("ungraded") or 0) > 0:
-        flags.append("ungraded")
+    ungraded = skill.get("ungraded") or 0
+    if ungraded > 0:
+        # Spelled out, not the bare word "ungraded": a reader scanning the
+        # scorecard has to see that assertions were dropped from the
+        # denominator, not just that some caveat applies.
+        flags.append(f"{ungraded} UNGRADED (excluded from denominator)")
     if classes.get("flaky", 0) > 0:
         flags.append("flaky")
     if classes.get("discriminating", 0) == 0:
