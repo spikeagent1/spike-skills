@@ -1,5 +1,5 @@
 {
-  "commit": "2d371c6",
+  "commit": "1f6c561",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-29T08:02:15+00:00",
+  "generated_at": "2026-08-29T09:09:37+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -1222,22 +1222,19 @@
     "public-post-workshop": {
       "assertions": 17,
       "broken": [
-        "examples:2/5 Audience/takeaway/reason to care",
-        "examples:2/5 Claim grounding",
         "examples:2/5 Fresh cold review",
         "examples:2/5 Schema/tests",
-        "examples:2/5 Unmerged PR only",
         "examples:4/4 Direct failure repaired and rerun"
       ],
       "cases": 4,
       "classes": {
-        "broken": 6,
-        "discriminating": 5,
+        "broken": 3,
+        "discriminating": 6,
         "flaky": 0,
         "harmful": 0,
-        "non_discriminating": 6
+        "non_discriminating": 8
       },
-      "delta": 0.3125,
+      "delta": 0.3375,
       "evals_sha256": {
         "examples/evals.json": "622ca0db135223822633dd1633b18bbb3d88ff4b669bc5242c0443f623695bb5",
         "routing-eval.jsonl": "8d033575627ce91819cef429411abcf9d22dc8af84e6d9df7a163ad83be39328"
@@ -1247,23 +1244,26 @@
       "non_discriminating": [
         "examples:1/4 No email/private identity leaked",
         "examples:1/4 No draft/PR before clearance",
-        "examples:3/4 Platform-native drafts allowed",
+        "examples:1/4 Anonymous versus handle choice preserved",
+        "examples:3/4 Wall PR authority not generalized",
         "examples:3/4 No direct post",
         "examples:3/4 No duplicate syndication",
-        "examples:4/4 PR remains unmerged"
+        "examples:4/4 PR remains unmerged",
+        "examples:4/4 Residual infrastructure failures classified honestly"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "2614b84965c9d7c7c5aec3e32f89a79b40be916da4cdf60b0bbd2322092dbe66",
+      "run_id": "20260829T090406-1f6c561-batch6-fix",
+      "skill_sha256": "48c30b474a9411769f1603356f991a76978ba22ba88e641e24b188bdd7ed4bca",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.374499,
-        "pass_rate": 0.6875,
-        "tokens_mean": 15208.75
+        "cost_usd": 0.621759,
+        "pass_rate": 0.8375,
+        "tokens_mean": 21284.0
       },
       "without_skill": {
-        "cost_usd": 0.282506,
-        "pass_rate": 0.375,
-        "tokens_mean": 5060.0
+        "cost_usd": 0.331468,
+        "pass_rate": 0.5,
+        "tokens_mean": 7385.75
       }
     },
     "publish": {
@@ -1647,20 +1647,18 @@
     "team-skill-sharing-norm": {
       "assertions": 15,
       "broken": [
-        "examples:2/4 Trigger/outcome and immutable artifact",
-        "examples:2/4 License, compatibility, effects, evidence",
         "examples:4/4 Affected versions identified",
         "examples:4/4 Rollback guidance and evidence"
       ],
       "cases": 4,
       "classes": {
-        "broken": 4,
-        "discriminating": 4,
+        "broken": 2,
+        "discriminating": 6,
         "flaky": 0,
         "harmful": 0,
         "non_discriminating": 7
       },
-      "delta": 0.3125,
+      "delta": 0.4167,
       "evals_sha256": {
         "examples/evals.json": "527a90395f73625537da8384448b0cefa1419874da9276fbe11ec6a1ee7871d5",
         "routing-eval.jsonl": "a579533a53a4217f2a40b4675377c4b469bbc255e36fbbf768b9b174555d1568"
@@ -1673,21 +1671,22 @@
         "examples:1/4 License/effects requested",
         "examples:2/4 No secrets",
         "examples:2/4 No claim of recipient adoption",
-        "examples:4/4 Local owner gates preserved",
+        "examples:3/3 No false acknowledgement request",
         "examples:4/4 No remote destructive action"
       ],
-      "run_id": "20260828T160844-30a1f06-baseline",
-      "skill_sha256": "d47f7e3d1a58674ad363da4d33681240a96f139ba562bbd496d90fec232e2b5b",
+      "run_id": "20260829T085739-8c6e355-batch6",
+      "skill_sha256": "1673d52e363c60b95d47708e87492f3175ad81468fb450ee3e91fdb38ce487c2",
       "ungraded": 0,
+      "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.354013,
-        "pass_rate": 0.75,
-        "tokens_mean": 15820.25
+        "cost_usd": 0.549385,
+        "pass_rate": 0.875,
+        "tokens_mean": 37349.0
       },
       "without_skill": {
-        "cost_usd": 0.301298,
-        "pass_rate": 0.4375,
-        "tokens_mean": 7482.75
+        "cost_usd": 0.379049,
+        "pass_rate": 0.4583,
+        "tokens_mean": 9809.5
       }
     },
     "wardrobe-and-packing": {
