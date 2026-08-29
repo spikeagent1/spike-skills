@@ -4,12 +4,17 @@ EVAL_MODEL ?= sonnet
 EVAL_GRADER ?= opus
 ROUTING_MODE ?= native
 
+# The whole gate, and the only thing CI runs: .github/workflows/validate.yml
+# calls this target on both legs (with and without jsonschema) so a check added
+# here is a check CI runs, not one it silently skips.
 validate: test
 	python3 tools/validate_repo.py
 	python3 tools/check_citations.py
+	python3 tools/build_index.py --check
 
+# Globbed, not listed: a module the list forgot was a module CI never compiled.
 test:
-	python3 -m py_compile tools/validate_repo.py tools/validators/*.py tools/run_evals.py tools/contracts_check.py tools/build_index.py tools/install_skill.py tools/installer/*.py tools/check_staging.py tools/check_citations.py tools/evalrunner/*.py tests/test_validate_repo.py tests/test_run_evals.py tests/test_contracts.py tests/test_build_index.py tests/test_install_skill.py tests/test_check_staging.py tests/test_check_citations.py
+	python3 -m py_compile tools/*.py tools/*/*.py tests/*.py
 	python3 -m unittest discover -s tests
 
 # Stages every OpenClaw-eligible skill into dist/, then verifies the staged
