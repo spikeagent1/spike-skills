@@ -201,6 +201,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-ungraded", action="store_true",
         help="Merge a skill whose run has ungraded > 0 anyway (the entry still records the count).",
     )
+    baseline_update.add_argument(
+        "--allow-regression", action="store_true",
+        help=(
+            "Merge an entry that regresses against the committed one anyway "
+            "(same rule as --fail-on-regression)."
+        ),
+    )
     baseline_update.set_defaults(handler=cmd_baseline_update)
 
     baseline_check = baseline_sub.add_parser("check", help="Report staleness against the repo on disk.")
@@ -1246,7 +1253,13 @@ def _ungraded_refusal_message(offending: List[Tuple[str, int]], run_root: Path) 
 
 
 def cmd_baseline_update(args: argparse.Namespace) -> int:
-    """Merge a behavioral run, a routing run, or both into evals/baseline.json."""
+    """Merge a behavioral run, a routing run, or both into evals/baseline.json.
+
+    Two merges are refused rather than written: one carrying an ungraded
+    assertion (`--allow-ungraded`), and one that regresses against the entry it
+    would replace (`--allow-regression`). Either refusal leaves every committed
+    entry exactly as it was.
+    """
     if not args.from_run and not args.routing_from:
         print("run_evals.py baseline update: pass --from, --routing-from, or both", file=sys.stderr)
         return 2
@@ -1313,6 +1326,26 @@ def cmd_baseline_update(args: argparse.Namespace) -> int:
             return 2
 
     existing = report.load_baseline()
+    if results is not None and existing is not None and not args.allow_regression:
+        # Same rule as `run --fail-on-regression`, applied where it lasts: a
+        # regressed entry merged into the baseline moves the bar down, and every
+        # later comparison then measures against the worse number in silence.
+        comparison = analysis.compare(existing, results, skills=skills_subset)
+        regressed = [row["skill"] for row in comparison["skills"] if row.get("regression")]
+        regressed.extend(
+            sorted(
+                {flip["skill"] for flip in comparison["flips"]
+                 if flip["direction"] == "regression"}
+            )
+        )
+        if regressed:
+            print(
+                "run_evals.py baseline update: refusing to merge a regression against "
+                f"the committed baseline for {', '.join(dict.fromkeys(regressed))}; "
+                "pass --allow-regression to merge it anyway",
+                file=sys.stderr,
+            )
+            return 2
     if routing_block is not None and not args.replace_routing:
         routing_block = report.merge_routing_block(
             (existing or {}).get("routing"), routing_block

@@ -3327,6 +3327,88 @@ class UngradedHarnessTest(unittest.TestCase):
         self.assertEqual(baseline["skills"]["alpha"]["ungraded"], 1)
 
 
+class BaselineRegressionGateTest(unittest.TestCase):
+    """`baseline update` must not quietly write a worse number over a better one.
+
+    `--fail-on-regression` already caught this at run time, but the baseline is
+    what every later comparison is measured against: merging a regressed entry
+    moves the bar down and the regression is never reported again.
+    """
+
+    ASSERTIONS = ["A1", "A2"]
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self._saved_ws = run_evals.workspace.WORKSPACE
+        self._saved_root = run_evals.workspace.ROOT
+        run_evals.workspace.WORKSPACE = self.root / "evals" / "workspaces"
+        run_evals.workspace.ROOT = self.root
+        _write_skill_tree(
+            self.root, "alpha",
+            examples={"evals": [{"id": 1, "prompt": "p", "assertions": self.ASSERTIONS}]},
+        )
+        self._write_run("good", [True, True])
+        self._write_run("bad", [False, False])
+
+    def tearDown(self) -> None:
+        run_evals.workspace.WORKSPACE = self._saved_ws
+        run_evals.workspace.ROOT = self._saved_root
+        self.tmp.cleanup()
+
+    def _write_run(self, run_id: str, with_skill: list) -> None:
+        run_root = run_evals.workspace.WORKSPACE / "runs" / run_id
+        _write_json(
+            run_root / "run.json",
+            {"run_id": run_id, "repeats": 1, "commit": "abc1234", "dirty": False},
+        )
+        eval1 = run_root / "alpha" / "eval-1"
+        _write_eval_metadata(eval1, eval_id=1, key="alpha:examples:1", assertions=self.ASSERTIONS)
+        for config, passed in (("with_skill", with_skill), ("without_skill", [False, False])):
+            _write_timing(eval1 / config / "run-1")
+            _write_response(eval1 / config / "run-1")
+            _write_grading(eval1 / config / "run-1", self.ASSERTIONS, passed)
+
+    def _update(self, run_id: str, *extra: str) -> tuple:
+        stderr, stdout = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stderr(stderr), contextlib.redirect_stdout(stdout):
+            code = run_evals.main(["baseline", "update", "--from", run_id, *extra])
+        return code, stderr.getvalue() + stdout.getvalue()
+
+    def _baseline(self) -> dict:
+        path = run_evals.workspace.ROOT / "evals" / "baseline.json"
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def test_a_regression_against_the_existing_entry_is_refused(self) -> None:
+        self.assertEqual(self._update("good")[0], 0)
+        before = self._baseline()
+
+        code, message = self._update("bad")
+
+        self.assertEqual(code, 2)
+        self.assertIn("alpha", message)
+        self.assertIn("regression", message.lower())
+        self.assertIn("--allow-regression", message)
+        # Refusing has to leave every existing entry exactly as it was.
+        self.assertEqual(self._baseline(), before)
+
+    def test_allow_regression_merges_it(self) -> None:
+        self.assertEqual(self._update("good")[0], 0)
+        code, _ = self._update("bad", "--allow-regression")
+        self.assertEqual(code, 0)
+        self.assertEqual(self._baseline()["skills"]["alpha"]["with_skill"]["pass_rate"], 0.0)
+
+    def test_an_improvement_merges_without_the_flag(self) -> None:
+        self.assertEqual(self._update("bad")[0], 0)
+        code, _ = self._update("good")
+        self.assertEqual(code, 0)
+        self.assertEqual(self._baseline()["skills"]["alpha"]["with_skill"]["pass_rate"], 1.0)
+
+    def test_the_first_merge_has_nothing_to_regress_against(self) -> None:
+        code, _ = self._update("bad")
+        self.assertEqual(code, 0)
+
+
 class RunSummaryUngradedTest(unittest.TestCase):
     """`cmd_run`'s own printed summary line and `--fail-on-ungraded` exit code.
 
