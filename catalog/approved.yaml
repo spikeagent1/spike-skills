@@ -66,8 +66,8 @@ skills:
     status: approved
     cohort: safety-and-mutation
     workshop_proposal: cron-scheduler-20260823-bd1d5ccbfa
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: conversation-archive
     classification: owned
