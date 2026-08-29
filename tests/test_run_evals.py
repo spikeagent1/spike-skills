@@ -5222,6 +5222,19 @@ class BaselineCommitProvenanceTest(unittest.TestCase):
         merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
         self.assertFalse(merged["dirty"])
 
+    def test_an_unstaged_baseline_edit_is_excluded_too(self) -> None:
+        # The porcelain line for an unstaged change starts with a space, which is
+        # the shape a fixed-offset slice got wrong.
+        path = self.root / "evals" / "baseline.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}\n", encoding="utf-8")
+        for args in (["add", "evals/baseline.json"], ["commit", "-m", "baseline"]):
+            subprocess.run(["git", *args], cwd=str(self.root), check=True,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        path.write_text('{"schema_version": 1}\n', encoding="utf-8")
+        merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
+        self.assertFalse(merged["dirty"])
+
     def test_any_other_pending_change_still_counts_as_dirty(self) -> None:
         (self.root / "skills" / "briefing" / "SKILL.md").write_text("changed\n", encoding="utf-8")
         merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)

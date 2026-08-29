@@ -7,6 +7,7 @@ gitignored; only `evals/baseline.json` and `evals/reports/` are committed.
 from __future__ import annotations
 
 import datetime
+import re
 import subprocess
 from pathlib import Path
 from typing import Dict, Optional, Sequence
@@ -17,6 +18,7 @@ PROBES = WORKSPACE / "probes"
 FRESH_HOME = WORKSPACE / "home"
 ISOLATED_SETTINGS = WORKSPACE / "isolated-settings.json"
 DOTENV = ROOT / ".env"
+_STATUS_FIELD_RE = re.compile(r"^\s*\S{1,2}\s+")
 
 
 def ensure_dirs() -> Path:
@@ -59,7 +61,10 @@ def git_dirty(root: Optional[Path] = None, exclude: Sequence[str] = ()) -> bool:
         return False
     skipped = set(exclude)
     for line in status.splitlines():
-        path = line[3:].strip().strip('"')
+        # Porcelain v1: a one- or two-character status field, then the path. The
+        # field is matched rather than sliced at a fixed offset, because the
+        # leading space of an unstaged entry does not survive `_git`'s strip.
+        path = _STATUS_FIELD_RE.sub("", line, count=1).strip('"')
         if path.split(" -> ")[-1] not in skipped:
             return True
     return False
