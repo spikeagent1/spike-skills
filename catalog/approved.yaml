@@ -36,8 +36,8 @@ skills:
     status: approved
     cohort: audience-and-community
     workshop_proposal: social-agent-practice-20260823-016cc8ebdb
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: community-management
     classification: adapted
