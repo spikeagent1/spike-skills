@@ -26,7 +26,7 @@ sources:
     status: approved
     cohort: audience-and-community
     provenance: repo-owned
-    version: 1.0.0
+    version: 2.0.0
 
   audience-content-engine:
     classification: owned

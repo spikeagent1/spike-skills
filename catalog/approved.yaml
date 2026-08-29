@@ -16,8 +16,8 @@ skills:
     status: approved
     cohort: audience-and-community
     workshop_proposal: social-listening-engagement-loop-20260823-3be5d2ee9b
-    contract_version: 1
-    version: 1.0.0
+    contract_version: 2
+    version: 2.0.0
 
   - name: audience-content-engine
     classification: owned
