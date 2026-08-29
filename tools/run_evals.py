@@ -647,6 +647,7 @@ def _write_intent_metadata(intent_dir: Path, case: cases.RoutingCase) -> None:
                 "phantom_ambiguous": case.phantom_ambiguous,
                 "must_not_route": case.must_not_route,
                 "soft": case.soft,
+                "expect_question": case.expect_question,
             },
             indent=2,
         )
@@ -789,6 +790,7 @@ def cmd_routing(args: argparse.Namespace) -> int:
                 "line_no": case.line_no,
                 "repeat": repeat,
                 "chosen": None,
+                "reply": "",
                 "status": "harness_error",
                 "cost_usd": 0.0,
                 "cached": False,
@@ -816,6 +818,7 @@ def cmd_routing(args: argparse.Namespace) -> int:
                 case,
                 [row["chosen"] for row in repeats],
                 statuses=[row["status"] for row in repeats],
+                replies=[row.get("reply") or "" for row in repeats],
             )
         )
     aggregate = routing.aggregate_routing(
@@ -910,6 +913,7 @@ def _route_one(
                 "repeat": repeat,
                 "mode": args.mode,
                 "chosen": chosen,
+                "asked_question": routing.asked_question(result.text),
                 "status": result.status,
                 "cached": cached is not None,
             },
@@ -923,6 +927,8 @@ def _route_one(
         "line_no": case.line_no,
         "repeat": repeat,
         "chosen": chosen,
+        # Kept so `score_case` can tell "asked back" from "declined to route".
+        "reply": result.text,
         "status": result.status,
         "cost_usd": result.cost_usd,
         "cached": cached is not None,

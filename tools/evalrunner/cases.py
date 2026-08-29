@@ -65,6 +65,8 @@ class RoutingCase:
     `skill_file` is the skill that owns the `routing-eval.jsonl` the line came
     from. Phantom fields record targets that name skills this repo does not have;
     the loader only classifies them, scoring lives in the routing runner.
+    `expect_question` marks an intent whose correct answer is a disambiguating
+    question rather than any skill at all.
     """
 
     skill_file: str
@@ -76,6 +78,7 @@ class RoutingCase:
     phantom_ambiguous: List[str]
     must_not_route: Optional[str]
     soft: bool
+    expect_question: bool = False
 
     def __hash__(self) -> int:
         """Hash on the fixture line; the generated hash would choke on the name lists."""
@@ -249,6 +252,11 @@ def load_routing_cases(
                 raw_ambiguous = row.get("ambiguous_with") or []
                 if not isinstance(raw_ambiguous, list):
                     raise CaseLoadError(f"{path}:{line_no}: `ambiguous_with` must be a list")
+                expect_question = row.get("expect_question", False)
+                if not isinstance(expect_question, bool):
+                    raise CaseLoadError(
+                        f"{path}:{line_no}: `expect_question` must be true or false"
+                    )
                 ambiguous = [str(name) for name in raw_ambiguous if str(name) in existing]
                 phantom_ambiguous = [str(name) for name in raw_ambiguous if str(name) not in existing]
 
@@ -267,6 +275,7 @@ def load_routing_cases(
                         phantom_ambiguous=phantom_ambiguous,
                         must_not_route=must_not_route,
                         soft=soft,
+                        expect_question=expect_question,
                     )
                 )
     return loaded

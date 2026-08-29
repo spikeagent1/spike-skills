@@ -65,6 +65,12 @@ RULE_EXPECTED = "expected"
 RULE_NULL = "null"
 RULE_SOFT = "soft"
 RULE_MUST_NOT_ROUTE = "must_not_route"
+# An intent whose correct answer is a disambiguating question: two or three
+# skills fit, and committing to one of them silently is the failure. The router
+# passes by routing nothing and asking; a launcher the fixture lists as an
+# alternative absorbs the intent and asks in its own turn, which is the weaker
+# `ambiguous_pass`.
+RULE_QUESTION = "question"
 
 # "no skill applies" travels as a sentinel string rather than JSON null: Claude
 # Code 2.1.250 validates a required property with a null value as *missing*
@@ -373,6 +379,15 @@ def chosen_skill(result: ClaudeResult, *, field: str = DEFAULT_STRUCTURED_FIELD)
     return None
 
 
+def asked_question(reply: Optional[str]) -> bool:
+    """True when a router reply carries a question rather than an answer.
+
+    A question mark is the whole test: the routing runner sees one turn of text,
+    and any richer reading of "did it ask" would be a grader, not a scorer.
+    """
+    return "?" in (reply or "")
+
+
 def majority(values: Sequence[Optional[str]]) -> Optional[str]:
     """Most common answer across repeats; ties go to whichever came first.
 
@@ -399,6 +414,7 @@ def score_case(
     chosen_by_repeat: Sequence[Optional[str]],
     *,
     statuses: Sequence[str] = (),
+    replies: Sequence[str] = (),
 ) -> Dict[str, Any]:
     """Verdict for one intent, per design §5's matrix, decided by majority vote.
 
@@ -406,6 +422,12 @@ def score_case(
     exist — so they fall back to the weaker question the fixture still supports:
     a `soft` phantom accepts "nothing" or the owning skill, and a `must_not_route`
     phantom only asks that the owning skill not absorb the intent.
+
+    An `expect_question` case is scored on `replies` (one per repeat, when the
+    caller has them) instead: the router passes by routing nothing and asking
+    back, and a repeat that routed somewhere the fixture lists as an alternative
+    is the weaker `ambiguous_pass` — the launcher took the intent and asks in its
+    own turn. Silently committing to one plausible skill is the failure.
 
     `statuses` (one per repeat, when the caller has them) keeps a failed call from
     voting: a call that errored before answering says nothing about the router,
@@ -421,6 +443,12 @@ def score_case(
         if status == "ok" or chosen is not None
     ]
     chosen = majority(votes)
+    # Only a repeat that routed nothing can have asked; one that invoked a skill
+    # was killed at the tool_use and never produced a reply to read.
+    questioned = any(
+        picked is None and asked_question(reply)
+        for picked, reply in zip(chosen_by_repeat, replies)
+    )
     warnings = [
         f"{case.skill_file}:{case.line_no}: ambiguous_with entry {name!r} names no skill "
         "in this repo; dropped"
@@ -431,6 +459,8 @@ def score_case(
         rule = RULE_SOFT
     elif case.phantom_expected:
         rule = RULE_MUST_NOT_ROUTE
+    elif case.expect_question:
+        rule = RULE_QUESTION
     elif case.expected_skill is None:
         rule = RULE_NULL
     else:
@@ -457,6 +487,13 @@ def score_case(
         outcome = OUTCOME_PASS if chosen in (None, case.skill_file) else OUTCOME_FAIL
     elif rule == RULE_MUST_NOT_ROUTE:
         outcome = OUTCOME_FAIL if chosen == case.must_not_route else OUTCOME_PASS
+    elif rule == RULE_QUESTION:
+        if chosen is None:
+            outcome = OUTCOME_PASS if questioned else OUTCOME_FAIL
+        elif chosen in case.ambiguous_with:
+            outcome = OUTCOME_AMBIGUOUS
+        else:
+            outcome = OUTCOME_FAIL
     elif rule == RULE_NULL:
         outcome = OUTCOME_PASS if chosen is None else OUTCOME_FAIL
     elif chosen == case.expected_skill:
@@ -476,6 +513,8 @@ def score_case(
         "chosen_by_repeat": list(chosen_by_repeat),
         "statuses": list(statuses),
         "answered": len(votes),
+        "expect_question": bool(case.expect_question),
+        "asked_question": questioned,
         "outcome": outcome,
         "rule": rule,
         "phantom": bool(case.phantom_expected),

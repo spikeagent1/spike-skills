@@ -1318,6 +1318,21 @@ class RoutingLoaderTest(unittest.TestCase):
         self.assertEqual(case.phantom_ambiguous, ["ghost"])
         self.assertFalse(case.phantom_expected)
 
+    def test_expect_question_defaults_to_false_and_is_read_when_present(self) -> None:
+        self._routing(
+            "alpha",
+            '{"intent":"x","expected_skill":"alpha"}\n'
+            '{"intent":"y","expected_skill":null,"expect_question":true}\n',
+        )
+        loaded = cases.load_routing_cases(self.root / "skills")
+        self.assertFalse(loaded[0].expect_question)
+        self.assertTrue(loaded[1].expect_question)
+
+    def test_expect_question_must_be_a_boolean(self) -> None:
+        self._routing("alpha", '{"intent":"x","expected_skill":null,"expect_question":"yes"}\n')
+        with self.assertRaises(cases.CaseLoadError):
+            cases.load_routing_cases(self.root / "skills")
+
     def test_repo_routing_files_name_only_real_skills(self) -> None:
         """Canary: the repaired corpus has one file per skill and no phantom targets."""
         loaded = cases.load_routing_cases()
@@ -3685,6 +3700,7 @@ def _routing_case(
     phantom_ambiguous: list[str] | None = None,
     must_not_route: str | None = None,
     soft: bool = False,
+    expect_question: bool = False,
 ) -> cases.RoutingCase:
     return cases.RoutingCase(
         skill_file=skill_file,
@@ -3696,6 +3712,7 @@ def _routing_case(
         phantom_ambiguous=list(phantom_ambiguous or []),
         must_not_route=must_not_route,
         soft=soft,
+        expect_question=expect_question,
     )
 
 
@@ -3880,6 +3897,36 @@ class RoutingScoringTest(unittest.TestCase):
         score = routing.score_case(_routing_case(), [None])
         self.assertEqual(score["answered"], 1)
         self.assertEqual(routing.aggregate_routing([_routing_case()], [score])["unanswered"], [])
+
+    def test_expect_question_passes_only_when_the_router_asked(self) -> None:
+        asking = _routing_case(expected_skill=None, expect_question=True)
+        score = routing.score_case(
+            asking, [None], replies=["Meals for the week, or the shopping list?"]
+        )
+        self.assertEqual(score["outcome"], "pass")
+        self.assertEqual(score["rule"], "question")
+        self.assertTrue(score["asked_question"])
+        # Declining to route without asking is not the behaviour under test.
+        silent = routing.score_case(asking, [None], replies=["No skill applies."])
+        self.assertEqual(silent["outcome"], "fail")
+        self.assertFalse(silent["asked_question"])
+
+    def test_expect_question_fails_when_the_router_picked_one_side(self) -> None:
+        asking = _routing_case(expected_skill=None, expect_question=True)
+        score = routing.score_case(asking, ["meal-planner"], replies=[""])
+        self.assertEqual(score["outcome"], "fail")
+
+    def test_expect_question_accepts_a_listed_alternative_as_ambiguous(self) -> None:
+        asking = _routing_case(
+            expected_skill=None, ambiguous_with=["beta"], expect_question=True
+        )
+        score = routing.score_case(asking, ["beta"], replies=[""])
+        self.assertEqual(score["outcome"], "ambiguous_pass")
+
+    def test_expect_question_with_no_answer_stays_unanswered(self) -> None:
+        asking = _routing_case(expected_skill=None, expect_question=True)
+        score = routing.score_case(asking, [None], statuses=["error"], replies=["?"])
+        self.assertEqual(score["outcome"], "unanswered")
 
     def test_dropped_phantom_ambiguous_entries_are_warned_about(self) -> None:
         score = self._score(
@@ -4588,6 +4635,29 @@ class RoutingCLITest(unittest.TestCase):
         matches = list((workspace.WORKSPACE / "routing").glob(f"*-{label}"))
         self.assertEqual(len(matches), 1, f"expected one routing run for label {label}")
         return matches[0]
+
+    def test_the_reply_text_reaches_the_scorer_for_expect_question_cases(self) -> None:
+        # The router's own words are the only evidence that it asked rather than
+        # routed, so they have to survive the trip from the CLI to score_case.
+        answers = [
+            _skill_result("alpha"), _skill_result("alpha"), _skill_result("alpha"),
+            _skill_result("alpha"), _skill_result("alpha"), _skill_result("alpha"),
+            _ok_result("Which did you mean?"),
+            _ok_result("Which did you mean?"),
+            _ok_result("Which did you mean?"),
+        ]
+        self._patch_runner(FakeClaudeRunner(answers))
+        code = self._main(
+            ["routing", "--all", "--model", "sonnet", "--mode", "native",
+             "--repeats", "3", "--workers", "1", "--label", "reply"]
+        )
+        self.assertEqual(code, 0)
+        results = json.loads(
+            (self._routing_run_dir("reply") / "results.json").read_text(encoding="utf-8")
+        )
+        by_file = {score["skill_file"]: score for score in results["scores"]}
+        self.assertTrue(by_file["beta"]["asked_question"])
+        self.assertFalse(by_file["alpha"]["asked_question"])
 
     def test_native_run_writes_the_layout_and_scores_the_intents(self) -> None:
         fake = FakeClaudeRunner(self._native_answers())
