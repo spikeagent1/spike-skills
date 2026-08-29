@@ -49,10 +49,10 @@ clinical fact.
 Record keys: `journal/` dream-report is `<local-date>--<corpus-hash-8>`
 (`skills/owner-dream-cycle/SKILL.md:49`); `jobs/` job-spec is the stable job key
 and occurrence is `<job-key>@<scheduled-instant>`
-(`skills/cron-scheduler/SKILL.md:43`); `checkpoints/` cursor is
+(`skills/cron-scheduler/SKILL.md:58`); `checkpoints/` cursor is
 `<skill>/<channel-or-source>` (`skills/social-listening-engagement-loop/SKILL.md:54`);
 `effects/` effect carries `operation_key`, `target`, `effect_state`, `readback`,
-and `rollback_handle` (`skills/publish/SKILL.md:12`).
+and `rollback_handle` (`skills/publish/SKILL.md:62`).
 
 ## Not in the datastore
 

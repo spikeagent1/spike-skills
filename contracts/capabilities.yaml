@@ -105,7 +105,7 @@ effects:
     openWorldHint: true
     approval: preview_then_explicit
     resource_class: network
-    derived_from: [skills/daily-task-manager/SKILL.md:19, skills/cron-scheduler/SKILL.md:12]
+    derived_from: [skills/daily-task-manager/SKILL.md:54, skills/cron-scheduler/SKILL.md:52]
     summary: Delete an external object; explicit delete language is required per object.
   - name: schedule:manage
     readOnlyHint: false
@@ -114,7 +114,7 @@ effects:
     openWorldHint: false
     approval: preview_then_explicit
     resource_class: exec
-    derived_from: [skills/cron-scheduler/SKILL.md:12, skills/cron-scheduler/SKILL.md:85]
+    derived_from: [skills/cron-scheduler/SKILL.md:52, skills/cron-scheduler/SKILL.md:130]
     summary: Create, update, pause, resume, or remove a scheduled job.
   - name: notify:owner
     readOnlyHint: false
@@ -123,7 +123,7 @@ effects:
     openWorldHint: true
     approval: never_require
     resource_class: network
-    derived_from: [skills/cron-scheduler/SKILL.md:40]
+    derived_from: [skills/cron-scheduler/SKILL.md:90]
     summary: Deliver an owner notification under contracts/notifications.md, quiet hours applying.
   - name: message:send
     readOnlyHint: false
@@ -132,7 +132,7 @@ effects:
     openWorldHint: true
     approval: preview_then_explicit
     resource_class: network
-    derived_from: [skills/publish/SKILL.md:34, skills/social-agent-practice/SKILL.md:101]
+    derived_from: [skills/publish/SKILL.md:60, skills/social-agent-practice/SKILL.md:101]
     summary: Send a message to a third party, authorized per recipient and channel.
   - name: publish:external
     readOnlyHint: false
@@ -141,7 +141,7 @@ effects:
     openWorldHint: true
     approval: preview_then_explicit
     resource_class: network
-    derived_from: [skills/publish/SKILL.md:17, skills/runtime-handoff-onboarding/SKILL.md:46]
+    derived_from: [skills/publish/SKILL.md:125, skills/runtime-handoff-onboarding/SKILL.md:46]
     summary: Make content visible externally, authorized per destination and audience.
   - name: publish:revoke
     readOnlyHint: false
@@ -150,7 +150,7 @@ effects:
     openWorldHint: true
     approval: preview_then_explicit
     resource_class: network
-    derived_from: [skills/publish/SKILL.md:37]
+    derived_from: [skills/publish/SKILL.md:61]
     summary: Withdraw published content; cached copies and disclosed passwords cannot be recalled.
   - name: repo:write
     readOnlyHint: false
@@ -178,7 +178,7 @@ effects:
     openWorldHint: true
     approval: preview_then_explicit
     resource_class: network
-    derived_from: [skills/conversation-archive/SKILL.md:52]
+    derived_from: [skills/conversation-archive/SKILL.md:68]
     summary: Incur cost; the named provider, model, and maximum spend are required first.
   - name: credential:manage
     readOnlyHint: false
@@ -214,5 +214,5 @@ effects:
     openWorldHint: false
     approval: turn_scoped
     resource_class: fs
-    derived_from: [skills/publish/SKILL.md:25]
+    derived_from: [skills/publish/SKILL.md:57]
     summary: Write a local file to a unique path unless overwrite was authorized.

@@ -16,10 +16,10 @@ It declares:
 - **semantic_key** — the normalized fields that identify an object before it has an `external_id` (`skills/daily-task-manager/SKILL.md:27`).
 - **readback_fields** — the fields compared after every provider write (`skills/daily-task-manager/SKILL.md:36`).
 - **conflict_policy** — provider-wins unless the owner explicitly chose the datastore (`skills/daily-task-manager/SKILL.md:52`). A divergence is surfaced as a ConflictSet or duplicated on both sides, never silently merged (design-derived).
-- **pagination** — required on every listing; absence is never inferred from one page (`skills/daily-task-manager/SKILL.md:24`, `skills/cron-scheduler/SKILL.md:17`).
+- **pagination** — required on every listing; absence is never inferred from one page (`skills/daily-task-manager/SKILL.md:24`, `skills/cron-scheduler/SKILL.md:53`).
 - **match_fallback** — semantic-key matching runs against active objects only and fails closed on zero or more than one match (`skills/daily-task-manager/SKILL.md:22`).
 - **fast/slow rule** — per-record `dirty` and `deleted` flags are trusted only when `last_synced_with` equals the provider's current version token; otherwise do a full field compare.
-- **command_ids** — every provider write carries an idempotent command UUID, and a locally created object carries a temp id mapped to the provider id on acceptance (`skills/publish/SKILL.md:30`).
+- **command_ids** — every provider write carries an idempotent command UUID, and a locally created object carries a temp id mapped to the provider id on acceptance (`skills/publish/SKILL.md:58`).
 - **replay** — local operations pending at the start of a run replay after the provider readback, never before it.
 
 ## States
