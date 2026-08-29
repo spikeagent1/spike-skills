@@ -109,10 +109,12 @@ EFFECT_NEGATION_RE = re.compile(
 CLAUSE_NEGATION_RE = re.compile(r"\bread-only\b", re.IGNORECASE)
 
 
-# Text that is not the skill's own verb: a backticked span names another package
-# or a vocabulary term (`public-post-workshop` is not a post), and a quoted span
-# is the owner's phrasing a routing table matches on, not an action taken here.
-NON_PREDICATE_SPAN_RE = re.compile(r"`[^`\n]+`|\"[^\"\n]*\"|\u201c[^\u201d\n]*\u201d")
+# A backticked span names another package or a vocabulary term
+# (`public-post-workshop` is not a post), never an action taken here.
+BACKTICKED_SPAN_RE = re.compile(r"`[^`\n]+`")
+# A quoted span is normally the owner's phrasing that a routing table matches on
+# -- "post it for me later today" is the request, not the skill's own verb.
+QUOTED_SPAN_RE = re.compile(r"\"[^\"\n]*\"|\u201c[^\u201d\n]*\u201d")
 
 
 # design-os-foundations 4.3: a body keyword and the effects that would cover it.
@@ -132,6 +134,15 @@ CAPABILITY_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
+# The literal keywords CAPABILITY_HINTS scans for. A quoted span that is one of
+# them bare is the skill naming the effect, and quoting it buys no exemption; the
+# one pattern entry that is a regex rather than a literal is left out.
+EFFECT_VERBS = frozenset(
+    word.lower()
+    for keywords, _effects in CAPABILITY_HINTS
+    for word in keywords.split("|")
+    if not set(word) & set(".*+?[]()\\")
+)
 CAPABILITY_HINT_RULES = tuple(
     (re.compile(rf"\b(?:{keywords})\b", re.IGNORECASE), effects)
     for keywords, effects in CAPABILITY_HINTS
@@ -371,6 +382,26 @@ def delegated_effects(sentence: str) -> set[str]:
     return lent
 
 
+def scannable_text(clause: str) -> str:
+    """`clause` with the spans that are not the skill's own verb removed.
+
+    A backticked span always goes: it names a package or a vocabulary term. A
+    quoted span goes only when it is the owner's phrasing rather than a bare
+    effect verb, so `"publish" the entry` is still scanned while
+    `"post it for me later today"` is not.
+    """
+    masked = BACKTICKED_SPAN_RE.sub(" ", clause)
+    return QUOTED_SPAN_RE.sub(
+        lambda match: match.group(0) if _is_bare_effect_verb(match.group(0)) else " ",
+        masked,
+    )
+
+
+def _is_bare_effect_verb(span: str) -> bool:
+    """True when a quoted span is one effect keyword and nothing else."""
+    return span.strip("\"\u201c\u201d").strip().strip(".,;:!?").lower() in EFFECT_VERBS
+
+
 def split_sentences(body: str) -> list[str]:
     """Sentences of a SKILL.md body, with file names and Markdown links kept whole.
 
@@ -518,7 +549,7 @@ def validate_effects(
         for clause in CLAUSE_SPLIT_RE.split(stripped):
             if CLAUSE_NEGATION_RE.search(clause):
                 continue
-            scannable = NON_PREDICATE_SPAN_RE.sub(" ", clause)
+            scannable = scannable_text(clause)
             for pattern, implied in CAPABILITY_HINT_RULES:
                 if implied in reported or not pattern.search(scannable):
                     continue

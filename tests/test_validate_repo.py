@@ -1928,6 +1928,55 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("implies publish:external", output)
 
+    def test_a_quoted_bare_effect_verb_is_still_scanned(self) -> None:
+        # A quoted span is normally the owner's phrasing that a routing table
+        # matches on. A quoted bare verb is the skill naming the effect, and
+        # quoting it must not buy an exemption.
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    '1. Then "publish" the fixture verdict.\n'
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("implies publish:external", output)
+
+    def test_a_quoted_owner_phrasing_is_not_the_skills_own_verb(self) -> None:
+        # The launcher's precedence table quotes what the owner says; the row's
+        # target is the skill that owns the effect, not this one.
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={
+                "Workflow": (
+                    '1. A request saying "post it for me later today" routes to '
+                    "`pending-skill`.\n"
+                    "2. Emit the approved skill fixture verdict."
+                )
+            },
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+
+    def test_a_backticked_sibling_name_is_never_a_predicate(self) -> None:
+        self.assertEqual(
+            validate_repo.scannable_text("Route it to `public-post-workshop` and stop"),
+            "Route it to   and stop",
+        )
+
     def test_does_not_negates_an_effect_keyword(self) -> None:
         # Task 25 item 16, sentence 1.
         self._promote_to_v2(

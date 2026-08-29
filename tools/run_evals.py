@@ -771,11 +771,10 @@ def cmd_routing(args: argparse.Namespace) -> int:
         "cost_usd_total": 0.0,
     }
     _write_run_json(run_root / "run.json", run_json)
-    # The ballot the run voted on, in the exact material `descriptions_digest`
+    # The ballot the run voted on, byte for byte what `descriptions_sha256`
     # hashes: a digest alone cannot be read back when a later run disagrees.
     (run_root / "descriptions.txt").write_text(
-        "".join(f"{name}: {description}\n" for name, description in descriptions),
-        encoding="utf-8",
+        routing.descriptions_material(descriptions), encoding="utf-8"
     )
     for case in selected:
         _write_intent_metadata(run_root / case.skill_file / f"intent-{case.line_no}", case)

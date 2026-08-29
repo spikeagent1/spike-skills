@@ -217,10 +217,19 @@ def project_descriptions(proj: Path) -> List[Tuple[str, str]]:
     return pairs
 
 
+def descriptions_material(descriptions: Sequence[Tuple[str, str]]) -> str:
+    """The ballot as one string: `name: description` per skill, newline-separated.
+
+    This is the exact text `descriptions_digest` hashes, and the exact text a run
+    persists as `descriptions.txt` -- one function, so the file and the digest
+    cannot disagree about a trailing byte.
+    """
+    return "\n".join(f"{name}: {description}" for name, description in descriptions)
+
+
 def descriptions_digest(descriptions: Sequence[Tuple[str, str]]) -> str:
     """Hash of the whole ballot; part of every routing cache key."""
-    material = "\n".join(f"{name}: {description}" for name, description in descriptions)
-    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+    return hashlib.sha256(descriptions_material(descriptions).encode("utf-8")).hexdigest()
 
 
 def routing_cache_key(
@@ -448,10 +457,11 @@ def score_case(
     votes = [chosen for chosen, _, _ in voting]
     chosen = majority(votes)
     # Asking is decided the same way every other rule is: by majority of the
-    # repeats that actually voted. Only a repeat that routed nothing can have
-    # asked — one that invoked a skill was killed at the tool_use and never
-    # produced a reply — and a repeat that errored is not in `voting` at all, so
-    # a partial stream that happens to end mid-question cannot cast a vote.
+    # repeats that actually voted, and only a repeat that routed nothing can have
+    # asked. An `expect_question` case runs to completion in native mode (the
+    # early stop would discard the reply this scores on), so its reply is whole;
+    # a repeat that errored is not in `voting` at all, so a partial stream that
+    # happens to end mid-question cannot cast a vote.
     asking = sum(1 for picked, _, reply in voting if picked is None and asked_question(reply))
     questioned = bool(voting) and asking * 2 >= len(voting)
     warnings = [

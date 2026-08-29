@@ -4755,12 +4755,11 @@ class RoutingCLITest(unittest.TestCase):
             0,
         )
         run_dir = self._routing_run_dir("digest")
-        material = (run_dir / "descriptions.txt").read_text(encoding="utf-8").rstrip("\n")
+        # Byte for byte, with nothing stripped: the file is the digest's material.
+        raw = (run_dir / "descriptions.txt").read_bytes()
         run_json = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
-        self.assertEqual(
-            hashlib.sha256(material.encode("utf-8")).hexdigest(),
-            run_json["descriptions_sha256"],
-        )
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), run_json["descriptions_sha256"])
+        self.assertFalse(raw.endswith(b"\n"), "a trailing byte the digest does not hash")
 
     def test_an_expect_question_case_runs_to_completion_in_native_mode(self) -> None:
         # Task 25 item 24: early-stopping on the first Skill tool_use throws away

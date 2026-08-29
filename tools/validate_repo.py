@@ -57,7 +57,7 @@ from tools.validators.contracts import (
     ADAPTERS_DIR, ADAPTER_REQUIRED_KEYS, ADAPTER_SCHEMA, BACKTICKED_RE, CAPABILITIES_CONTRACT,
     CAPABILITY_HINTS, CAPABILITY_HINT_RULES, CLAUSE_NEGATION_RE, CLAUSE_SPLIT_RE, Contracts,
     DATASTORE_CONTRACT, EFFECTS_LEDGER_NS, EFFECT_NEGATION_RE, NAMESPACE_BOUNDARY,
-    NON_PREDICATE_SPAN_RE, NOTIFICATIONS_NS, NOTIFY_EFFECT, PROTECTED_DOT, PROTECTED_SPAN_RE,
+    BACKTICKED_SPAN_RE, EFFECT_VERBS, QUOTED_SPAN_RE, scannable_text, NOTIFICATIONS_NS, NOTIFY_EFFECT, PROTECTED_DOT, PROTECTED_SPAN_RE,
     RUNTIME_SPECIFIC_EXCLUSIONS, RUNTIME_SPECIFIC_RE, RUNTIME_SPECIFIC_TOKENS,
     SENTENCE_SPLIT_RE, SKILL_NAME_RE, VOCABULARY_CONTRACT, Vocabulary, _is_delegation,
     _load_contract, capability_entries, contracts_check_module, declared_effects,
@@ -72,10 +72,6 @@ from tools.validators.evals import (
     validate_eval_schema_fallback, validate_routing_eval
 )
 
-
-# The catalog field a skill's contract shape is read from. Version 1 was deleted
-# in T25; the field stays so a future bump has somewhere to declare itself.
-SUPPORTED_CONTRACT_VERSION = "2"
 
 # Names a caller redirects (every test points the validator at a fixture tree by
 # assigning `validate_repo.ROOT`). The checks read them from
@@ -116,7 +112,9 @@ sys.modules[__name__].__class__ = _EntryModule
 context.reset()
 
 
-# The only contract the validator knows how to check.
+# The catalog field a skill's contract shape is read from, and the only value it
+# may hold. Version 1 was deleted in T25; the field stays so a future bump has
+# somewhere to declare itself.
 SUPPORTED_CONTRACT_VERSION = "2"
 
 
