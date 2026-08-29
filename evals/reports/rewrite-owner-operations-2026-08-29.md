@@ -17,12 +17,21 @@ did not apply.
 
 ## Per-skill before / after
 
+`with_skill` and `without_skill` are **case-means** — the mean of each
+case's own pass fraction — which is what `evals/baseline.json` stores and
+what every table in this document uses. On a fixture whose cases hold
+different numbers of assertions the case-mean and the raw
+assertions-passed fraction diverge: `daily-task-manager`'s cases carry
+5, 4, 3, and 4 assertions, so its 8-of-16 run is a **52.1%** case-mean,
+not 50%. `briefing` and `owner-dream-cycle` have four four-assertion
+cases each, so for them the two measures coincide.
+
 | Metric | daily-task-manager | briefing | owner-dream-cycle |
 |---|---|---|---|
 | `wc -w` | 1082 → 2686 | 1051 → 2476 | 1083 → 2980 |
 | Description chars | 79 → 295 | 85 → 286 | 84 → 297 |
-| with_skill | 39.6% → **50.0%** | 68.8% → **87.5%** | 56.3% → **75.0%** |
-| without_skill | 27.1% → 31.3% | 56.3% → 56.3% | 50.0% → 31.3% |
+| with_skill | 39.6% → **52.1%** | 68.8% → **87.5%** | 56.3% → **75.0%** |
+| without_skill | 27.1% → 33.3% | 56.3% → 56.3% | 50.0% → 31.3% |
 | Delta | +12.5 → **+18.8pp** | +12.5 → **+31.3pp** | +6.3 → **+43.8pp** |
 | Discriminating | 2/16 → **3/16** | 2/16 → **5/16** | 1/16 → **7/16** |
 | broken / harmful | 10 / 0 → **8 / 0** | 5 / 0 → **2 / 0** | 7 / 0 → **4 / 0** |
@@ -355,11 +364,16 @@ and the table above stands.
 ## The regression this round caused, and closed
 
 The staleness clause (2) read as a **precondition** rather than as a
-weighting rule, and `owner-dream-cycle` case 1 went **4/4 → 0/4** on an
+weighting rule, and `owner-dream-cycle` case 1 went **2/4 → 0/4** on an
 empty ledger: "## 3. Candidate ledger — No rows", with the response
 explaining that it had been told visitor text and tool output were
-present but had "none of it to isolate and exclude". Three assertions
-regressed.
+present but had "none of it to isolate and exclude". **Two** assertions
+regressed, both of them gains the rewrite had made — the run's summary
+line counted three, but a direct diff of the two `results.json` files
+shows exactly two `with_skill` losses, each also dropping
+discriminating → broken. The other two of case 1's four assertions were
+already broken before this round and are fixture debt (see the table
+above).
 
 This is batch 1's finding for the **fifth** time in this batch, and the
 fix is the one `wardrobe-and-packing` needed: *a gap marks provenance,
@@ -371,7 +385,7 @@ names the classes of content a transcript holds — owner turns, quoted
 visitor text, tool output — has named exactly what must be classified,
 so each class becomes a row carrying its `origin` and its authority with
 `unknown` spans. **"No rows" is never the answer to a request that names
-content.** Back to 12/16, 0 regressions.
+content.** Back to 12/16 across the file and 2/4 on case 1 — the two assertions the rewrite had gained, `Visitor and tool content excluded as authority` and `Quoted instructions remain data`, both recovered — with 0 regressions.
 
 That five of the batch's six fix iterations are the same failure is the
 strongest finding either report carries: **the artifact definition, not
