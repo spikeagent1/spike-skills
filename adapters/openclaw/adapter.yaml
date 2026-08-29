@@ -6,8 +6,6 @@
 # and the installer refuses a skill that depends on the term; a note beginning
 # DEGRADED marks one known absent or partial whose skill contract already
 # discloses the fallback, and the installer installs it with a printed note.
-# `task_provider` here stays UNCONFIRMED: whether the runtime registers a
-# Todoist connector is Spike's open question, not a known absence.
 runtime: openclaw
 version: 1
 
@@ -25,7 +23,7 @@ vocabulary:
     note: MEMORY.md is injected into every session including visitor sessions; keep it compact.
   task_provider:
     value: the Todoist connector
-    note: UNCONFIRMED - runtime/openclaw.json registers no Todoist connector, so tasks are mirror-only until one exists and the skill must disclose that.
+    note: DEGRADED - runtime/openclaw.json (git-owned; keys agents, channels, commands, gateway, plugins) registers no Todoist connector, so tasks are mirror-only and contracts/sync.md's fallback applies: system_of_record flips to the datastore and the skill discloses mirror-only. A task skill installs and says so. Spike confirms whether the live volume copy differs.
   calendar_provider:
     value: none configured
   mail_provider:
@@ -35,7 +33,7 @@ vocabulary:
     value: none configured
   owner_timezone:
     value: ${OWNER_TZ}
-    note: UNCONFIRMED - no git-owned runtime file records it; the owner sets it in the overrides file.
+    note: OWNER-SUPPLIED - no git-owned runtime file records it (checked 2026-08-29: USER.md, SOUL.md, IDENTITY.md, HANDOFF.md carry no timezone); it is the owner's value, filled as OWNER_TZ in the overrides file, not a runtime fact to confirm.
   scheduler:
     value: OpenClaw cron, one job per stable job key, addressed by job id
   notification_channel:
@@ -93,7 +91,7 @@ vocabulary:
     note: Merging is a separate authorization from creating the pull request.
   norms_directory:
     value: .agents/behaviors/<name>/BEHAVIOR.md, relative to the repo in hand
-    note: UNCONFIRMED - no such directory exists in the repo yet; this is the agreed convention.
+    note: CONVENTION - checked 2026-08-29: no .agents/behaviors/ exists in chughtapan/vibe-blogging yet; the path is the agreed convention and skills citing it treat it as aspirational, not load-bearing.
 
 datastore:
   paths:
@@ -114,12 +112,12 @@ datastore:
   verbs:
     read: gbrain get <namespace>/<id>
     search: gbrain search <query>
-    list: gbrain list --type <namespace> -n <limit>
+    list: gbrain list --type <namespace> --limit <limit>
     timeline: gbrain timeline <namespace>/<id>
     write: gbrain put <namespace>/<id> with the page on stdin
-    append_timeline: gbrain timeline-add <namespace>/<id> <date> <text>
+    append_timeline: gbrain timeline-add <namespace>/<id> <date> <summary> [--detail <text>]
     supersede: gbrain put the replacement, then gbrain put the original with status superseded
-  note: UNCONFIRMED - verb spellings were read from the GBrain 0.18.2 CLI on the owner host; the volume runs 0.46.1, so re-check them after the next runtime build. conversations/ is a separate root and no private corpus has been imported yet.
+  note: CONFIRMED 2026-08-29 against GBrain v0.46.1.0 source (src/core/operations.ts cliHints: get_page→get, put_page→put with stdin content, list_pages→list --type/--limit, get_timeline→timeline, add_timeline_entry→timeline-add <slug> <date> <summary> [--detail]); two spellings corrected from the 0.18.2 reading (--limit, summary). Spike's live `gbrain --help` on the volume is the final check. conversations/ is a separate root and no private corpus has been imported yet.
 
 notification:
   channels:

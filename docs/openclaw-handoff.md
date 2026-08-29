@@ -16,15 +16,16 @@ python3 tools/check_staging.py --runtime openclaw --dest dist/openclaw/workspace
 ```
 (both wrapped as `make stage-openclaw`)
 
-29 of 31 skills installed under `dist/openclaw/workspace/skills/`, plus a
+31 of 31 skills installed under `dist/openclaw/workspace/skills/`, plus a
 rendered `dist/openclaw/workspace/ADAPTER.md` and `adapter.resolved.yaml`.
-`briefing` and `daily-task-manager` were **refused**, not staged — both
-declare `task provider` and the openclaw adapter marks that term UNCONFIRMED
-(see §4.1). `tools/check_staging.py` found 0 findings across the 29 staged
-skills: 0 runtime-specific tokens leaked into a body, 0 backticked vocabulary
-terms the adapter can't resolve, 0 `metadata.openclaw.requires.*` blocks out
-of step with their own Dependencies line. `dist/` is gitignored, so none of
-this is in git.
+`briefing` and `daily-task-manager` stage with a printed `degraded:` note —
+both declare `task provider`, which the openclaw adapter marks DEGRADED
+(no Todoist connector in `runtime/openclaw.json`; the skills disclose
+mirror-only, see §4.1). `tools/check_staging.py` found 0 findings across the
+31 staged skills: 0 runtime-specific tokens leaked into a body, 0 backticked
+vocabulary terms the adapter can't resolve, 0 `metadata.openclaw.requires.*`
+blocks out of step with their own Dependencies line. `dist/` is gitignored,
+so none of this is in git.
 
 ## 2. Copy steps
 
@@ -87,59 +88,56 @@ transcripts (redacted) and send them back — see the handoff email.
 
 | Prompt | Expected |
 |---|---|
-| `/home` | The launcher itself runs (it is staged and loads without a frontmatter warning). A bare invocation with nothing to route is expected to say so plainly — Task 23 found the launcher answers "there is no intent to route; say so and stop", not a domain index — so a Spike transcript matching that is correct, not a regression. |
-| "brief me for today" | Routes to `briefing` if it were staged — but it is not (§4.1), so the honest outcome is either `home` naming that no briefing skill is installed, or (if the request routes to a skill that reads the `owner datastore` anyway) the OpenClaw verb map resolving it: `gbrain get`/`search`/`list --type <ns> -n <limit>`/`timeline`, never a claude-code path or an MCP call — this box has no gbrain MCP fallback (§adapter Notes on fallbacks). |
-| "add a task: renew the domain" | `daily-task-manager` is not staged either (§4.1), so there is no task skill to route to at all. The expected, honest answer is that no task-management skill is installed on this box — not a fabricated Todoist write, and not a silent no-op. If some other skill picks up the request generically, it must still disclose mirror-only per the `task provider` binding, exactly as Task 23 got from `daily-task-manager` on claude-code. |
+| `/home` | The launcher itself runs (it is staged and loads without a frontmatter warning). A bare invocation with no request is the "what can you do" case per `skills/home/SKILL.md` (Inputs, owner-request row): it prints the domain index — the eight sections, what each covers, and the skills listed under them — from the bundled `references/index.md` (which carries an `installed here` column on OpenClaw) and stops, asking nothing. A transcript that prints that index is correct; one that says "no intent to route" is the pre-cleanup behaviour and is a regression. |
+| "brief me for today" | Routes to `briefing`, now staged (§4.1). Expected: a cited, read-only picture built from what the datastore and the mail provider return, with the calendar and task providers reported as unavailable (`calendar provider` is none configured; `task provider` is DEGRADED — mirror-only) rather than invented. A briefing that claims meetings or due items it could not read is a regression. |
+| "add a task: renew the domain" | Routes to `daily-task-manager`, now staged (§4.1). Expected: the skill's own Output-contract block with `target : task provider mirror-only — no connector registered`, a preview of the mirror record, and no claim of a provider write — the DEGRADED disclosure `contracts/sync.md` prescribes. A reply that says the task "was added to Todoist" is a regression. |
 
-## 4. UNCONFIRMED — needs Spike's confirmation
+## 4. Adapter bindings checked against the runtime (2026-08-29)
 
-Four notes in `adapters/openclaw/adapter.yaml` are marked UNCONFIRMED: no
-git-owned file in the runtime states them, so they are assumptions, not
-attested facts (F2). Each is a question the running deployment can answer.
+Spike's review asked for the four assumptions in `adapters/openclaw/adapter.yaml`
+to be reconciled with the runtime. They were checked against the git-owned
+runtime files in `chughtapan/vibe-blogging` (`runtime/openclaw.json`,
+`runtime/workspace/{HANDOFF,USER,SOUL,IDENTITY}.md`) and, for the datastore
+verbs, against the GBrain source at the tag the volume runs. One remains a
+question for Spike (4.4's live check); the others are settled.
 
-### 4.1 `task provider`
-> UNCONFIRMED — `runtime/openclaw.json` registers no Todoist connector, so
-> tasks are mirror-only until one exists.
+### 4.1 `task provider` — DEGRADED (was UNCONFIRMED)
+`runtime/openclaw.json` (keys: `agents`, `channels`, `commands`, `gateway`,
+`plugins`) registers no Todoist connector. That is a *known* absence, and
+`contracts/sync.md` already states the fallback: `system_of_record` flips to
+the datastore and the skill discloses that the object is mirror-only. So the
+binding is DEGRADED, not UNCONFIRMED, and `briefing` and `daily-task-manager`
+now **stage** (31 of 31) with a printed `degraded:` note. **Spike:** if the
+live volume copy of `openclaw.json` registers a task connector under some key,
+say which — the note flips to a confirmed binding and the mirror-only
+disclosure stops applying.
 
-**Question:** does `/data/.openclaw/openclaw.json` (or the deep-merged
-volume copy) register a Todoist connector today, under any key? **Value that
-resolves it:** the connector's registry key, if one exists — bind
-`task_provider` to it and `briefing`/`daily-task-manager` can be staged.
-Absent that, confirm it is still unregistered so the mirror-only disclosure
-stays correct.
+### 4.2 `owner timezone` — owner-supplied (was UNCONFIRMED)
+No git-owned runtime file records a timezone. It is not a runtime fact to
+confirm; it is the owner's value, filled as `OWNER_TZ` in
+`${HOME}/.config/spike-os/openclaw.local.yaml` on the host that runs the
+installer. Until then the rendered `ADAPTER.md` shows the literal
+`${OWNER_TZ}` and skills treat the timezone as unknown (F2). Nothing for Spike
+to confirm.
 
-### 4.2 `owner timezone`
-> UNCONFIRMED — no git-owned runtime file records it; the owner sets it in
-> the overrides file.
+### 4.3 `norms directory` — convention, not yet created (was UNCONFIRMED)
+`.agents/behaviors/<name>/BEHAVIOR.md` does not exist anywhere in
+`chughtapan/vibe-blogging`. The path stays the agreed convention; skills that
+cite it treat it as aspirational, not load-bearing. Nothing for Spike to
+confirm until the first behavior file lands.
 
-**Question:** does any workspace file (`USER.md`, a config) already record
-the owner's timezone? **Value that resolves it:** an IANA timezone string
-(e.g. `America/Los_Angeles`) — if Spike doesn't have one on file, this is a
-value only the owner can supply, into `${HOME}/.config/spike-os/openclaw.local.yaml`'s
-`OWNER_TZ` on the host that runs the installer.
-
-### 4.3 `norms directory`
-> UNCONFIRMED — no such directory exists in the repo yet; this is the agreed
-> convention.
-
-**Question:** does `.agents/behaviors/<name>/BEHAVIOR.md` exist anywhere in
-the runtime repo tree yet? **Value that resolves it:** either a confirmed
-example path (then the note can drop), or confirmation it is genuinely not
-created yet (then skills citing it should treat it as aspirational, not
-load-bearing).
-
-### 4.4 Datastore verb spellings
-> UNCONFIRMED — verb spellings were read from the GBrain 0.18.2 CLI on the
-> owner's host; the volume runs 0.46.1, so re-check after the next runtime
-> build. `conversations/` is a separate root and no private corpus has been
-> imported yet.
-
-**Question:** run `gbrain doctor --json` and confirm the verb syntax in
-`ADAPTER.md`'s Datastore table (`get <slug>`, `search <query>`,
-`list --type <ns> -n <limit>`, `timeline <slug>`, `put <slug>`,
-`timeline-add <slug> <date> <text>`) against GBrain 0.46.1. **Value that
-resolves it:** a yes/no per verb, and if `conversations/` has since been
-populated, say so as well.
+### 4.4 Datastore verb spellings — confirmed against the 0.46.1 source (was UNCONFIRMED)
+The adapter's verb map was first read off GBrain 0.18.2 on the owner's host.
+It was re-checked on 2026-08-29 against `src/core/operations.ts` at tag
+`v0.46.1.0` of `garrytan/gbrain` (the version `HANDOFF.md` says the volume
+runs): the CLI names are the ops' `cliHints.name` — `get <slug>`,
+`put <slug>` (page on stdin), `list --type <ns> --limit <n>`,
+`timeline <slug>`, `timeline-add <slug> <date> <summary> [--detail <text>]`,
+`search <query>`. Two spellings were corrected (`--limit` instead of `-n`;
+the third `timeline-add` positional is `summary`). **Spike:** the one live
+check left is `gbrain --help` on the volume confirming those names and that
+`/data/.local/bin/gbrain --version` is still 0.46.1.x; say if
+`conversations/` has since been populated.
 
 ## 5. Rollback
 

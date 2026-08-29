@@ -3,8 +3,8 @@
 Rendered from `adapters/openclaw/adapter.yaml`; `${...}` is filled at install
 from `${HOME}/.config/spike-os/openclaw.local.yaml`. **UNCONFIRMED** marks a value
 no git-owned runtime file states: verify it, never treat it as evidence (F2).
-**DEGRADED** would mark one whose absence is known and whose skill contract
-states what it does without it; no binding here carries that today.
+**DEGRADED** marks one whose absence is known and whose skill contract
+states what it does without it; the installer installs such a skill with a printed note.
 
 ## Vocabulary
 | Term | Value |
@@ -13,11 +13,11 @@ states what it does without it; no binding here carries that today.
 | `agent` | Spike, defined by SOUL.md and IDENTITY.md |
 | `owner datastore` | GBrain 0.46.1 at /data/.gbrain/brain.pglite, driven by /data/.local/bin/gbrain |
 | `durable memory` | MEMORY.md and memory/<date>.md in the workspace, plus the owner datastore |
-| `task provider` | the Todoist connector — **UNCONFIRMED** |
+| `task provider` | the Todoist connector — **DEGRADED** (none registered in runtime/openclaw.json; tasks are mirror-only and the skill discloses it) |
 | `calendar provider` | none configured |
 | `mail provider` | AgentMail, polled by scripts/check_agentmail.py on a five-minute cron |
 | `contacts provider` | none configured |
-| `owner timezone` | ${OWNER_TZ} — **UNCONFIRMED** |
+| `owner timezone` | ${OWNER_TZ} — owner-supplied in the overrides file |
 | `scheduler` | OpenClaw cron, one job per stable job key, addressed by job id |
 | `notification channel` | a Telegram owner DM, which lands in the main session |
 | `owner channel` | the Telegram main session, agent:main:main |
@@ -39,7 +39,7 @@ states what it does without it; no binding here carries that today.
 | `journal build toolchain` | Astro, building site/ in chughtapan/vibe-blogging |
 | `entry schema` | the stream contract v1 at contracts/stream.v1.schema.json |
 | `journal source branch` | main, reached by an unmerged pull request |
-| `norms directory` | .agents/behaviors/<name>/BEHAVIOR.md, relative to the repo in hand — **UNCONFIRMED** |
+| `norms directory` | .agents/behaviors/<name>/BEHAVIOR.md, relative to the repo in hand — convention, not yet created |
 
 ## Datastore
 GBrain page slugs. At the brain root: `profile` `people` `agents` `decisions`
@@ -49,7 +49,7 @@ far empty. One page per record key.
 
 | Verb | Invocation |
 |---|---|
-| `read` `search` `list` `timeline` | `gbrain get <slug>` · `search <query>` · `list --type <ns> -n <limit>` · `timeline <slug>` |
+| `read` `search` `list` `timeline` | `gbrain get <slug>` · `search <query>` · `list --type <ns> --limit <limit>` · `timeline <slug>` |
 | `write` | `gbrain put <slug>` with the page on stdin, then read it back |
 | `append_timeline` | `gbrain timeline-add <slug> <date> <text>` |
 | `supersede` | `gbrain put` the replacement, then the original with `status: superseded` |
