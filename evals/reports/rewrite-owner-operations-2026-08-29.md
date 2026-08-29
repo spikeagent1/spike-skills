@@ -36,6 +36,20 @@ count fell 22 → 14 and its discriminating count rose 5/48 → **15/48**.
 now discriminating where none of it was, and its with/without delta went
 from +6.3pp — barely distinguishable from no skill at all — to +43.8pp.
 
+**Read that delta with its control in view.** Roughly half of
+`owner-dream-cycle`'s +37.5pp swing is the skill rising (56.3% → 75.0%)
+and half is its **control falling** (50.0% → 31.3%). The control drop is
+not a measurement artefact of this rewrite — `without_skill` was
+re-sampled fresh against unchanged eval cases and the skill body is not
+in that config's prompt — but it is a one-sample control on a 4-case
+fixture, and a swing of three assertions is well inside what a single
+resample can produce. The honest claim is that the skill improved by
+**18.8pp measured directly**; the delta figure is the headline the
+harness computes, not an independent second measurement.
+`daily-task-manager`'s control moved the other way (27.1% → 33.3%) and
+`briefing`'s did not move at all (56.3% → 56.3%), which is what an
+unbiased resample looks like across three files.
+
 ## The routing ballot — run `20260829T041004-6ef4834-batch2-final`
 
 Native mode, `--repeats 3`, ballot of 30 skills, 93 ballots over the
@@ -178,7 +192,7 @@ record for these five files.
 
 | Contract | Bound by | How |
 |---|---|---|
-| `sync.md` | daily-task-manager | The **reference instance**. State enum, mutation order, four reconciliation cases, id-map / semantic-key mechanics, pagination, match-fallback, never-roll-back: all cited, none restated. Kept in the skill: mode classification, explicit-delete-language, mirror-only disclosure |
+| `sync.md` | daily-task-manager | The **reference instance**. State machine, mutation order, four reconciliation cases, id-map / semantic-key mechanics, pagination, match-fallback: cited. **Two are deliberately restated** — the one-way mutation order and the absolute never-roll-back rule — because both read stricter here than the contract alone would imply and both are what stop a mirror object outliving its provider object; the body says so rather than claiming it restates nothing. The full state enum is enumerated once, in `Output contract`. Kept in the skill: mode classification, explicit-delete-language, mirror-only disclosure |
 | `datastore.md` verbs | briefing | `read` / `search` / `list` / `timeline` named as the four non-mutating verbs, `timeline` given an explicit range every time; "since the last run" named as a move rather than a read |
 | `datastore.md` system-of-record | briefing | The conflict asymmetry — provider-backed fact wins, the copy is stale context |
 | `datastore.md` invariants 1–8 | owner-dream-cycle | One claim per record; correction supersedes; no relabelling inference as owner-stated; **invariant 4 = the curated-write privilege, cited explicitly**; **invariant 5 = session-kind gate**; structured provenance; no secrets; readback |
@@ -214,8 +228,9 @@ field, not in prose.
 
 ## Open fixture debt
 
-Ten assertions across this cluster assert behaviour that cannot be
-produced in a text-only harness without fabricating it, and **the
+**Fourteen** assertions across this cluster — 8 in `daily-task-manager`,
+2 in `briefing`, 4 in `owner-dream-cycle` — assert behaviour that cannot
+be produced in a text-only harness without fabricating it, and **the
 graders flagged six of them themselves**, unprompted, in the run's
 `structurally_unsatisfiable` block. Full table and the recommended
 repairs are in the task report; the shape is uniform:
@@ -230,19 +245,26 @@ repairs are in the task report; the shape is uniform:
 | `briefing examples:1` — `Calendar and task provider queried authoritatively`, `Current owner date/timezone resolved` | No calendar or task conduit exists; the coverage ledger correctly records `unavailable: no conduit` | Stub the providers, or assert the ledger rows instead |
 | `owner-dream-cycle examples:1/2` — `Corpus hash recorded`, `Same run identity`, `Idempotency verified` | There is no exporter and no prior run, so no hash exists to record or match | Supply a corpus hash and a prior report in the prompt |
 
-## Rulings needed
+## Rulings — the ledger namespaces (settled in fix round 1)
 
-**`owner-dream-cycle` cannot express its own M7 obligation.**
-design-os-foundations §9 gives it `writes_to: [journal, profile,
-decisions, projects]` with no `effects` namespace, but M7 requires an
-`effects/` record for every mutating effect and `validate_namespaces`
-errors on a body naming an undeclared namespace. The body therefore
-cites M7 through the `effects ledger` **vocabulary term** — no trailing
-slash, so the namespace scan does not fire. `daily-task-manager` and
-`cron-scheduler` both declare `effects` in `writes_to`, which makes this
-look like an omission in the §9 row rather than a decision. Requested:
-add `effects` to `owner-dream-cycle`'s `writes_to`, or exempt it from M7
-explicitly.
+The batch raised one ruling request and it was granted. **A skill
+declaring any mutating effect declares `effects` in `writes_to` (M7); a
+skill declaring `notify:owner` declares `notifications` (notifications.md
+§Ledger).** design-os-foundations §9 gave `owner-dream-cycle`
+`writes_to: [journal, profile, decisions, projects]` with neither, while
+M7 requires an effects record for every mutating effect and
+`validate_namespaces` errors on a body naming an undeclared namespace —
+so the body had been citing M7 through the `effects ledger` *vocabulary
+term* to keep the namespace scan quiet, which is a workaround rather
+than a declaration.
+
+Applied here: `owner-dream-cycle` is now
+`writes_to: [journal, profile, decisions, projects, effects,
+notifications]` and its Dependencies line names both ledgers directly.
+`daily-task-manager` already declared `effects`. `briefing` declares no
+mutating effect and correctly gains neither. The validator rule that
+enforces this lands in cleanup, where cohort-1's
+`medication-and-symptom-log` gets the same retro-fix.
 
 ## Findings for the batches that follow
 
@@ -274,3 +296,83 @@ explicitly.
    batch.** Four fix iterations, all of them a rule eating its own
    deliverable, none of them caught by the validator. Budget one fix
    iteration per skill as the expected case, not the exception.
+
+
+---
+
+# Fix round 1 (review of the batch)
+
+Six Important findings, all small, plus one regression the fixes
+themselves caused and closed. `make validate` exits 0 with 17 warnings,
+`baseline check` exits 0, 499 tests OK. All three skills re-gated and
+re-baselined from clean post-commit runs; **no skill's numbers moved**.
+
+| Skill | with / without | Discriminating | broken / harmful | Run |
+|---|---|---|---|---|
+| daily-task-manager | 52.1% / 33.3% | 3/16 | 8 / 0 | `20260829T043417-ff51507` |
+| briefing | 87.5% / 56.3% | 5/16 | 2 / 0 | `20260829T043527-ff51507` |
+| owner-dream-cycle | 75.0% / 31.3% | 7/16 | 4 / 0 | `20260829T043909-3829af7` |
+
+Unchanged from the batch numbers. The routing ballot was **not re-run**:
+no description was edited in this round, so the ballot is byte-identical
+and the table above stands.
+
+## What changed
+
+1. **`briefing` binds the search rule.** `contracts/datastore.md`'s verb
+   table says every `search` hit must be `read` before it is used, and
+   the rewrite had bound the other three verbs but not that one.
+   Workflow step 3 now says a hit is not yet evidence, so no claim rests
+   on a snippet, a title, or a rank.
+2. **`owner-dream-cycle` binds staleness and supersession.** A page
+   whose compiled truth is older than its newest timeline entry is
+   stale — that is the supersession signal, and a stale page is context
+   and never current truth (F2). v1's dropped action is restored with
+   it: an older goal or commitment is stale until this corpus reaffirms
+   it, carried in to test the new turns against rather than cited back
+   as live. v1's **"trial one closed day and inspect the ledger before
+   enabling recurrence"** is restored as a Workflow clause.
+3. **`daily-task-manager`'s sync-reference claim was false.** "Adds
+   nothing to them and restates none of them" is replaced by what the
+   file does: cites `sync.md` for the state machine, the mutation order
+   and the reconciliation cases, and restates exactly two — the one-way
+   mutation order and the never-roll-back rule — with the reason. Both
+   reports' "all cited, none restated" line is corrected above.
+4. **Two X2 mis-cites → X3.** X2 is an owner-set hard constraint.
+   Neither `briefing`'s "the disagreement cannot be represented without
+   picking a side" nor `owner-dream-cycle`'s "a rerun would produce a
+   second record" is one; both are facts that would be asserted with
+   nothing behind them. Both now carry the consequence in the sentence.
+5. **`owner-dream-cycle`'s corpus boundary reconciled.** `When to use`
+   and `Inputs` accept "or the span" while `Privacy and mutations` said
+   "one closed local day". Both are true and the relation is now
+   written: the privilege operates **per closed day**, and a longer span
+   is a sequence of closed days each with its own hash and its own
+   ledger, never one undifferentiated corpus. What a span adds is the
+   comparison across those days, not a wider grant.
+6. **Ledger namespaces**, per the ruling above.
+
+## The regression this round caused, and closed
+
+The staleness clause (2) read as a **precondition** rather than as a
+weighting rule, and `owner-dream-cycle` case 1 went **4/4 → 0/4** on an
+empty ledger: "## 3. Candidate ledger — No rows", with the response
+explaining that it had been told visitor text and tool output were
+present but had "none of it to isolate and exclude". Three assertions
+regressed.
+
+This is batch 1's finding for the **fifth** time in this batch, and the
+fix is the one `wardrobe-and-packing` needed: *a gap marks provenance,
+it does not withhold the artifact.* The staleness rule is now scoped to
+how a record that **was** read is weighed and explicitly does not gate
+whether the ledger is built; where no durable record is reachable every
+row is still written, with `supersedes` saying so. And a request that
+names the classes of content a transcript holds — owner turns, quoted
+visitor text, tool output — has named exactly what must be classified,
+so each class becomes a row carrying its `origin` and its authority with
+`unknown` spans. **"No rows" is never the answer to a request that names
+content.** Back to 12/16, 0 regressions.
+
+That five of the batch's six fix iterations are the same failure is the
+strongest finding either report carries: **the artifact definition, not
+the rule statement, is where these skills are actually written.**

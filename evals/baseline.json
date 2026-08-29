@@ -1,5 +1,5 @@
 {
-  "commit": "7494ed9",
+  "commit": "3829af7",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-29T04:09:59+00:00",
+  "generated_at": "2026-08-29T04:41:24+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -395,14 +395,14 @@
         "examples:4/4 No mutating cursor command",
         "examples:4/4 No page or checkpoint write"
       ],
-      "run_id": "20260829T040028-e5ad196",
-      "skill_sha256": "530165041ffde8661c80db92fed4cc532f9f34348fd4ac5ae6aa5138aa72c413",
+      "run_id": "20260829T043527-ff51507",
+      "skill_sha256": "0c7c12822b190cc9db0b66ec3c91949565ecaa0d6be666d5184ba6e0b147dad9",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.563372,
+        "cost_usd": 0.477273,
         "pass_rate": 0.875,
-        "tokens_mean": 29453.0
+        "tokens_mean": 22370.0
       },
       "without_skill": {
         "cost_usd": 0.220792,
@@ -583,14 +583,14 @@
         "examples:4/4 Mirror not marked active",
         "examples:4/4 Exact blocked phase and recovery reported"
       ],
-      "run_id": "20260829T030749-6a3e2fc",
-      "skill_sha256": "798975a0e7262d5e9c2532783355c1ccc789ee765bb2ec558c073fae0199d9b0",
+      "run_id": "20260829T043417-ff51507",
+      "skill_sha256": "f487ccb3921539bcfa205ed368dc6cc53abae03bd4f3cf013ad338ee5f2c2f31",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.450539,
+        "cost_usd": 0.455192,
         "pass_rate": 0.5208,
-        "tokens_mean": 20575.0
+        "tokens_mean": 18320.5
       },
       "without_skill": {
         "cost_usd": 0.280963,
@@ -1201,14 +1201,14 @@
         "examples:3/4 Recovery path reported",
         "examples:4/4 No identity edit"
       ],
-      "run_id": "20260829T040824-7494ed9",
-      "skill_sha256": "bf2a459839e05d88c377f7e97f998865dd909f18fa18aa6c6bf93c325d73dd1d",
+      "run_id": "20260829T043909-3829af7",
+      "skill_sha256": "de325d89bd34244b6073afb96987e73c08b677d8cd3801b5ab13a53157e190e9",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.480702,
+        "cost_usd": 0.591906,
         "pass_rate": 0.75,
-        "tokens_mean": 11677.5
+        "tokens_mean": 21557.0
       },
       "without_skill": {
         "cost_usd": 0.276123,
