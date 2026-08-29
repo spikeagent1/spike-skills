@@ -137,6 +137,27 @@ ADAPTED_SOURCE_FIELDS = (
     "local_modifications",
 )
 IMMUTABLE_SOURCE_FIELDS = ("commit", "artifact_sha256", "skill_file_sha256", "digest")
+# Every key catalog/sources.yaml entries may carry. An unknown key is a typo or
+# a field invented without a rule behind it; either way nothing reads it.
+SOURCE_ENTRY_KEYS = frozenset(
+    {
+        "classification",
+        "runtime_path",
+        "repository_path",
+        "path",
+        "status",
+        "cohort",
+        "provenance",
+        "version",
+        "upstream",
+        "upstream_version",
+        "publisher",
+        "license",
+        "license_source",
+        "local_modifications",
+    }
+    | set(IMMUTABLE_SOURCE_FIELDS)
+)
 ALLOWED_CLASSIFICATIONS = {"owned", "adapted", "vendored", "runtime-only"}
 HEX_COMMIT_RE = re.compile(r"^[0-9a-fA-F]{7,64}$")
 SHA256_RE = re.compile(r"^(?:sha256:)?[0-9a-fA-F]{64}$")
@@ -1328,6 +1349,29 @@ def validate_source_catalog(
 
     for name, source in sorted(sources.items()):
         classification = source.get("classification")
+        # "name" is synthesized by parse_source_entries from the mapping key,
+        # not written in the file, so it is not part of the file's vocabulary.
+        for key in sorted(set(source) - SOURCE_ENTRY_KEYS - {"name"}):
+            add_error(
+                errors,
+                f"catalog/sources.yaml: {name} has unknown key {key!r}; allowed keys "
+                f"are {', '.join(sorted(SOURCE_ENTRY_KEYS))}",
+            )
+        upstream_version = source.get("upstream_version", "")
+        if upstream_version:
+            if classification != "adapted":
+                add_error(
+                    errors,
+                    f"catalog/sources.yaml: {name} is {classification!r} and may not "
+                    f"carry upstream_version; only an adapted source has an upstream "
+                    f"package version distinct from its own",
+                )
+            if not SEMVER_RE.match(upstream_version):
+                add_error(
+                    errors,
+                    f"catalog/sources.yaml: {name} upstream_version "
+                    f"{upstream_version!r} is not a semantic version",
+                )
         if classification in {"adapted", "vendored"}:
             for field in ADAPTED_SOURCE_FIELDS:
                 value = source.get(field, "")

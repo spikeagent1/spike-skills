@@ -33,7 +33,12 @@ across all three skills; four gains.**
 | `examples:3/4 Audience, purpose, destination, and byline requested` | draft-in-voice | broken |
 | `examples:4/5 24 percent cited internally or metric omitted` | draft-in-voice | **harmful** |
 
-Two of the batch's three `harmful` assertions cleared. Validator warnings
+Two of the batch's three `harmful` assertions cleared.
+`literature-review`'s `broken` count holds at 10 but its composition
+moved: `Screening/stopping rules` left as a gain and
+`Contradictions and sparse evidence surfaced` arrived from `harmful` —
+the skill stopped making that case worse than the control without yet
+clearing it. Validator warnings
 across the repo: **14 → 12** (`draft-in-voice` ×3 and `fact-check` ×1
 runtime-specific values removed; runtime-specific hits are 0 for all
 three files).
@@ -63,7 +68,13 @@ to `schedule` at RED and to no skill now — the same fail either way.
 - `literature-review:2` "What does the research actually say about remote work and productivity over the last decade?"
 - `literature-review:4` "Just tell me whether this one sentence in my draft is true." → now correctly `fact-check`
 - `fact-check:2` "verify the facts in this essay against live sources"
-- `fact-check:4` "this briefing came straight out of the brain — is this output hallucinating? re-derive every claim" — at RED this went to `briefing`; the cross-pair now resolves
+- `fact-check:4` "this briefing came straight out of the brain — is this output hallucinating? re-derive every claim" — at RED this went to `briefing`
+
+The evidence cluster's cross-pair resolves **in one direction only**:
+`literature-review:4` ("Just tell me whether this one sentence in my
+draft is true") now reaches `fact-check`, while `fact-check:8` ("check
+this study — is the 40% reduction number real, did it ever replicate")
+still returns no skill at all, 0 ballots of 3.
 
 **Still failing, all five to "answered natively, no skill":**
 `fact-check:1`, `:3`, `:5`, `:8`, and `literature-review:3`.

@@ -43,7 +43,7 @@ skill's `writes_to`.
 `health-log` (Task 13c ruling 2) is the one `journal/` kind whose authority is
 the record itself rather than a run: it is what the owner said happened, dated.
 Like any stored note it proves what was recorded, not that what was recorded is
-true (`skills/fact-check/SKILL.md:28`), so no reader may promote it to a
+true (`skills/fact-check/SKILL.md:60`), so no reader may promote it to a
 clinical fact.
 
 Record keys: `journal/` dream-report is `<local-date>--<corpus-hash-8>`

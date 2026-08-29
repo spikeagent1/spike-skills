@@ -1406,6 +1406,65 @@ class ValidateRepoTest(unittest.TestCase):
 
         self.assertEqual(code, 0, output)
 
+    def test_source_entry_rejects_unknown_key(self) -> None:
+        sources = (self.root / "catalog/sources.yaml").read_text(encoding="utf-8")
+        self._write(
+            "catalog/sources.yaml",
+            sources.replace(
+                "    provenance: repo-owned\n", "    provenance: repo-owned\n    upstrem_version: 1.0.0\n", 1
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "catalog/sources.yaml: approved-skill has unknown key 'upstrem_version'",
+            output,
+        )
+
+    def test_upstream_version_requires_adapted_classification(self) -> None:
+        """An owned source has no upstream package, so it has no upstream version."""
+        sources = (self.root / "catalog/sources.yaml").read_text(encoding="utf-8")
+        self._write(
+            "catalog/sources.yaml",
+            sources.replace(
+                "    provenance: repo-owned\n", "    provenance: repo-owned\n    upstream_version: 1.0.0\n", 1
+            ),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "catalog/sources.yaml: approved-skill is 'owned' and may not carry upstream_version",
+            output,
+        )
+
+    def test_upstream_version_must_be_semver(self) -> None:
+        self._make_adapted()
+        sources = (self.root / "catalog/sources.yaml").read_text(encoding="utf-8")
+        self._write(
+            "catalog/sources.yaml",
+            sources.replace("    version: 1.0.0\n", "    version: 1.0.0\n    upstream_version: v1.2\n", 1),
+        )
+        self._write_json(
+            "catalog/provenance/approved-skill/origin.json",
+            self._origin_json("a" * 64, "b" * 64, "v1.2"),
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "catalog/sources.yaml: approved-skill upstream_version 'v1.2' is not a "
+            "semantic version",
+            output,
+        )
+
     def test_provenance_installed_version_follows_upstream_version(self) -> None:
         """A rewritten adapted skill keeps the installer's upstream version."""
         self._make_adapted()
