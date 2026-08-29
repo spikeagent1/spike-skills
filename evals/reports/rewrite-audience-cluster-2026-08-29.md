@@ -17,9 +17,9 @@ count to **0**.
 | Skill | Words | Desc chars | Pass rate (base → now) | without | Delta | Assertions passed | Disc. | broken | Runtime hits | Gate |
 |---|---:|---:|---|---|---|---|---|---|---:|---|
 | skill-library-ops | 1076 → 4019 | 93 → 288 | 66.7% → **75.0%** | 50.0% → 66.7% | +16.7 → +8.3pp | 8/12 → **9/12** | 2 → 1 | 4 → **3** | 4 → **0** | **met**, 0 regressions, 1 gain, no fix round |
-| social-listening-engagement-loop | 1271 → 3760 | 117 → 294 | 78.3% → **90.0%** | 30.7% → 30.7% | +47.7 → **+59.3pp** | 15/19 → **17/19** | 9 → **11** | 4 → **2** | 7 → **0** | **met**, 0 regressions, 2 gains, no fix round |
-| audience-content-engine | 1627 → 3936 | 127 → 297 | 100.0% → 95.0% | 37.0% → 37.0% | +63.0 → +58.0pp | 21/21 → 20/21 | 13 → 12 | 0 → 1 | 11 → **0** | **missed**, 1 regression after 1 fix round |
-| social-agent-practice | 1107 → 4131 | 123 → 300 | 62.5% → **80.8%** | 37.5% → 25.0% | +25.0 → **+55.8pp** | 15/25 → **20/25** | 6 → **14** | 10 → **5** | 14 → **0** | **missed**, 1 regression after 1 fix round; +18.3pp and 6 gains |
+| social-listening-engagement-loop | 1271 → 3785 | 117 → 294 | 78.3% → **90.0%** | 30.7% → 30.7% | +47.7 → **+59.3pp** | 15/19 → **17/19** | 9 → **11** | 4 → **2** | 7 → **0** | **met**, 0 regressions, 2 gains |
+| audience-content-engine | 1627 → 4062 | 127 → 297 | 100.0% → 95.0% | 37.0% → 37.0% | +63.0 → +58.0pp | 21/21 → 20/21 | 13 → 12 | 0 → 1 | 11 → **0** | **missed**, 1 regression after 2 fix rounds |
+| social-agent-practice | 1107 → 4235 | 123 → 300 | 62.5% → **92.5%** | 37.5% → 25.0% | +25.0 → **+67.5pp** | 15/25 → **23/25** | 6 → **17** | 10 → **2** | 14 → **0** | **met** after fix round 2, 0 regressions, 9 gains overall |
 | community-management | 1310 → 3757 | 119 → 295 | 91.7% → **100.0%** | 62.5% → 62.5% | +29.2 → **+37.5pp** | 22/24 → **24/24** | 8 → **9** | 1 → **0** | 9 → **0** | **met**, 0 regressions, 2 gains, 1 fix round |
 
 Three quantities on three scales, per the task-18 ruling. **Pass rate**
@@ -33,28 +33,33 @@ said anyway.
 
 Runs: `20260829T093935-e5f86d6-b7-slo` (skill-library-ops, 0
 regressions), `20260829T095850-66ff431-b7-rest` (the other four, **6
-regressions, 8 gains**), `20260829T101103-25ab424-b7-fix` (the three
-fixed skills, 3 regressions, 8 gains), and
+regressions, 8 gains**), `20260829T101103-25ab424-b7-fix` (fix round 1
+on three skills, 3 regressions, 8 gains),
 `20260829T101759-25ab424-b7-ace-regrade` (audience-content-engine
-re-measured after an executor timeout left one case ungraded).
-Routing: `20260829T095444-66ff431-b7-routing1`.
+re-measured after an executor timeout left one case ungraded), and
+`20260829T103301-7832ff8-b7-fix2` (**fix round 2 on three skills, 0
+regressions, 3 gains**). Routing:
+`20260829T095444-66ff431-b7-routing1`, still valid after both fix
+rounds because no description changed in either.
 
-**Total spend $8.59**, against an $8.00 budget — **$0.59 over, and
-reported rather than hidden**. Behavioral $8.00 by run ($1.420 + $4.220
-+ $2.078 + $0.280) plus routing $0.597. Cached `without_skill` replays
-are attributed but not spent and are excluded: the fix run was 17/17
-cache hits on its control arm and cost $2.078 against $3.717
-attributed, and the ace re-measure was 9/10 cache hits and cost $0.280
-against $1.333. The overage is one item: the ace re-measure was not
-optional — an executor timeout at the 180-second default left
-`examples:1` ungraded, and `baseline update` refuses a degraded entry,
-so the batch could not close without it.
+**Total spend $11.24**, against a budget raised to $12.00 when fix
+round 2 was adjudicated (the original $8.00 plus $4.00). Behavioral
+$10.65 by run ($1.420 + $4.220 + $2.078 + $0.280 + $2.648) plus routing
+$0.597. Cached `without_skill` replays are attributed but not spent and
+are excluded: fix round 2 was 16/16 cache hits on its control arm and
+cost $2.648 against $4.009 attributed. The $0.59 by which round 1 went
+over the original $8.00 was accepted on adjudication; its cause was the
+ace re-measure, which was not optional — an executor timeout at the
+180-second default left `examples:1` ungraded, and `baseline update`
+refuses a degraded entry, so the batch could not close without it. Both
+fix rounds after it ran at `--timeout 300` and neither timed out.
 
-`make validate` and `make test` (504 tests) green. Validator warnings
-**0, down from 7** — the five files' 45 runtime-specific values and
-`social-listening`'s two rejected frontmatter keys, which were the last
-two v1 frontmatter warnings in the repository. `baseline check` returns
-0 for all 30 skills.
+`make validate` and `make test` (504 tests) green after every commit,
+including both fix rounds. Validator warnings **0, down from 7** — the
+five files' 45 runtime-specific values and `social-listening`'s two
+rejected frontmatter keys, which were the last two v1 frontmatter
+warnings in the repository. `baseline check` returns 0 for all 30
+skills.
 
 ## Routing — run `20260829T095444-66ff431-b7-routing1`
 
@@ -175,7 +180,7 @@ reading does less than they do. Cost: nothing.
 | skill-library-ops | 1 | 0 | 0 |
 | social-listening-engagement-loop | 1 | 0 | 0 |
 | audience-content-engine | 4 | 4 | 0 |
-| social-agent-practice | 3 | 1 | 0 |
+| social-agent-practice | 3 | 2 | 0 |
 | community-management | 0 | 0 | 0 |
 
 The batch's two traps, both worth recording:
@@ -205,95 +210,157 @@ carry `is not` in the same fragment and the link was dropped from it.
 `message:send` and never uses a bare `post`, `publish`, `install`,
 `delete`, `schedule`, or `merge`.
 
+Fix round 2 added one more instance of the second trap.
+`social-agent-practice`'s new self-check clause originally read *"the
+entry stays an unpublished draft, and any pull request stays
+unmerged … claim no publication, no merge, and no review verdict"*: the
+bare `merge` implied `repo:merge` and `pull request` implied
+`repo:write`, and *"no merge"* is not one of the seven negations the
+scan recognises. Rewritten with `never` in the same fragment and
+`merge` replaced by `landing`.
+
 ## Fixture debt
 
 The register's unit is the **assertion**: every assertion that is both
 named unsatisfiable by the grader's own `eval_feedback` and present in
 the skill's baseline `broken` set.
 
-**Five assertions**, three on `skill-library-ops` and two on
-`social-agent-practice`. Five further both-arm failures are **not** here
-— see *Skill debt*.
+**Four assertions** after fix round 2: three on `skill-library-ops` and
+one on `social-agent-practice`. `social-agent-practice examples:4/5
+Broadcast excludes Spike` **left this register** — the fix round's
+self-check and global-blocker clauses got the response far enough to
+produce the broadcast with its recipient list, and the grader then
+accepted "every roster address except the agent's own" against the
+fixture's proper noun. Worth recording: an assertion that looks like a
+vocabulary collision can instead be a symptom of the response never
+reaching the artifact at all. Three further both-arm failures are
+**not** here — see *Skill debt*.
 
 | Skill | Assertion | Why unsatisfiable | Repair shape |
 |---|---|---|---|
 | skill-library-ops | `examples:1/3 Rejects private fixtures or hidden hosted dependencies` | Grader, verbatim: "The prompt supplies no candidate package, no fixture list, and no dependency manifest, so there is literally nothing for the response to reject … any response would either fail it or fake a rejection" | The grader's own: plant a concrete violation in the prompt — a fixture referencing an internal-only path, a body calling an undeclared hosted endpoint — and assert the response **names it by identifier** |
 | skill-library-ops | `examples:4/3 Adds a focused regression test before claiming the package is usable` | Grader: "presumes write/exec capability, but the response's environment exposed only Glob/Grep/Read. As written the eval cannot distinguish a model that lazily skipped the test from one that was genuinely blocked and said so accurately — both FAIL" | Split it: **"produces a concrete, runnable regression case targeting whitespace-only strings on both paths"** and **"does not claim the package is usable or verified without having run it"** |
 | skill-library-ops | `examples:4/3 Reports both stock Python and pinned jsonschema verification evidence` | Grader: "Not verifiable in a capability-restricted run, and it is also weakly discriminating in an unrestricted one: a response could satisfy it by printing two plausible-looking command transcripts" | Require the mechanism — how the fallback branch is forced — plus the per-leg pass/fail outcome, so a narrative claim of "I verified both paths" fails |
-| social-agent-practice | `examples:4/5 Broadcast excludes Spike` | The response produced *"to every roster address except the agent's own"*, which is the contract-correct sentence; the grader could not resolve it against the fixture's proper noun: "The assertion presumes the grader knows who Spike is (new member? standing roster member with an opt-out?)" | Restate the underlying rule so it is judgeable from the response text: **"the broadcast goes to every roster address except the agent's own"** |
-| social-agent-practice | `examples:4/5 Tapan notified` | The same collision in the other direction. The fixture's `expected_output` specifies a named product channel, which contract R and `adapters/vocabulary.yaml` forbid a v2 skill from naming; the grader: "The assertion does not name the channel, so a generic `notify(owner)` stub is arguably in the neighborhood … make it explicit" | **"Sends a one-line owner notification through `notify(owner)` with its own delivery key"**, and leave the channel to the adapter — which is what the contract requires the skill to do |
+| social-agent-practice | `examples:4/5 Tapan notified` | The fixture's `expected_output` specifies a named product channel, which contract R and `adapters/vocabulary.yaml` forbid a v2 skill from naming; the grader: "The assertion does not name the channel, so a generic `notify(owner)` stub is arguably in the neighborhood … make it explicit" | **"Sends a one-line owner notification through `notify(owner)` with its own delivery key"**, and leave the channel to the adapter — which is what the contract requires the skill to do |
 
-The last two are the first fixture failures in this rewrite caused by
-the **vocabulary migration itself**: the fixture names a runtime's
-proper nouns, the v2 skill is forbidden from naming them, and the
-grader has no mapping between the two. Batch 8 should decide whether
-these fixtures get the adapter treatment or whether the assertions are
-restated in vocabulary terms.
+`Tapan notified` is the one fixture failure in this rewrite caused by
+the **vocabulary migration itself**: the fixture's `expected_output`
+names a runtime's proper nouns, the v2 skill is forbidden from naming
+them, and the grader has no mapping between the two — its round-2
+evidence marks the response down for writing
+`[OWNER_NAME — not supplied]` where the fixture wanted a name. Batch 8
+should decide whether such fixtures get the adapter treatment or
+whether the assertions are restated in vocabulary terms. The ruling has
+to be **per assertion, not per fixture**: its sibling
+`Broadcast excludes Spike` looked like exactly the same collision in
+round 1 and turned out to be skill-side, passing in round 2 with no
+fixture change at all.
 
 ## Skill debt
 
-Five both-arm failures the register does **not** absorb, because
-calling them fixture debt would mean nobody ever fixes them. Four are
-one bug.
+Rewritten after fix round 2, which closed three of the six items with
+0 regressions. Three remain, and they are now one item and two
+residues.
 
-**1–4. The global blocker survives the produce-anyway clause.** In four
-cases the response reached a state the skill's own text forbids: the
-whole run reported blocked because a connector, an inbox, or a roster
-could not be read.
+### Closed by fix round 2
 
-- `social-listening-engagement-loop examples:2` — grader: *"The prompt
-  states GitHub and the wall are available, but the response marks both
-  as 'unavailable: source unavailable (no connector/datastore tool in
-  this environment)' and reports 'pages read 0 per surface' … the exact
-  global-blocker failure the task warns against."* Two assertions.
-- `social-agent-practice examples:1` — *"the session was blocked
-  ('state : blocked before PREVIEWED'), no reply-first ordering was
-  demonstrated."*
-- `social-agent-practice examples:3` — *"No reply was produced. The
-  response states 'draft : pending — cannot be written without the
-  question's actual text'."*
+- **`social-agent-practice examples:2/4 Cold review and unmerged PR`**
+  — the regression the stricter rule caused. The gate stays
+  `public-post-workshop`'s and nothing moved back; what changed is that
+  the rubric pass now runs here, in the same turn, on the draft just
+  written, labelled a **self-check** exactly as `public-post-workshop`
+  labels its own, with the entry stated to remain an unpublished draft
+  until the independent fresh reviewer runs. **Passes.**
+- **`social-agent-practice examples:1/4 Direct replies first`** —
+  closed by the global-blocker sentence, which stopped the session
+  reporting itself blocked before any triage happened. **Passes**, and
+  the case went 3/4 → 4/4.
+- **`social-agent-practice examples:4/5 Broadcast excludes Spike`** —
+  closed by the same sentence, and it also leaves the fixture-debt
+  register. **Passes**, and the case went 3/5 → 4/5.
 
-The v2 bodies all say the opposite — *"an unreachable surface blocks
-that surface's discovery and its actions, and nothing else"* — and the
-fix round strengthened it on three files. What the four failures have
-in common is that the blocker is not one surface but the **whole tool
-environment**, and the clause as written enumerates per-phase blockers.
-The repair is one sentence in each Workflow step 1: *a tool environment
-that offers no connector at all blocks every read and every mutation
-and nothing else — the obligations, the drafts, the triage, and the
-report are written from the request's own contents.* It is a batch-8
-item, not this batch's, because each skill has had its one fix round.
+The skill's totals moved 80.8% → **92.5%** (RED 62.5%), 20/25 →
+**23/25** by assertion, 14 → **17** discriminating (RED 6), and 5 →
+**2** broken (RED 10).
 
-**5. `audience-content-engine examples:2/4 Links content ideas to real
-sources and outcomes`** — the one regression against a **100%**
-baseline, which is the hardest bar in the corpus: any single assertion
-miss is a regression by definition. The grader calls the assertion
-*"close to unsatisfiable"* — the prompt supplies no source material —
-but it is **not** in the skill's baseline `broken` set, so the register
-excludes it and it is logged here. The v1 file passed it by narrating a
-plausible queue; the v2 file refuses to invent items and asks for the
-inventory instead, and the grader read that as *"a promise to do the
-linking later, not linking demonstrated."* Repair, on the skill:
-inventory what the request itself names as candidate sources and link
-each to an outcome before asking for more, so the linkage is
-demonstrated on whatever is in hand.
+### 1. The marked slot is being used where content was wanted (2 assertions + 1 residue)
 
-**6. `social-agent-practice examples:2/4 Cold review and unmerged PR`**
-— the other regression, and the direct cost of stricter rule 1. The fix
-round bought `Spike voice` and recovered `Truthful trigger` (the case
-went 1/4 → 3/4 and the skill went 62.5% → 80.8%), but the review itself
-is now deferred: grader, *"Neither the review nor the PR contract is
-enacted — both are only named and postponed … Naming the gate is not
-passing through it."* The gate genuinely belongs to
-`public-post-workshop`, so the repair is not to move it back: it is for
-`social-agent-practice` to run the rubric pass on its own draft in the
-same turn, labelled a self-check exactly as `public-post-workshop` does,
-and to state that the entry stays an unpublished draft until the
-independent reviewer runs.
+The global-blocker sentence fixed the skills that were reporting
+themselves blocked. It did **not** fix the layer under it: the response
+now proceeds, but fills every substantive field with
+`[topic: unknown — not supplied]` rather than writing plausible
+content from the scenario's own framing. Three assertions still fail on
+exactly that, and the graders now say so in the same words:
+
+- `social-listening-engagement-loop examples:2/4 Available channels
+  still used` — *"both drafted actions are content-free templates
+  ('Ran into something similar working on [topic: unknown — not
+  supplied]…')"*.
+- `social-listening-engagement-loop examples:2/4 Platform-native
+  behavior` — *"The two drafts differ only cosmetically … every
+  substantive slot is 'unknown — not supplied'. There is no
+  GitHub-native substance … the templates are interchangeable
+  boilerplate."*
+- `social-agent-practice examples:3/4 Ordinary mail answered` — *"The
+  reply body is an empty slot … A label plus a promise to answer later
+  is not an answered message."*
+
+This is a design finding, not a bug in one skill: **the marked-slot
+mechanism the produce-anyway clause introduced has become a way to
+comply with the clause without doing the work.** The repair is a rule
+about what a slot may hold — a slot marks a *fact* that would otherwise
+be invented (a metric, a name, a date, a link), never the *substance*
+of a draft, a reply, or an argument, which is written from the
+scenario's own framing and revised when the fact arrives. That belongs
+in the shared template guidance rather than in three skills separately,
+which is why it is logged for batch 8 rather than patched here.
+
+### 2. `audience-content-engine examples:2/4 Links content ideas to real sources and outcomes`
+
+The one regression the batch does not close, after two fix rounds. Fix
+round 2 gave the skill an explicit inventory step — write the candidate
+sources the request itself carries, each linked to the idea it supports
+and the outcome that idea enables, before any question is asked — and
+the response did produce the inventory, correctly, as
+`inventory : none in hand -> no idea it can support -> no outcome it
+can enable`. The grader still failed it, and its reason is now the
+sharpest statement of the problem in either round:
+
+> This assertion is poorly matched to a prompt that stipulates "we do
+> not yet have enough source material." With zero sources supplied, a
+> correct response may legitimately have nothing to link, so the
+> assertion is unverifiable in the intended-success case and forces a
+> fail on an otherwise strong refusal.
+
+That is an escalation from round 1's *"close to unsatisfiable"*, and it
+is the grader's second independent pass on it. The assertion is still
+**not** in the RED `broken` set — the v1 file passed it by narrating a
+plausible queue, which is the behavior the rewrite exists to remove —
+so it stays here rather than in the register, and the choice between
+the two is a ruling this batch does not get to make for itself.
+
+The grader also named the one skill-side move still available:
+*"no queue — not even a conditional idea→source→outcome mapping for the
+candidate source types in section 2 — was produced this turn."* The
+skill enumerates six qualifying source classes and could map each to
+the idea shape and outcome it would support, conditionally, with no
+source in hand. That is a one-sentence change to Workflow step 9 and it
+was **not** made: fix round 2 was scoped to three named repairs and a
+third iteration was not authorized. It is the first thing to try if one
+is.
+
+### 3. `social-agent-practice:3` routing
+
+*"You wrote that entry because I asked you to — did writing it change
+what you think?"* answered natively 3/3. The description carries the
+belief-review trigger as its last clause and it reads as introspection
+rather than as a procedure. Untouched: the win condition was met
+without it, and changing a description would have invalidated the
+routing measurement for all eight ballot files.
 
 ## Density
 
-The five files are 3760–4131 words. Amendment 10 struck the word cap and
+The five files are 3757–4475 words after both fix rounds. Amendment 10 struck the word cap and
 made the gate qualitative, asking that anything over 2200 words be
 answered as a density question. Answered with a scan:
 
