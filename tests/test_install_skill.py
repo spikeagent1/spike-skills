@@ -1865,6 +1865,110 @@ class InstallSkillTest(unittest.TestCase):
         self.assertNotIn("replaced it", out)
         self.assertIn("refused:", out)
 
+    def _needs_unprivileged(self) -> None:
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            self.skipTest("running as root; a mode of 000 stops nothing")
+
+    def _install_two(self) -> None:
+        self._configure()
+        code, out = self._run(
+            "--runtime", "claude-code", "fixture-launcher", "fixture-notes"
+        )
+        self.assertEqual(code, 0, out)
+
+    def _repo_notes_change(self) -> None:
+        self._write(
+            "skills/fixture-notes/SKILL.md",
+            self._skill_md(
+                "fixture-notes",
+                description="Use when notes are read from the vault. Not for tasks.",
+                capabilities=("datastore:read",),
+                reads_from=("profile",),
+                body_extra=" Reads the `owner datastore` twice.",
+            ),
+        )
+
+    def test_update_refuses_a_file_it_cannot_read_and_reaches_the_next_skill(
+        self,
+    ) -> None:
+        """An owner-shaped filesystem state is a refusal, not a traceback.
+
+        The error registry's row is "a refusal exits nonzero but continues to the
+        next skill", and an unreadable file used to end the whole run before the
+        skills after it were looked at.
+        """
+        self._needs_unprivileged()
+        self._install_two()
+        unreadable = self.dest / "fixture-launcher" / "references" / "detail.md"
+        unreadable.chmod(0o000)
+        self._repo_detail("a second edition\n")
+        self._repo_notes_change()
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("references/detail.md", out)
+        self.assertIn("could not be read", out)
+        self.assertIn("twice", self._installed("fixture-notes"))
+
+    def test_update_refuses_a_file_it_cannot_write_and_stamps_only_what_landed(
+        self,
+    ) -> None:
+        self._needs_unprivileged()
+        self._install_launcher()
+        target = self.dest / "fixture-launcher" / "references" / "detail.md"
+        before = self._stamp("fixture-launcher")["files"]["references/detail.md"]
+        target.chmod(0o444)
+        self._repo_detail("a second edition\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("could not be written", out)
+        self.assertEqual(target.read_text(encoding="utf-8"), "detail\n")
+        self.assertEqual(
+            self._stamp("fixture-launcher")["files"]["references/detail.md"], before
+        )
+
+    def test_update_refuses_a_path_where_a_file_stands_in_for_a_directory(self) -> None:
+        self._install_launcher()
+        (self.dest / "fixture-launcher" / "references" / "sub").write_text(
+            "mine\n", encoding="utf-8"
+        )
+        self._write("skills/fixture-launcher/references/sub/probe.md", "from the repo\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("references/sub/probe.md", out)
+        self.assertEqual(
+            (self.dest / "fixture-launcher" / "references" / "sub").read_text(
+                encoding="utf-8"
+            ),
+            "mine\n",
+        )
+
+    def test_check_reports_a_file_it_cannot_read_rather_than_ending_the_run(
+        self,
+    ) -> None:
+        self._needs_unprivileged()
+        self._install_two()
+        unreadable = self.dest / "fixture-launcher" / "references" / "detail.md"
+        unreadable.chmod(0o000)
+        # The skill after it in the walk has its own drift, which is what shows
+        # the check reached it at all.
+        installed = self.dest / "fixture-notes" / "SKILL.md"
+        installed.write_text(
+            installed.read_text(encoding="utf-8") + "\nedited\n", encoding="utf-8"
+        )
+
+        code, out = self._run("--runtime", "claude-code", "--check")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("references/detail.md could not be read", out)
+        self.assertNotIn("references/detail.md is recorded by the stamp and missing", out)
+        self.assertIn("fixture-notes: SKILL.md sha256 differs", out)
+
     def test_update_refuses_an_install_another_adapter_wrote(self) -> None:
         """An update is not a conversion: a runtime's install stays that runtime's."""
         self._install_launcher()

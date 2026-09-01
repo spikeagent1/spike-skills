@@ -133,6 +133,12 @@ def recorded_digests(stamp: dict[str, Any]) -> dict[str, str] | None:
     return {str(key): str(value) for key, value in files.items()}
 
 
+UNREADABLE = "could not be read"
+
+
+UNWRITABLE = "could not be written"
+
+
 def file_drift(name: str, directory: Path, recorded: dict[str, str]) -> list[str]:
     """Every installed file that is not the file the stamp recorded.
 
@@ -142,18 +148,22 @@ def file_drift(name: str, directory: Path, recorded: dict[str, str]) -> list[str
     owns holding anything else is exactly what a declared-vs-actual pass exists
     to find. Nothing here removes a file.
     """
-    actual = installed_digests(directory)
-    problems: list[str] = []
+    unreadable: dict[str, str] = {}
+    actual = installed_digests(directory, unreadable)
+    problems = [
+        f"{name}: {rel} {UNREADABLE} ({problem}); not checked"
+        for rel, problem in sorted(unreadable.items())
+    ]
     for rel, digest in sorted(recorded.items()):
-        if rel == "SKILL.md":
-            continue
+        if rel == "SKILL.md" or rel in unreadable:
+            continue  # rendered elsewhere, or already named as unreadable above
         if rel not in actual:
             problems.append(
                 f"{name}: {rel} is recorded by the stamp and missing from the install"
             )
         elif actual[rel] != digest:
             problems.append(f"{name}: {rel} sha256 differs from the stamp; edited in place")
-    for rel in sorted(set(actual) - set(recorded)):
+    for rel in sorted(set(actual) - set(recorded) - set(unreadable)):
         problems.append(
             f"{name}: {rel} is not recorded by the stamp; no install wrote it, and "
             "nothing here removes it"
@@ -564,14 +574,24 @@ def update_one(
         f"({', '.join(COPY_DIRS)}), nor excluded by name; not installed"
         for entry in skipped
     )
-    actual = installed_digests(directory)
+    unreadable: dict[str, str] = {}
+    actual = installed_digests(directory, unreadable)
     write, blocked = classify(planned, recorded, actual)
+    for rel, problem in sorted(unreadable.items()):
+        # Unread is not absent: the classifier saw no digest for this file, and
+        # what it holds is unknown rather than gone.
+        if rel in write:
+            write.remove(rel)
+        if rel in planned:
+            blocked[rel] = f"{UNREADABLE} ({problem}); left alone"
+        else:
+            notes.append(f"{name}: {rel} {UNREADABLE} ({problem}); left alone")
     for rel in sorted(set(recorded) - set(planned)):
         notes.append(
             f"{name}: {rel} is recorded by the stamp and no longer part of this "
             "skill; left in place, never deleted"
         )
-    for rel in sorted(set(actual) - set(planned) - set(recorded)):
+    for rel in sorted(set(actual) - set(planned) - set(recorded) - set(unreadable)):
         notes.append(
             f"{name}: {rel} is not recorded by the stamp; left in place, never "
             "deleted -- --check reads it as drift"
@@ -611,10 +631,18 @@ def update_one(
             print(f"  would write {directory / rel}")
         report.installed.append(name)
         return
-    for path in write_planned(directory, planned, only=write):
+    failed: dict[str, str] = {}
+    for path in write_planned(directory, planned, only=write, failed=failed):
         print(f"  wrote {path}")
-    update_stamp(context, directory, stamp, rendered, planned, recorded, write)
-    report.installed.append(name)
+    for rel, problem in failed.items():
+        refusal = f"{name}: {rel} {UNWRITABLE} ({problem}); left alone"
+        refusals.append(refusal)
+        report.refused.append(refusal)
+        print(f"  refused: {refusal}")
+    landed = [rel for rel in write if rel not in failed]
+    if landed:
+        update_stamp(context, directory, stamp, rendered, planned, recorded, landed)
+        report.installed.append(name)
 
 
 def update_stamp(
@@ -670,7 +698,14 @@ def do_update(context: Context, names: Sequence[str], args: argparse.Namespace) 
 
     statuses = install_statuses(context, [path.name for path in installs])
     for directory in installs:
-        update_one(context, directory, statuses, args, report)
+        try:
+            update_one(context, directory, statuses, args, report)
+        except OSError as exc:
+            # Whatever one install's filesystem does, the next one is still due
+            # an update: the row is "nonzero, and on to the next skill".
+            refusal = f"{directory.name}: {exc}; this skill was left as it is"
+            print(f"  refused: {refusal}")
+            report.refused.append(refusal)
 
     print()
     if report.installed:
@@ -689,67 +724,10 @@ def do_check(context: Context, names: Sequence[str]) -> int:
     print(f"{context.runtime}: checking {len(installs)} stamped install(s) in {context.dest}")
 
     for directory in installs:
-        name = directory.name
-        stamp = read_stamp(directory) or {}
-        actual = (directory / "SKILL.md").read_text(encoding="utf-8")
-        if sha256_text(actual) != stamp.get("sha256"):
-            report.drift.append(f"{name}: SKILL.md sha256 differs from the stamp; edited in place")
-        recorded = recorded_digests(stamp)
-        if recorded is None:
-            report.notes.append(f"{name}: {PRE_DIGEST_NOTE}")
-        else:
-            report.drift.extend(file_drift(name, directory, recorded))
-        if stamp.get("adapter_version") != context.adapter.get("version"):
-            report.drift.append(
-                f"{name}: stamp adapter_version {stamp.get('adapter_version')} but "
-                f"adapters/{context.runtime}/adapter.yaml is v{context.adapter.get('version')}"
-            )
         try:
-            meta, body, _ = read_skill(name)
-        except InstallError as exc:
-            report.drift.append(f"{name}: {exc}")
-            continue
-
-        capabilities = declared(meta, "capabilities")
-        if capabilities != list(stamp.get("capabilities") or []):
-            report.drift.append(
-                f"{name}: stamp capabilities {stamp.get('capabilities')} but the "
-                f"repository declares {capabilities}"
-            )
-        hints = validate_repo.derived_hints(tuple(capabilities), context.capabilities)
-        if hints != (stamp.get("hints") or {}):
-            report.drift.append(f"{name}: derived hints {hints} differ from the stamp's")
-
-        for message in unconfirmed_refusals(
-            name, meta, body, context.adapter, context.datastore, context.vocabulary
-        ):
-            report.drift.append(message)
-        report.notes.extend(
-            f"degraded: {note}"
-            for note in degraded_notes(
-                name, meta, body, context.adapter, context.datastore, context.vocabulary
-            )
-        )
-
-        try:
-            rendered = render_skill(
-                name,
-                context.runtime,
-                context.adapter,
-                context.capabilities,
-                str(stamp.get("commit") or ""),
-                context.vocabulary,
-                context.datastore,
-            )
-        except InstallError as exc:
-            report.drift.append(f"{name}: {exc}")
-            continue
-        if sha256_text(rendered.text) != stamp.get("sha256"):
-            report.drift.append(
-                f"{name}: a fresh render at the stamped commit has a different sha256; "
-                "the source or the adapter changed since the install"
-            )
-        report.drift.extend(undefined_terms(name, actual, context))
+            check_one(context, directory, report)
+        except OSError as exc:
+            report.drift.append(f"{directory.name}: {exc}; not checked")
 
     for note in report.notes:
         print(f"note: {note}")
@@ -758,6 +736,71 @@ def do_check(context: Context, names: Sequence[str]) -> int:
     if not report.drift:
         print("no drift.")
     return 1 if report.drift else 0
+
+
+def check_one(context: Context, directory: Path, report: Report) -> None:
+    """One stamped install, declared against actual."""
+    name = directory.name
+    stamp = read_stamp(directory) or {}
+    actual = (directory / "SKILL.md").read_text(encoding="utf-8")
+    if sha256_text(actual) != stamp.get("sha256"):
+        report.drift.append(f"{name}: SKILL.md sha256 differs from the stamp; edited in place")
+    recorded = recorded_digests(stamp)
+    if recorded is None:
+        report.notes.append(f"{name}: {PRE_DIGEST_NOTE}")
+    else:
+        report.drift.extend(file_drift(name, directory, recorded))
+    if stamp.get("adapter_version") != context.adapter.get("version"):
+        report.drift.append(
+            f"{name}: stamp adapter_version {stamp.get('adapter_version')} but "
+            f"adapters/{context.runtime}/adapter.yaml is v{context.adapter.get('version')}"
+        )
+    try:
+        meta, body, _ = read_skill(name)
+    except InstallError as exc:
+        report.drift.append(f"{name}: {exc}")
+        return
+
+    capabilities = declared(meta, "capabilities")
+    if capabilities != list(stamp.get("capabilities") or []):
+        report.drift.append(
+            f"{name}: stamp capabilities {stamp.get('capabilities')} but the "
+            f"repository declares {capabilities}"
+        )
+    hints = validate_repo.derived_hints(tuple(capabilities), context.capabilities)
+    if hints != (stamp.get("hints") or {}):
+        report.drift.append(f"{name}: derived hints {hints} differ from the stamp's")
+
+    for message in unconfirmed_refusals(
+        name, meta, body, context.adapter, context.datastore, context.vocabulary
+    ):
+        report.drift.append(message)
+    report.notes.extend(
+        f"degraded: {note}"
+        for note in degraded_notes(
+            name, meta, body, context.adapter, context.datastore, context.vocabulary
+        )
+    )
+
+    try:
+        rendered = render_skill(
+            name,
+            context.runtime,
+            context.adapter,
+            context.capabilities,
+            str(stamp.get("commit") or ""),
+            context.vocabulary,
+            context.datastore,
+        )
+    except InstallError as exc:
+        report.drift.append(f"{name}: {exc}")
+        return
+    if sha256_text(rendered.text) != stamp.get("sha256"):
+        report.drift.append(
+            f"{name}: a fresh render at the stamped commit has a different sha256; "
+            "the source or the adapter changed since the install"
+        )
+    report.drift.extend(undefined_terms(name, actual, context))
 
 
 def undefined_terms(name: str, text: str, context: Context) -> list[str]:

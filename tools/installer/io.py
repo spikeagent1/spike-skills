@@ -355,12 +355,19 @@ def file_digests(planned: dict[str, Planned]) -> dict[str, str]:
     return {rel: sha256_bytes(item.data) for rel, item in planned.items()}
 
 
-def installed_digests(directory: Path) -> dict[str, str]:
+def installed_digests(
+    directory: Path, unreadable: dict[str, str] | None = None
+) -> dict[str, str]:
     """Every file in an installed skill directory, by digest -- the stamp excluded.
 
     Symlinks are neither followed nor descended into: what they point at is not
     this install's, and reading through one would let a link outside the
     destination answer for a file inside it.
+
+    A file this process cannot read is recorded in `unreadable` and left out of
+    the map, so the caller can name it rather than end its run on the first
+    `chmod 000` an owner left behind. With no `unreadable` map to record it in,
+    the error propagates.
     """
     digests: dict[str, str] = {}
     for root, directories, names in os.walk(directory, followlinks=False):
@@ -374,23 +381,43 @@ def installed_digests(directory: Path) -> dict[str, str]:
             rel = path.relative_to(directory).as_posix()
             if rel == STAMP_NAME:
                 continue
-            digests[rel] = sha256_bytes(path.read_bytes())
+            try:
+                digests[rel] = sha256_bytes(path.read_bytes())
+            except OSError as exc:
+                if unreadable is None:
+                    raise
+                unreadable[rel] = str(exc)
     return digests
 
 
 def write_planned(target: Path, planned: dict[str, Planned],
-                  only: Sequence[str] | None = None) -> list[Path]:
-    """Lay down the planned files (or just `only` of them) and return their paths."""
+                  only: Sequence[str] | None = None,
+                  failed: dict[str, str] | None = None) -> list[Path]:
+    """Lay down the planned files (or just `only` of them) and return their paths.
+
+    A file that cannot be written -- a read-only copy the owner protected, a file
+    standing where the render needs a directory -- is recorded in `failed` and
+    the rest of the skill is still written. Only the returned paths landed, which
+    is what the stamp is allowed to record. With no `failed` map, the error
+    propagates: a fresh install writes into a directory it has just created, and
+    a failure there is not one file's problem.
+    """
     written: list[Path] = []
     wanted = None if only is None else set(only)
     for rel, item in planned.items():
         if wanted is not None and rel not in wanted:
             continue
         path = target / rel
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(item.data)
-        if item.mode is not None:
-            os.chmod(path, item.mode)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(item.data)
+            if item.mode is not None:
+                os.chmod(path, item.mode)
+        except OSError as exc:
+            if failed is None:
+                raise
+            failed[rel] = str(exc)
+            continue
         written.append(path)
     return written
 
