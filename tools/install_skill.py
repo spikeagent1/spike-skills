@@ -133,7 +133,8 @@ from tools.installer.cli import (
     LINKED_ROOT, UNREADABLE, UNWRITABLE, check_one, do_check, do_install, do_list, do_uninstall,
     discarded, do_update, file_drift, finish,
     linked_component, main,
-    parse_args, print_changelog, print_file_diff, recorded_digests, report_skill,
+    parse_args, print_changelog, print_file_diff, print_replacements, recorded_digests,
+    report_skill,
     runtime_skills, undefined_terms, update_one, update_stamp, write_blocker
 )
 

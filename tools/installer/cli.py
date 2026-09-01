@@ -416,8 +416,12 @@ def discarded(path: Path) -> str:
     """What an overwrite costs the owner, in the only unit the run still knows."""
     try:
         return f"{len(path.read_bytes().splitlines())} installed lines discarded"
-    except OSError:
+    except FileNotFoundError:
         return "nothing was installed at that path"
+    except OSError as exc:
+        # Absent and unreadable are different facts, and the second one is not
+        # licence to call the file empty.
+        return f"the installed copy could not be read first ({exc})"
 
 
 def print_file_diff(rel: str, installed: bytes, rendered: bytes) -> None:
@@ -667,13 +671,9 @@ def update_one(
             write.remove(rel)
             blocked[rel] = reason
             unclearable[rel] = advice
-    notes.extend(
-        f"{name}: {rel} {reason}; --overwrite "
-        f"{'would replace' if args.dry_run else 'replaced'} it "
-        f"({discarded(directory / rel)})"
-        for rel, reason in promoted.items()
-        if rel in write
-    )
+    # Read before the write, printed after it: what an overwrite costs is only
+    # knowable beforehand, and only true of a file that then actually landed.
+    costs = {rel: discarded(directory / rel) for rel in write if rel in promoted}
     refusals.extend(
         report_skill(context, name, directory, notes, blocked, planned, unclearable)
     )
@@ -688,11 +688,15 @@ def update_one(
     if args.dry_run:
         for rel in write:
             print(f"  would write {directory / rel}")
+        print_replacements(name, write, promoted, costs, dry_run=True)
         report.installed.append(name)
         return
     failed: dict[str, str] = {}
     for path in write_planned(directory, planned, only=write, failed=failed):
         print(f"  wrote {path}")
+    print_replacements(
+        name, [rel for rel in write if rel not in failed], promoted, costs, dry_run=False
+    )
     for rel, problem in failed.items():
         refusal = f"{name}: {rel} {UNWRITABLE} ({problem}); left alone"
         refusals.append(refusal)
@@ -702,6 +706,21 @@ def update_one(
     if landed:
         update_stamp(context, directory, stamp, rendered, planned, recorded, landed)
         report.installed.append(name)
+
+
+def print_replacements(
+    name: str,
+    landed: Sequence[str],
+    promoted: dict[str, str],
+    costs: dict[str, str],
+    dry_run: bool,
+) -> None:
+    """What `--overwrite` took, said of the files it actually took it from."""
+    verb = "would replace" if dry_run else "replaced"
+    for rel in landed:
+        if rel in promoted:
+            print(f"  note: {name}: {rel} {promoted[rel]}; --overwrite {verb} it "
+                  f"({costs[rel]})")
 
 
 def update_stamp(

@@ -1582,6 +1582,35 @@ class InstallSkillTest(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertIn("2 installed lines discarded", out)
 
+    def test_overwrite_never_reports_a_file_it_could_not_write_as_replaced(self) -> None:
+        """The last place the output claimed an action it did not take."""
+        self._needs_unprivileged()
+        self._install_launcher()
+        target = self.dest / "fixture-launcher" / "references" / "detail.md"
+        target.chmod(0o000)
+        self._repo_detail("a second edition\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update", "--overwrite")
+
+        self.assertEqual(code, 1, out)
+        self.assertNotIn("replaced it", out)
+        self.assertNotIn("nothing was installed at that path", out)
+        self.assertIn("could not be written", out)
+
+    def test_overwrite_reports_as_replaced_exactly_what_it_wrote(self) -> None:
+        self._install_launcher()
+        (self.dest / "fixture-launcher" / "references" / "detail.md").write_text(
+            "mine\n", encoding="utf-8"
+        )
+        self._repo_detail("a second edition\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update", "--overwrite")
+
+        self.assertEqual(code, 0, out)
+        wrote = out.index("wrote ")
+        self.assertGreater(out.index("replaced it"), wrote, out)
+        self.assertIn("1 installed lines discarded", out)
+
     def test_a_deleted_file_is_not_printed_back_as_a_whole_diff(self) -> None:
         self._write(
             "skills/fixture-launcher/references/detail.md", "alpha\nbeta\ngamma\n"
