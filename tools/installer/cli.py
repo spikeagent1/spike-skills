@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import difflib
 import importlib
+import os
 import shutil
 import sys
 from dataclasses import dataclass
@@ -377,6 +378,47 @@ def print_changelog(name: str, commit: str, runtime: str) -> None:
         print(f"    ... {len(entries) - CHANGELOG_MAX} more commits")
 
 
+def report_skill(
+    context: Context,
+    name: str,
+    directory: Path,
+    notes: Sequence[str],
+    blocked: dict[str, str],
+    planned: dict[str, Any],
+) -> list[str]:
+    """This skill's notes, its per-file refusals with their diffs, and the offer.
+
+    The offer is the point: a run that leaves a file alone prints the one command
+    that would take this tree's render instead, so skipping and overwriting are
+    both choices the owner makes, and neither is one the tool makes quietly.
+    """
+    for note in notes:
+        print(f"  note: {note}")
+    refusals: list[str] = []
+    for rel, reason in blocked.items():
+        refusal = f"{name}: {rel} {reason}; not overwritten"
+        refusals.append(refusal)
+        print(f"  refused: {refusal}")
+        path = directory / rel
+        if path.is_symlink():
+            # Refused because it is a link, so it is not read through either.
+            print(f"    (symlink -> {os.readlink(path)}; neither read nor written)")
+        else:
+            print_file_diff(
+                rel, path.read_bytes() if path.is_file() else b"", planned[rel].data
+            )
+    if blocked:
+        print(
+            f"  {len(blocked)} file(s) skipped -- what is installed is yours. To take "
+            "this repository's render instead, discarding the above:"
+        )
+        print(
+            f"    python3 tools/install_skill.py --runtime {context.runtime} "
+            f"--update --overwrite {name}"
+        )
+    return refusals
+
+
 def update_one(
     context: Context,
     directory: Path,
@@ -496,23 +538,7 @@ def update_one(
     for rel in [rel for rel in write if (directory / rel).is_symlink()]:
         write.remove(rel)
         blocked[rel] = "a symlink in the install; never written through"
-    for note in notes:
-        print(f"  note: {note}")
-    for rel, reason in blocked.items():
-        refusal = f"{name}: {rel} {reason}; not overwritten"
-        refusals.append(refusal)
-        print(f"  refused: {refusal}")
-        path = directory / rel
-        print_file_diff(rel, path.read_bytes() if path.is_file() else b"", planned[rel].data)
-    if blocked:
-        print(
-            f"  {len(blocked)} file(s) skipped -- what is installed is yours. To take "
-            "this repository's render instead, discarding the above:"
-        )
-        print(
-            f"    python3 tools/install_skill.py --runtime {context.runtime} "
-            f"--update --overwrite {name}"
-        )
+    refusals.extend(report_skill(context, name, directory, notes, blocked, planned))
     report.refused.extend(refusals)
 
     if write or blocked:

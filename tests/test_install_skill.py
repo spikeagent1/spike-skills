@@ -1754,6 +1754,9 @@ class InstallSkillTest(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("symlink", out)
         self.assertEqual(elsewhere.read_text(encoding="utf-8"), "not ours\n")
+        # Refused because it is a link: its target is not read out into the run.
+        self.assertIn("neither read nor written", out)
+        self.assertNotIn("not ours", out)
 
     def test_update_refuses_an_install_another_adapter_wrote(self) -> None:
         """An update is not a conversion: a runtime's install stays that runtime's."""
