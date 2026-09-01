@@ -1812,6 +1812,59 @@ class InstallSkillTest(unittest.TestCase):
         self.assertIn("neither read nor written", out)
         self.assertNotIn("not ours", out)
 
+    def test_update_never_writes_through_a_symlinked_directory(self) -> None:
+        """A link in any component of the path is still a link out of the install."""
+        self._install_launcher()
+        outside = Path(self.tmp.name) / "outside"
+        outside.mkdir()
+        (outside / "probe.md").write_text("the owner's relocated file\n", encoding="utf-8")
+        (self.dest / "fixture-launcher" / "references" / "sub").symlink_to(outside)
+        self._write("skills/fixture-launcher/references/sub/probe.md", "from the repo\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 1, out)
+        self.assertEqual(
+            (outside / "probe.md").read_text(encoding="utf-8"),
+            "the owner's relocated file\n",
+        )
+        self.assertIn("symlink", out)
+        # Not written through, and not read through either: the diff would have
+        # printed a file outside the destination.
+        self.assertNotIn("the owner's relocated file", out)
+
+    def test_overwrite_does_not_write_through_a_symlinked_directory_either(self) -> None:
+        self._install_launcher()
+        outside = Path(self.tmp.name) / "outside"
+        outside.mkdir()
+        (outside / "probe.md").write_text("the owner's relocated file\n", encoding="utf-8")
+        (self.dest / "fixture-launcher" / "references" / "sub").symlink_to(outside)
+        self._write("skills/fixture-launcher/references/sub/probe.md", "from the repo\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update", "--overwrite")
+
+        self.assertEqual(code, 1, out)
+        self.assertEqual(
+            (outside / "probe.md").read_text(encoding="utf-8"),
+            "the owner's relocated file\n",
+        )
+
+    def test_overwrite_never_claims_to_have_replaced_what_it_refused(self) -> None:
+        """Claiming an action it did not take is the mirror of taking one silently."""
+        self._install_launcher()
+        detail = self.dest / "fixture-launcher" / "references" / "detail.md"
+        elsewhere = Path(self.tmp.name) / "outside.md"
+        elsewhere.write_text("not ours\n", encoding="utf-8")
+        detail.unlink()
+        detail.symlink_to(elsewhere)
+        self._repo_detail("a second edition\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update", "--overwrite")
+
+        self.assertEqual(code, 1, out)
+        self.assertNotIn("replaced it", out)
+        self.assertIn("refused:", out)
+
     def test_update_refuses_an_install_another_adapter_wrote(self) -> None:
         """An update is not a conversion: a runtime's install stays that runtime's."""
         self._install_launcher()

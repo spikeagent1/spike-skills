@@ -339,17 +339,42 @@ def classify(
     return write, blocked
 
 
+def linked_component(directory: Path, rel: str) -> Path | None:
+    """The first link on the way from the install root down to `rel`, or None.
+
+    Checking the file itself is not enough: a link is a link wherever it sits in
+    the path, and `references -> ~/vault/notes` puts every file under it outside
+    the install while each of their own names looks ordinary. The whole descent
+    is walked, and a link anywhere in it disqualifies the path -- including one
+    that happens to point back inside, because an install is a tree this
+    installer wrote and a path travelling through something it did not is not
+    part of it.
+    """
+    probe = directory / rel
+    while probe != directory:
+        if probe.is_symlink():
+            return probe
+        probe = probe.parent
+    return None
+
+
 def write_blocker(directory: Path, rel: str, recorded: dict[str, str]) -> str | None:
     """Why this render's file is not the update's to write here, or None.
 
-    The classifier reads the install through `installed_digests`, which keys it
-    by exact byte-name. A filesystem does not: APFS resolves `Probe.md` and
-    `probe.md` to one entry, and normalization variants collide the same way, so
-    a file the owner wrote can be invisible to the comparison and still be the
-    thing a write would truncate. The destination itself is asked instead --
-    anything already there that no stamp records is theirs, whatever name it was
-    matched by.
+    Two ways it is not ours. A link anywhere in the path leads out of the tree
+    this installer wrote. And the classifier reads the install through
+    `installed_digests`, which keys it by exact byte-name where a filesystem does
+    not: APFS resolves `Probe.md` and `probe.md` to one entry, and normalization
+    variants collide the same way, so a file the owner wrote can be invisible to
+    the comparison and still be the thing a write would truncate. The destination
+    itself is asked instead.
     """
+    linked = linked_component(directory, rel)
+    if linked is not None:
+        return (
+            f"reached through the symlink {linked.relative_to(directory).as_posix()}; "
+            "never written through, whatever it points at"
+        )
     path = directory / rel
     if recorded.get(rel) is None and (path.exists() or path.is_symlink()):
         return (
@@ -420,9 +445,14 @@ def report_skill(
         refusals.append(refusal)
         print(f"  refused: {refusal}")
         path = directory / rel
-        if path.is_symlink():
-            # Refused because it is a link, so it is not read through either.
-            print(f"    (symlink -> {os.readlink(path)}; neither read nor written)")
+        linked = linked_component(directory, rel)
+        if linked is not None:
+            # Refused because a link stands in the path, so it is not read
+            # through either -- the diff would print a file outside the install.
+            print(
+                f"    ({linked.relative_to(directory).as_posix()} -> "
+                f"{os.readlink(linked)}; neither read nor written)"
+            )
         else:
             print_file_diff(
                 rel, path.read_bytes() if path.is_file() else b"", planned[rel].data
@@ -546,23 +576,27 @@ def update_one(
             f"{name}: {rel} is not recorded by the stamp; left in place, never "
             "deleted -- --check reads it as drift"
         )
+    promoted: dict[str, str] = {}
     if args.overwrite:
         # The explicit choice, taken: the files the run would otherwise have
-        # left alone are written, and the stamp records what landed.
+        # left alone join the write list, and the stamp records what lands.
+        promoted = blocked
         write = [rel for rel in planned if rel in set(write) | set(blocked)]
-        for rel in blocked:
-            notes.append(f"{name}: {rel} {blocked[rel]}; --overwrite replaced it")
         blocked = {}
-    # Last, and after `--overwrite`: a link is never written through, whatever
-    # the flags say and whatever it points at.
-    for rel in [rel for rel in write if (directory / rel).is_symlink()]:
-        write.remove(rel)
-        blocked[rel] = "a symlink in the install; never written through"
+    # Last, and independent of the flags: what is not ours to write is not ours
+    # on request either. This runs after the promotion so that no file is
+    # reported replaced and refused in the same run.
     for rel in list(write):
         reason = write_blocker(directory, rel, recorded)
         if reason is not None:
             write.remove(rel)
             blocked[rel] = reason
+    notes.extend(
+        f"{name}: {rel} {reason}; --overwrite "
+        f"{'would replace' if args.dry_run else 'replaced'} it"
+        for rel, reason in promoted.items()
+        if rel in write
+    )
     refusals.extend(report_skill(context, name, directory, notes, blocked, planned))
     report.refused.extend(refusals)
 

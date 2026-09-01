@@ -120,7 +120,8 @@ from tools.installer.io import (
 )
 from tools.installer.cli import (
     CHANGELOG_MAX, Context, DIFF_PREVIEW_LINES, PRE_DIGEST_NOTE, build_context, classify,
-    do_check, do_install, do_list, do_uninstall, do_update, file_drift, finish, main,
+    do_check, do_install, do_list, do_uninstall, do_update, file_drift, finish,
+    linked_component, main,
     parse_args, print_changelog, print_file_diff, recorded_digests, report_skill,
     runtime_skills, undefined_terms, update_one, update_stamp, write_blocker
 )
