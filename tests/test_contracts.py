@@ -403,13 +403,15 @@ class AdapterTest(unittest.TestCase):
         task" still reaches it rather than only `/daily-task-manager`."""
         path = contracts_check.ROOT / "skills" / "daily-task-manager" / "SKILL.md"
         meta = validate_repo.parse_frontmatter(path.read_text(encoding="utf-8")) or {}
-        effects = validate_repo._declared_list(
-            validate_repo.spike_os_block(meta).get("effects")
+        capabilities = validate_repo._declared_list(
+            validate_repo.spike_os_block(meta).get("capabilities")
         )
-        self.assertIn("delete:external", effects)
+        self.assertIn("delete:external", capabilities)
         self.assertNotIn(
             "never_autonomous",
-            render.declared_approvals(effects, {item["name"]: item for item in EFFECTS}),
+            render.declared_approvals(
+                capabilities, {item["name"]: item for item in EFFECTS}
+            ),
         )
 
     def test_personal_values_stay_placeholders(self) -> None:

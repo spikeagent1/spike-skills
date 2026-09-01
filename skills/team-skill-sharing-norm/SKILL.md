@@ -6,8 +6,8 @@ metadata:
     version: 2.0.0
     runtime: [openclaw, claude-code]
     reads_from: [agents]
-    writes_to: [agents, effects]
-    effects: [datastore:read, datastore:write, message:send]
+    writes_to: [agents, activity]
+    capabilities: [datastore:read, datastore:write, message:send]
 ---
 
 # Team Skill Sharing Norm
@@ -46,7 +46,7 @@ Handles a skill package crossing between agents and produces what the request as
 | Intended action — announce, evaluate, acknowledge, update, deprecate, withdraw | yes | classify it from the request's own verb; where two readings stay open, fail closed to the read-only one and name both (X1) |
 | Evidence: validation output, supplied evals, trial result, known gaps | yes, to adopt | the verdict reads `blocked` with the missing evidence named; presentation quality is never evidence |
 
-**Dependencies:** the shared artifact itself, a local validation environment, and the `mail provider` that carries roster traffic (D1). Where one of them is unavailable the run names the exact blocked phase and produces everything that does not depend on it (D2). This skill reads and writes the `agents` namespace and appends the `effects` ledger, and touches nothing else — no hidden hosted dependency, no shared database, no storage the sender supplies (D3, P3). Credentials are never carried in an announcement, a record, a filename, or a reply (P6).
+**Dependencies:** the shared artifact itself, a local validation environment, and the `mail provider` that carries roster traffic (D1). Where one of them is unavailable the run names the exact blocked phase and produces everything that does not depend on it (D2). This skill reads and writes the `agents` namespace and appends the `activity` ledger, and touches nothing else — no hidden hosted dependency, no shared database, no storage the sender supplies (D3, P3). Credentials are never carried in an announcement, a record, a filename, or a reply (P6).
 
 ## Workflow
 
@@ -58,7 +58,7 @@ Handles a skill package crossing between agents and produces what the request as
 6. **Acknowledge with one state and its evidence** — `adopted`, `tried`, `blocked`, or `declined`, plus one sentence carrying either the evidence behind it or the single requirement that blocks it. Silence from a recipient is not an adoption signal and is never recorded as one. Bugs, friction, feature requests, and security concerns go to the existing feedback path rather than into the acknowledgement line.
 7. **Update, deprecate, or withdraw.** An update states compatibility and migration impact. A deprecation names the replacement. A security withdrawal reaches the roster promptly and independently of anybody's decision to undo an adoption: surfacing it is this skill's own work and is never gated on the authority to reverse one. Every withdrawal and deprecation carries the rollback record below, filled in the same turn.
 8. **The facilitator is a role, not a person.** It is a `roster-entry` in the `agents` namespace carrying the facilitator flag — one of that namespace's four kinds in [contracts/datastore.yaml](../../contracts/datastore.yaml). The role validates announcement shape and sender attribution, deduplicates on name, version, and digest, records metadata and immutable references in the `agents` namespace, carries valid lifecycle notices to the current roster over the `mail provider`, answers discovery questions without implying endorsement, tracks which acknowledgements arrived, and surfaces conflicts and blockers with a bounded plan. Holding the role grants none of the effects the packages themselves declare.
-9. Append one `effects` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on what is still open: the unfilled identity fields, the acknowledgements not yet in, the approval the local `owner` still has to give.
+9. Append one `activity` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on what is still open: the unfilled identity fields, the acknowledgements not yet in, the approval the local `owner` still has to give.
 
 ### The announcement record
 
@@ -96,7 +96,7 @@ The artifact is in this message and is never promised for the next one: describi
 
 Adoption states, extended by nothing here: `adopted` — the local `owner` approved it and it is in use; `tried` — it ran in a least-privilege trial and no adoption decision has been taken; `blocked` — one named requirement stands in the way; `declined` — evaluated and refused, with the reason.
 
-Effect states for what this skill actually mutates are the `effects` ledger's `effect_state` values from [contracts/datastore.yaml](../../contracts/datastore.yaml), extended by nothing here: `PREVIEWED` — the exact notice and its recipients were shown and no authorization has been taken; `TRIAL_VERIFIED` — the least-privilege trial ran and its result was read back; `WRITTEN_UNVERIFIED` — a record was written to the `agents` namespace with no readback yet; `VERIFIED` — the readback compared envelope and body and matched; `LINK_DELIVERED` — the notice reached the named roster on the `mail provider`, confirmed; `NO_OP` — an identical retry on the same operation key changed nothing; `PARTIAL` — one phase finished and a later one stopped, with the phase named. Report the state actually reached and never a later one (O3).
+Effect states for what this skill actually mutates are the `activity` ledger's `activity_state` values from [contracts/datastore.yaml](../../contracts/datastore.yaml), extended by nothing here: `PREVIEWED` — the exact notice and its recipients were shown and no authorization has been taken; `TRIAL_VERIFIED` — the least-privilege trial ran and its result was read back; `WRITTEN_UNVERIFIED` — a record was written to the `agents` namespace with no readback yet; `VERIFIED` — the readback compared envelope and body and matched; `LINK_DELIVERED` — the notice reached the named roster on the `mail provider`, confirmed; `NO_OP` — an identical retry on the same operation key changed nothing; `PARTIAL` — one phase finished and a later one stopped, with the phase named. Report the state actually reached and never a later one (O3).
 
 ## Worked example
 

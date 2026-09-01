@@ -8,7 +8,7 @@ metadata:
     runtime: [openclaw, claude-code]
     reads_from: []
     writes_to: []
-    effects: [provider:read]
+    capabilities: [provider:read]
 ---
 
 # Literature Review

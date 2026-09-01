@@ -17,7 +17,7 @@ class BuildIndexTest(unittest.TestCase):
 
     The fixture declares its own tiny `contracts/capabilities.yaml` and
     `contracts/datastore.yaml` (rather than copying the real ones) so the
-    badge-derivation matrix is pinned to effects this file controls, not to
+    badge-derivation matrix is pinned to capabilities this file controls, not to
     whatever the real capabilities enum happens to contain.
     """
 
@@ -39,8 +39,8 @@ class BuildIndexTest(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
 
-    def _skill_md(self, name: str, description: str, effects: list[str]) -> str:
-        effects_line = ", ".join(effects)
+    def _skill_md(self, name: str, description: str, capabilities: list[str]) -> str:
+        capabilities_line = ", ".join(capabilities)
         return (
             "---\n"
             f"name: {name}\n"
@@ -51,7 +51,7 @@ class BuildIndexTest(unittest.TestCase):
             "    runtime: [openclaw, claude-code]\n"
             "    reads_from: []\n"
             "    writes_to: []\n"
-            f"    effects: [{effects_line}]\n"
+            f"    capabilities: [{capabilities_line}]\n"
             "---\n\n"
             "# Fixture\n"
         )

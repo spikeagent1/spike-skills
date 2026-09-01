@@ -267,7 +267,7 @@ def write_skill(rendered: Rendered, dest: Path, runtime: str, adapter: dict[str,
         "adapter_version": adapter.get("version"),
         "sha256": sha256_text(rendered.text),
         "installed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "effects": list(rendered.effects),
+        "capabilities": list(rendered.capabilities),
         "hints": rendered.hints,
     }
     stamp_path(target).write_text(json.dumps(stamp, indent=2, sort_keys=True) + "\n", encoding="utf-8")

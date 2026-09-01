@@ -6,8 +6,8 @@ metadata:
     version: 2.0.0
     runtime: [openclaw, claude-code]
     reads_from: [jobs]
-    writes_to: [jobs, effects]
-    effects: [datastore:read, datastore:write, schedule:manage, delete:external]
+    writes_to: [jobs, activity]
+    capabilities: [datastore:read, datastore:write, schedule:manage, delete:external]
 ---
 
 # Cron Scheduler
@@ -44,7 +44,7 @@ Registers, changes, inspects, and withdraws recurring work on the `scheduler`, a
 | Owner authorization for the exact change | yes, to mutate | show the exact material diff and stop at **previewed** (M2, X4) |
 | Start, end, enabled state; timeout, retry and backoff, overlap policy; missed-run and daylight-saving policy | no | apply the conservative default — no overlap, bounded retry with backoff, missed runs skipped rather than replayed — and print each default as a resolved field so the owner can see what was chosen for them (O2) |
 
-**Dependencies:** none beyond the contract. The `scheduler` is the system of record and is reached only through the connector the `owner` authorized for this turn (D1); where none is authorized, nothing is registered, the blocked phase is named, and the resolved definition is still produced (D2). This skill reads the `jobs` namespace and appends `jobs` and `effects`, and touches no other — no shadow job list, no second copy of a definition, no other skill's namespace (D3, P3). A secret is never written into a job's text, its inputs, or its display name: it is referenced where it lives in the `credential store` and the downstream connector holds it (P6).
+**Dependencies:** none beyond the contract. The `scheduler` is the system of record and is reached only through the connector the `owner` authorized for this turn (D1); where none is authorized, nothing is registered, the blocked phase is named, and the resolved definition is still produced (D2). This skill reads the `jobs` namespace and appends `jobs` and `activity`, and touches no other — no shadow job list, no second copy of a definition, no other skill's namespace (D3, P3). A secret is never written into a job's text, its inputs, or its display name: it is referenced where it lives in the `credential store` and the downstream connector holds it (P6).
 
 ## Workflow
 
@@ -65,7 +65,7 @@ Registers, changes, inspects, and withdraws recurring work on the `scheduler`, a
 7. Change transactionally. Snapshot the prior definition first and keep it as the rollback handle — the prior-definition snapshot is what makes this namespace recoverable at all. Update by stable id with an optimistic version or fingerprint where the `scheduler` offers one. A job is never removed and recreated merely to edit it. On a create, hold the returned id so a rollback withdraws exactly that job and nothing else.
 8. Verify against the `scheduler`, not against the request. Read the job back and compare every normalized field; confirm exactly one managed job answers, its enabled state, handler availability, execution and delivery routing, and the upcoming occurrences. **An accepted API request is not completion** (M4). A requested test is complete only after both a terminal run status and its observable side effects have been checked.
 9. Roll back on any mismatch: restore the prior definition, or withdraw only the newly created job, and then verify the restoration by reading it back. Where the rollback itself fails, disable the affected job if disabling is safe, and report its exact residual state and the manual recovery path (X5).
-10. Append one `effects` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on what is still open.
+10. Append one `activity` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on what is still open.
 
 ### The job definition
 
@@ -97,7 +97,7 @@ What is this skill's own: **execution and delivery carry separate idempotency ke
 
 The job record is in this message and is not promised for the next one: describing how the cadence would be resolved, offering to list what exists first, or asking for the zone before printing any occurrence is a failure to deliver it. In order: any data-quality warning that changes the decision — a listing that could not be paginated to the end, an assumed zone, a handler that could not be checked (O1); the job record with `unknown` in place and the resolved occurrences printed; the exact material diff for a change; the state; the verification evidence; the three keys; and the rollback handle with what is still open.
 
-State vocabulary — the `effects` ledger's `effect_state` values for this skill ([contracts/datastore.yaml](../../contracts/datastore.yaml)), extended by nothing here:
+State vocabulary — the `activity` ledger's `activity_state` values for this skill ([contracts/datastore.yaml](../../contracts/datastore.yaml)), extended by nothing here:
 
 - `INSPECTED` — the `scheduler` was listed and read; nothing changed.
 - `PREVIEWED` — the exact material diff was shown and no authorization for it has been taken.
@@ -121,14 +121,14 @@ A readback taken from the `scheduler` during this run is the only evidence of wh
 
 ## Privacy and mutations
 
-Read: inspecting, listing, reading a definition, reading recent runs. Mutating: create, update, pause, resume, test-fire, and remove, together with the `jobs` write and the `effects` append behind each of them (M1).
+Read: inspecting, listing, reading a definition, reading recent runs. Mutating: create, update, pause, resume, test-fire, and remove, together with the `jobs` write and the `activity` append behind each of them (M1).
 
 **Authorization is per effect and per invocation, and is never inherited** — and this skill is where that matters most: **a job it registers carries no authorization into the runs it triggers** (M6). Every effect the job's own action takes is authorized under that action's own rules at run time, and "the owner approved the schedule" is not approval of what fires. Each effect here runs on the floor [contracts/capabilities.yaml](../../contracts/capabilities.yaml) sets for it:
 
 | Effect | Floor | Authorized per | Never granted by |
 |---|---|---|---|
 | `datastore:read` | `never_require` | the skill being invoked | — |
-| `datastore:write` | `turn_scoped` | the `jobs` record and the `effects` append that record a change already authorized (M7) | — |
+| `datastore:write` | `turn_scoped` | the `jobs` record and the `activity` append that record a change already authorized (M7) | — |
 | `schedule:manage` | `preview_then_explicit` | one job and one named set of fields, previewed as the exact material diff | an earlier change to the same job, a cadence the owner described, a handoff |
 | `delete:external` | `preview_then_explicit` | one job, named by key, with explicit removal language for it | authorization to edit that job, or to create it |
 

@@ -6,8 +6,8 @@ metadata:
     version: 2.0.0
     runtime: [openclaw, claude-code]
     reads_from: [profile]
-    writes_to: [journal, effects]
-    effects: [datastore:read, datastore:write, fs:write-local]
+    writes_to: [journal, activity]
+    capabilities: [datastore:read, datastore:write, fs:write-local]
 ---
 
 # Medication And Symptom Log

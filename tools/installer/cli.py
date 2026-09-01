@@ -269,13 +269,13 @@ def do_check(context: Context, names: Sequence[str]) -> int:
             report.drift.append(f"{name}: {exc}")
             continue
 
-        effects = declared(meta, "effects")
-        if effects != list(stamp.get("effects") or []):
+        capabilities = declared(meta, "capabilities")
+        if capabilities != list(stamp.get("capabilities") or []):
             report.drift.append(
-                f"{name}: stamp effects {stamp.get('effects')} but the repository "
-                f"declares {effects}"
+                f"{name}: stamp capabilities {stamp.get('capabilities')} but the "
+                f"repository declares {capabilities}"
             )
-        hints = validate_repo.derived_hints(tuple(effects), context.capabilities)
+        hints = validate_repo.derived_hints(tuple(capabilities), context.capabilities)
         if hints != (stamp.get("hints") or {}):
             report.drift.append(f"{name}: derived hints {hints} differ from the stamp's")
 
@@ -383,7 +383,7 @@ def do_list(context: Context, names: Sequence[str]) -> int:
             f"  {stamp.get('name', directory.name)}  v{stamp.get('version')}  "
             f"adapter {stamp.get('adapter')} v{stamp.get('adapter_version')}  "
             f"{str(stamp.get('commit'))[:COMMIT_DISPLAY_CHARS]}  "
-            f"{stamp.get('installed_at')}  effects={stamp.get('effects')}"
+            f"{stamp.get('installed_at')}  capabilities={stamp.get('capabilities')}"
         )
     return 0
 

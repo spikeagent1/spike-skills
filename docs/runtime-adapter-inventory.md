@@ -47,8 +47,8 @@ error once `tools/validate_repo.py` gates runtime binding (Task 12).
 
 `calendar provider` (`vocabulary.calendar_provider`, `calendar/` reserved),
 `contacts provider` (`vocabulary.contacts_provider`, `people/contact-card`
-reserved), and `effects ledger` (`vocabulary.effects_ledger`,
-`datastore.paths.effects`) are defined by both adapters and enter the library
+reserved), and `activity log` (`vocabulary.activity_log`,
+`datastore.paths.activity`) are defined by both adapters and enter the library
 when the rewrite adds `contracts/skill-contract.md` M7 records.
 
 ## Not bound — removed instead

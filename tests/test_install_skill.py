@@ -64,7 +64,7 @@ class InstallSkillTest(unittest.TestCase):
         name: str,
         *,
         description: str = "Use when the fixture needs a body. Not for anything else.",
-        effects: tuple[str, ...] = (),
+        capabilities: tuple[str, ...] = (),
         reads_from: tuple[str, ...] = (),
         writes_to: tuple[str, ...] = (),
         runtime: tuple[str, ...] = ("openclaw", "claude-code"),
@@ -81,7 +81,7 @@ class InstallSkillTest(unittest.TestCase):
             f"    runtime: [{', '.join(runtime)}]\n"
             f"    reads_from: [{', '.join(reads_from)}]\n"
             f"    writes_to: [{', '.join(writes_to)}]\n"
-            f"    effects: [{', '.join(effects)}]\n"
+            f"    capabilities: [{', '.join(capabilities)}]\n"
             "---\n"
             "\n"
             f"# {name}\n"
@@ -355,7 +355,7 @@ class InstallSkillTest(unittest.TestCase):
             self._skill_md(
                 "fixture-notes",
                 description="Use when notes are read from the vault. Not for tasks.",
-                effects=("datastore:read",),
+                capabilities=("datastore:read",),
                 reads_from=("profile",),
                 body_extra=" Reads the `owner datastore`.",
             ),
@@ -365,7 +365,7 @@ class InstallSkillTest(unittest.TestCase):
             self._skill_md(
                 "fixture-tasks",
                 description="Use when one task is the ask. Not for a whole day.",
-                effects=("datastore:read", "provider:read", "delete:external"),
+                capabilities=("datastore:read", "provider:read", "delete:external"),
                 reads_from=("tasks", "profile"),
                 writes_to=("tasks",),
                 body_extra=" Writes through the `task provider`.",
@@ -376,7 +376,7 @@ class InstallSkillTest(unittest.TestCase):
             self._skill_md(
                 "fixture-background",
                 description="Use when background knowledge applies. Not for anything else.",
-                effects=("datastore:read",),
+                capabilities=("datastore:read",),
                 reads_from=("profile",),
             ),
         )
@@ -397,7 +397,7 @@ class InstallSkillTest(unittest.TestCase):
             self._skill_md(
                 "fixture-destructive",
                 description="Use when a local record is deleted. Not for provider objects.",
-                effects=("datastore:read", "delete:external"),
+                capabilities=("datastore:read", "delete:external"),
                 reads_from=("profile",),
             ),
         )
@@ -406,7 +406,7 @@ class InstallSkillTest(unittest.TestCase):
             self._skill_md(
                 "fixture-merger",
                 description="Use when a change is landed on the trunk. Not for drafts.",
-                effects=("datastore:read", "repo:merge"),
+                capabilities=("datastore:read", "repo:merge"),
                 reads_from=("profile",),
             ),
         )
@@ -415,7 +415,7 @@ class InstallSkillTest(unittest.TestCase):
             self._skill_md(
                 "fixture-notifier",
                 description="Use when the owner must be told. Not for silent runs.",
-                effects=("notify:owner",),
+                capabilities=("notify:owner",),
                 body_extra=" Delivers on the `notification channel`.",
             ),
         )
@@ -539,7 +539,7 @@ class InstallSkillTest(unittest.TestCase):
                 "adapter_version",
                 "sha256",
                 "installed_at",
-                "effects",
+                "capabilities",
                 "hints",
             },
         )
@@ -548,7 +548,7 @@ class InstallSkillTest(unittest.TestCase):
         self.assertEqual(stamp["adapter"], "claude-code")
         self.assertEqual(stamp["adapter_version"], 1)
         self.assertEqual(stamp["commit"], "0123456789abcdef")
-        self.assertEqual(stamp["effects"], ["datastore:read"])
+        self.assertEqual(stamp["capabilities"], ["datastore:read"])
         self.assertTrue(stamp["hints"]["readOnlyHint"])
         self.assertEqual(
             stamp["sha256"], install_skill.sha256_text(self._installed("fixture-notes"))
@@ -585,7 +585,7 @@ class InstallSkillTest(unittest.TestCase):
         meta = self._frontmatter("fixture-notes")
         self.assertEqual(meta["when_to_use"], "Use when notes are read from the vault.")
         self.assertEqual(meta["metadata"]["spike-os"]["version"], "2.0.0")
-        self.assertEqual(meta["metadata"]["spike-os"]["effects"], ["datastore:read"])
+        self.assertEqual(meta["metadata"]["spike-os"]["capabilities"], ["datastore:read"])
         self.assertNotIn("disable-model-invocation", meta)
         self.assertNotIn("user-invocable", meta)
 
@@ -595,7 +595,7 @@ class InstallSkillTest(unittest.TestCase):
             self._skill_md(
                 "fixture-notes",
                 description="Use when " + ("x" * 900) + ". Not for anything else.",
-                effects=("datastore:read",),
+                capabilities=("datastore:read",),
                 reads_from=("profile",),
             ),
         )
@@ -634,7 +634,7 @@ class InstallSkillTest(unittest.TestCase):
             self._skill_md(
                 "fixture-unknown",
                 description="Use when an unlisted effect is taken. Not for listed ones.",
-                effects=("datastore:read", "invented:effect"),
+                capabilities=("datastore:read", "invented:effect"),
                 reads_from=("profile",),
             ),
         )
@@ -1152,14 +1152,14 @@ class InstallSkillTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("sha256", out)
 
-    def test_check_reports_effects_that_changed_in_the_repo(self) -> None:
+    def test_check_reports_capabilities_that_changed_in_the_repo(self) -> None:
         self._run("--runtime", "claude-code", "fixture-notes")
         self._write(
             "skills/fixture-notes/SKILL.md",
             self._skill_md(
                 "fixture-notes",
                 description="Use when notes are read from the vault. Not for tasks.",
-                effects=("datastore:read", "datastore:write"),
+                capabilities=("datastore:read", "datastore:write"),
                 reads_from=("profile",),
                 writes_to=("notes",),
                 body_extra=" Reads the `owner datastore`.",
@@ -1167,7 +1167,7 @@ class InstallSkillTest(unittest.TestCase):
         )
         code, out = self._run("--runtime", "claude-code", "--check")
         self.assertEqual(code, 1)
-        self.assertIn("effects", out)
+        self.assertIn("capabilities", out)
 
     def test_check_reports_an_adapter_version_bump(self) -> None:
         self._run("--runtime", "claude-code", "fixture-notes")

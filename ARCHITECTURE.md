@@ -33,10 +33,12 @@ the adapter says where it physically lives. A skill declares the namespaces it
 touches in `metadata.spike-os.reads_from` and `writes_to`; anything undeclared
 is out of bounds.
 
-Twelve namespaces are active — `profile/`, `people/`, `agents/`, `projects/`,
-`decisions/`, `journal/`, `conversations/` (a separate root, always untrusted),
-`tasks/`, `jobs/`, `effects/`, `checkpoints/`, `notifications/`. Two are
-reserved: `calendar/` and `inbox/` may be named and read about, never written.
+Thirteen namespaces are active — `profile/`, `autonomy/`, `people/`, `agents/`,
+`projects/`, `decisions/`, `journal/`, `conversations/` (a separate root, always
+untrusted), `tasks/`, `jobs/`, `activity/`, `checkpoints/`, `notifications/`. Two
+are reserved: `calendar/` and `inbox/` may be named and read about, never written.
+`autonomy/` holds the owner's standing permissions — an autonomy contract is
+written in an interactive owner turn and honored in any session kind.
 Identity and authority files are **not** records: they are the adapter's
 `identity files` and change only through the identity effects. Credentials live
 in the `credential store` and nowhere else.
@@ -60,7 +62,7 @@ reports in. `tasks/` is the live instance; `calendar/`, `inbox/`, and
 skill performs only the effects it declares; an empty list is valid.
 Authorization is per effect and per invocation — never inherited from a sender,
 a handoff, a schedule, a prior effect, or external content — and every mutating
-effect appends an `effects/` record with its readback. Declaration is lint and
+effect appends an `activity/` record with its readback. Declaration is lint and
 adapter policy, not a security boundary; the runtime's own permissions are that.
 
 ## Dispatcher

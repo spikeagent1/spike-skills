@@ -105,14 +105,23 @@ terms:
     key: skills_dir
     kind: path
     meaning: Where this runtime loads installed skills from.
-  - term: effects ledger
-    key: effects_ledger
+  - term: activity log
+    key: activity_log
     kind: datastore
-    meaning: The effects namespace; one append-only record per mutating effect.
+    meaning: The activity namespace; one append-only record per mutating effect.
+    aliases: [effects ledger]
   - term: checkpoint store
     key: checkpoint_store
     kind: datastore
     meaning: The checkpoints namespace; one cursor per skill and channel.
+  - term: autonomy contract
+    key: autonomy_contract
+    kind: datastore
+    meaning: The autonomy namespace; one owner-written standing permission per record.
+  - term: capabilities
+    key: capabilities
+    kind: governance
+    meaning: What this runtime does with the effects a skill declares.
   - term: repo identity
     key: repo_identity
     kind: identity

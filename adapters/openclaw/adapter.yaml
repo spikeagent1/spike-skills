@@ -71,11 +71,17 @@ vocabulary:
     note: All are re-copied from git on every boot except BOOTSTRAP.md, which is seeded once.
   skills_dir:
     value: /data/.openclaw/workspace/skills
-  effects_ledger:
-    value: ops/effects/ pages in the owner datastore
+  activity_log:
+    value: ops/activity/ pages in the owner datastore
     note: state/ on the volume holds today's publisher and monitor checkpoints and migrates here.
   checkpoint_store:
     value: ops/checkpoints/ pages in the owner datastore
+  autonomy_contract:
+    value: autonomy/ pages in the owner datastore
+    note: A root namespace beside decisions/; absent on the live workspace until the owner writes one.
+  capabilities:
+    value: metadata.spike-os.capabilities on the staged skill, beside metadata.openclaw.requires
+    note: Declaration is lint and gateway policy on this runtime, never a sandbox.
   repo_identity:
     value: spikeagent1, with GH_CONFIG_DIR pointed at /data/.openclaw/credentials/github-cli
     note: Write access is scoped to ${DEPLOY_REPO}; never expose hosts.yml.
@@ -100,13 +106,14 @@ datastore:
     agents: agents/
     projects: projects/<slug>/
     decisions: decisions/
+    autonomy: autonomy/
     journal: journal/
     conversations: conversations/
     tasks: ops/tasks/
     calendar: ops/calendar/
     inbox: ops/inbox/
     jobs: ops/jobs/
-    effects: ops/effects/
+    activity: ops/activity/
     checkpoints: ops/checkpoints/
     notifications: ops/notifications/
   verbs:

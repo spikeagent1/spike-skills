@@ -9,7 +9,7 @@ every skills/*/SKILL.md frontmatter. Do not hand-edit; regenerate with
 
 ## work
 
-| skill | use when | version | runtime | effects | cluster |
+| skill | use when | version | runtime | capabilities | cluster |
 | --- | --- | --- | --- | --- | --- |
 | `daily-task-manager` | Use when a single task is the ask: capturing or adding one, 'remind me to renew the insurance next Tuesday', listing what is still open, completing, deferring, editing or removing one, or reconciling the list against its provider. Not for a whole-day summary across meetings and mail (briefing). | 2.0.0 | openclaw, claude-code | DESTR IDEM OPEN · `datastore:read`, `datastore:write`, `provider:read`, `provider:write`, `delete:external` | day |
 | `briefing` | Use when the owner wants today compiled and cited, read-only: a morning briefing, 'what's happening today', 'what changed overnight', the picture across meetings, mail, what's due, and what the notes say about today. Not a retrospective of past work, nor changing a task list (daily-task-manager). | 2.0.0 | openclaw, claude-code | RO IDEM OPEN · `datastore:read`, `provider:read` | day, datastore-readers |
@@ -19,7 +19,7 @@ every skills/*/SKILL.md frontmatter. Do not hand-edit; regenerate with
 
 ## health
 
-| skill | use when | version | runtime | effects | cluster |
+| skill | use when | version | runtime | capabilities | cluster |
 | --- | --- | --- | --- | --- | --- |
 | `fitness-coach` | Use when training is the ask: starting a routine with the days, time, and equipment available, working around a sore knee or a lay-off, reviewing the week just trained, or when to add load. Not for sleep habits (sleep-review) or logging doses and symptoms (medication-and-symptom-log). | 2.0.0 | openclaw, claude-code | RO IDEM · `datastore:read` | health |
 | `meal-planner` | Use when someone wants meals planned for several days or a week: 'what should we eat this week', meal prep, leftovers, cooking around allergies, budget, or schedule. Not for a single recipe or cooking session (home-cook) or a shopping list from an existing plan (grocery-planner). | 2.0.0 | openclaw, claude-code | RO IDEM · `datastore:read` | food |
@@ -33,7 +33,7 @@ _No skills released yet in this domain._
 
 ## home-and-lifestyle
 
-| skill | use when | version | runtime | effects | cluster |
+| skill | use when | version | runtime | capabilities | cluster |
 | --- | --- | --- | --- | --- | --- |
 | `home-cook` | Use when someone is cooking one thing now: what to make from what is in the kitchen, running a recipe, adapting it for an allergy or missing equipment, a technique that keeps failing, or whether an ingredient is still safe. Not for a week of meals (meal-planner) or what to buy (grocery-planner). | 2.0.0 | openclaw, claude-code | RO IDEM · `datastore:read` | food |
 | `grocery-planner` | Use when someone needs the shopping list itself: turning a meal plan into what to buy, checking it against the pantry, aisle order, a budget cap, snacks or staples for an allergy or dietary pattern, swaps for an out-of-stock item. Not for choosing meals (meal-planner) or cooking a dish (home-cook). | 2.0.0 | openclaw, claude-code | RO IDEM · `datastore:read` | food |
@@ -43,7 +43,7 @@ _No skills released yet in this domain._
 
 ## relationships-and-community
 
-| skill | use when | version | runtime | effects | cluster |
+| skill | use when | version | runtime | capabilities | cluster |
 | --- | --- | --- | --- | --- | --- |
 | `community-management` | Use when an audience should become a community: people react but none of them know each other, contributors already help each other and the next step needs designing and measuring, or a group space is proposed and moderation is the honest question. Not for the posts (`audience-content-engine`). | 2.0.0 | openclaw, claude-code | OPEN · `datastore:read`, `datastore:write`, `provider:read`, `message:send` | social |
 | `social-agent-practice` | Use when the agent acts in its own voice with identity, consent, or authority at stake: a reply answered in its own words, mail mixing a question and a one-time code, quoting a visitor, facilitator duties, or what requested writing changed. Not for the feed loop (`social-listening-engagement-loop`). | 2.0.0 | openclaw, claude-code | DESTR OPEN · `datastore:read`, `datastore:write`, `checkpoint:advance`, `provider:read`, `message:send`, `publish:external`, `notify:owner`, `belief:update` | social |
@@ -52,7 +52,7 @@ _No skills released yet in this domain._
 
 ## learning-and-knowledge
 
-| skill | use when | version | runtime | effects | cluster |
+| skill | use when | version | runtime | capabilities | cluster |
 | --- | --- | --- | --- | --- | --- |
 | `literature-review` | Use when the ask is what a body of research says: what the research actually says about a topic over the last decade, a scoped review showing what was screened and what made the cut, who argues what, or where the evidence is thinnest. Not for one sentence's truth (fact-check). | 2.0.0 | openclaw, claude-code | RO IDEM OPEN · `provider:read` | evidence |
 | `fact-check` | Use when a claim must be checked before it goes out: fact check this draft, verify the facts against live sources, is this accurate, check the claims one by one, source-check the numbers in this post, or re-derive an output that may be hallucinating. Not for surveying a field (literature-review). | 2.0.0 | openclaw, claude-code | RO IDEM · `datastore:read` | evidence |
@@ -64,7 +64,7 @@ _No skills released yet in this domain._
 
 ## personal-operations
 
-| skill | use when | version | runtime | effects | cluster |
+| skill | use when | version | runtime | capabilities | cluster |
 | --- | --- | --- | --- | --- | --- |
 | `owner-context-onboarding` | Use when the working relationship is the ask: setting up how to work together, what is off limits, what may be remembered, talking through what matters with the freedom to stop anywhere, or revising boundaries that no longer fit. Not for picking up after a restart (runtime-handoff-onboarding). | 2.0.0 | openclaw, claude-code | IDEM · `datastore:read`, `datastore:write`, `identity:propose` | onboarding |
 | `mcp-connector-onboarding` | Use when a service has to be connected or proven: authorizing it, finishing a setup from a callback URL, settling whether it is really configured or only half-connected, repairing one that stopped answering, or proving it with a read-only check. Not for a restart (runtime-handoff-onboarding). | 2.0.0 | openclaw, claude-code | DESTR OPEN · `datastore:read`, `datastore:write`, `credential:manage`, `config:write` | onboarding |

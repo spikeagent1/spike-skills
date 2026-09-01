@@ -40,7 +40,7 @@ HOLDERS_OF = "holders-of:"
 
 # The two namespaces contracts/datastore.yaml binds to an effect rather than to a
 # skill's own subject matter.
-EFFECTS_LEDGER_NS = "effects"
+ACTIVITY_LEDGER_NS = "activity"
 
 
 NOTIFICATIONS_NS = "notifications"
@@ -456,13 +456,13 @@ def _is_delegation(token: str) -> bool:
 
 
 def declared_effects(skill: str) -> set[str]:
-    """`metadata.spike-os.effects` of another skill, read from its frontmatter."""
+    """`metadata.spike-os.capabilities` of another skill, read from its frontmatter."""
     path = context.SKILLS / skill / "SKILL.md"
     try:
         meta = parse_frontmatter(path.read_text(encoding="utf-8"))
     except OSError:
         return set()
-    return set(_declared_list(spike_os_block(meta or {}).get("effects")))
+    return set(_declared_list(spike_os_block(meta or {}).get("capabilities")))
 
 
 def delegated_effects(sentence: str) -> set[str]:
@@ -568,7 +568,7 @@ def validate_namespaces(
     block = spike_os_block(meta)
     reads = _declared_list(block.get("reads_from"))
     writes = _declared_list(block.get("writes_to"))
-    effects = _declared_list(block.get("effects"))
+    effects = _declared_list(block.get("capabilities"))
     known = ", ".join(sorted(namespaces)) or "no namespaces"
 
     for key, names in (("reads_from", reads), ("writes_to", writes)):
@@ -608,7 +608,7 @@ def validate_namespaces(
             add_error(
                 errors,
                 f"{rel}/SKILL.md: metadata.{METADATA_NS}.{key} is non-empty but "
-                f"{effect} is not declared in metadata.{METADATA_NS}.effects",
+                f"{effect} is not declared in metadata.{METADATA_NS}.capabilities",
             )
 
     validate_effect_ledgers(rel, effects, writes, errors, entries)
@@ -623,7 +623,7 @@ def validate_effect_ledgers(
 ) -> None:
     """The two namespaces an effect obliges a skill to declare it writes.
 
-    `contracts/datastore.yaml` gives the `effects` namespace the authority "every
+    `contracts/datastore.yaml` gives the `activity` namespace the authority "every
     mutating skill appends" and the `notifications` namespace "holders of
     notify:owner". A skill that declares the effect but not the namespace would
     be installed without the grant its own ledger write needs.
@@ -638,11 +638,11 @@ def validate_effect_ledgers(
         for name in effects
         if name in known and not known[name].get("readOnlyHint")
     ]
-    if mutating and EFFECTS_LEDGER_NS not in written:
+    if mutating and ACTIVITY_LEDGER_NS not in written:
         add_error(
             errors,
             f"{rel}/SKILL.md: metadata.{METADATA_NS} declares mutating effect "
-            f"{mutating[0]!r} but writes_to does not name {EFFECTS_LEDGER_NS!r}; "
+            f"{mutating[0]!r} but writes_to does not name {ACTIVITY_LEDGER_NS!r}; "
             f"{DATASTORE_CONTRACT} has every mutating skill append to it",
         )
     if NOTIFY_EFFECT in effects and NOTIFICATIONS_NS not in written:
@@ -711,13 +711,13 @@ def validate_namespace_authority(
             effect = writers[len(HOLDERS_OF) :]
             for skill in sorted(declarations):
                 block = declarations[skill]
-                if name in block["writes_to"] and effect not in block["effects"]:
+                if name in block["writes_to"] and effect not in block["capabilities"]:
                     add_error(
                         errors,
                         f"skills/{skill}/SKILL.md: metadata.{METADATA_NS}.writes_to "
                         f"names {name!r}, whose {DATASTORE_CONTRACT} authority is "
                         f"every holder of {effect!r}, which "
-                        f"metadata.{METADATA_NS}.effects does not declare",
+                        f"metadata.{METADATA_NS}.capabilities does not declare",
                     )
             continue
 
@@ -821,12 +821,12 @@ def validate_effects(
     `rather than X` names the alternative not taken, and its exemption ends at
     the boundary where the sentence turns back to what the skill does.
     """
-    declared = _declared_list(spike_os_block(meta).get("effects"))
+    declared = _declared_list(spike_os_block(meta).get("capabilities"))
     for name in declared:
         if name not in effects_enum:
             add_error(
                 errors,
-                f"{rel}/SKILL.md: metadata.{METADATA_NS}.effects names unknown "
+                f"{rel}/SKILL.md: metadata.{METADATA_NS}.capabilities names unknown "
                 f"effect {name!r}; {CAPABILITIES_CONTRACT} declares "
                 f"{', '.join(sorted(effects_enum))}",
             )
@@ -859,7 +859,7 @@ def validate_effects(
                     add_error(
                         errors,
                         f"{rel}/SKILL.md: sentence implies {' or '.join(implied)}, which "
-                        f"metadata.{METADATA_NS}.effects does not declare: {snippet!r}",
+                        f"metadata.{METADATA_NS}.capabilities does not declare: {snippet!r}",
                     )
 
 

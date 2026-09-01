@@ -188,7 +188,7 @@ class Rendered:
 
     name: str
     version: str
-    effects: tuple[str, ...]
+    capabilities: tuple[str, ...]
     hints: dict[str, bool]
     frontmatter: str
     text: str
@@ -551,7 +551,7 @@ def render_skill(
     datastore: dict[str, Any] | None = None,
 ) -> Rendered:
     meta, body, _ = read_skill(name)
-    effects = tuple(declared(meta, "effects"))
+    effects = tuple(declared(meta, "capabilities"))
     hints = validate_repo.derived_hints(effects, capabilities)
     approvals = declared_approvals(effects, capabilities)
     version = str(os_block(meta).get("version", ""))
@@ -564,7 +564,7 @@ def render_skill(
     return Rendered(
         name=name,
         version=version,
-        effects=effects,
+        capabilities=effects,
         hints=hints,
         frontmatter=frontmatter,
         text=f"{frontmatter}{rendered_body}\n\n{trailer}",
@@ -631,7 +631,7 @@ def required_terms(
     an unattested one is a warning rather than a refusal.
     """
     terms = {str(entry["term"]): entry for entry in (vocabulary.get("terms") or [])}
-    effects = declared(meta, "effects")
+    effects = declared(meta, "capabilities")
     needed: dict[str, str] = {}
 
     if any(effect in effects for effect in PROVIDER_EFFECTS):

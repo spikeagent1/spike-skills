@@ -6,8 +6,8 @@ metadata:
     version: 2.0.0
     runtime: [openclaw, claude-code]
     reads_from: [tasks, profile]
-    writes_to: [tasks, effects]
-    effects: [datastore:read, datastore:write, provider:read, provider:write, delete:external]
+    writes_to: [tasks, activity]
+    capabilities: [datastore:read, datastore:write, provider:read, provider:write, delete:external]
 ---
 
 # Daily Task Manager
@@ -55,7 +55,7 @@ Operates the `tasks` sync instance defined in [contracts/sync.md](../../contract
 5. Preview the exact change by showing it in this turn — the object as it stands, the object as it would stand, the target it lands in — and take authorization for that exact change (M2). The preview is shown for every mutation without exception, including the ones a same-turn verb already authorizes.
 6. Mutate in the order [contracts/sync.md](../../contracts/sync.md) fixes — provider, provider readback, field verification, mirror, mirror readback — and report only the state that order actually reached (M4, O3). A mirror write that fails after a verified provider write does not undo the provider write. The order runs one way only: where the `task provider` is the system of record and its phase did not complete, the mirror is **not** written, because a mirror object with no provider object behind it is the `EXTERNAL_MISSING` case this skill exists to prevent. The run stops at the preview with the blocked phase named; mirror-only is the owner's explicit choice of system of record, never what an unreachable provider degrades into (X5).
 7. Reconcile from the provider first, then repair the mirror, applying [contracts/sync.md](../../contracts/sync.md)'s four cases; a divergence is surfaced as a ConflictSet either way, and duplicate semantic keys go back to the owner as a decision rather than being resolved by deleting one (X4).
-8. Append one `effects` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on what is still open.
+8. Append one `activity` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on what is still open.
 
 ### The operation record
 
@@ -87,7 +87,7 @@ A provider readback taken during this run is the only current evidence of what t
 
 ## Privacy and mutations
 
-Read: review, listing, reconciliation inspection. Mutating: add, complete, defer, edit, remove, and the mirror and `effects` writes that follow them (M1).
+Read: review, listing, reconciliation inspection. Mutating: add, complete, defer, edit, remove, and the mirror and `activity` writes that follow them (M1).
 
 The standing authority this skill claims, named here and nowhere else (M5): **the owner naming the exact operation this turn authorizes it, for a single add, complete, or defer, on one object, once.** The preview is still shown for it. Everything else takes explicit authorization after the preview — removal of any object, any operation spanning more than one object, an edit to a due date that carries an obligation, and any repeat of an operation already performed. Authority never carries from the previous turn, from a schedule, from a handoff, or from another effect (M6), and "you approved this earlier in the run" is not authority (M5).
 

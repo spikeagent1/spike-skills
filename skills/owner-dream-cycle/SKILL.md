@@ -6,8 +6,8 @@ metadata:
     version: 2.0.0
     runtime: [openclaw, claude-code]
     reads_from: [profile, people, projects, decisions, conversations]
-    writes_to: [journal, profile, decisions, projects, effects, notifications]
-    effects: [datastore:read, datastore:write, belief:update, identity:propose, notify:owner]
+    writes_to: [journal, profile, decisions, projects, activity, notifications]
+    capabilities: [datastore:read, datastore:write, belief:update, identity:propose, notify:owner]
 ---
 
 # Owner Dream Cycle
@@ -43,7 +43,7 @@ Consolidation: it takes one closed local day of the owner's own turns, hashes th
 | The existing durable records the corpus touches | yes | read what is reachable, mark the rest unread in the ledger, and hold every candidate that would supersede an unread record (X1) |
 | Prior run for the same corpus hash | no | treat its absence as a first run; treat its presence as the idempotency case |
 
-**Dependencies:** none beyond the contract. Reads the `profile`, `people`, `projects`, `decisions`, and `conversations` namespaces; writes `journal`, `effects`, and `notifications`, and — only from an interactive session — `profile`, `decisions`, and `projects` (D1, P3). `identity files` sit outside the `owner datastore` entirely and are reached only through `identity:propose`, which records a candidate; this skill does not hold `identity:write`, so nothing it produces can apply one (M8). Every mutating effect appends one record to the `effects` namespace (M7), and every owner notification writes one record to the `notifications` namespace under [contracts/notifications.md](../../contracts/notifications.md).
+**Dependencies:** none beyond the contract. Reads the `profile`, `people`, `projects`, `decisions`, and `conversations` namespaces; writes `journal`, `activity`, and `notifications`, and — only from an interactive session — `profile`, `decisions`, and `projects` (D1, P3). `identity files` sit outside the `owner datastore` entirely and are reached only through `identity:propose`, which records a candidate; this skill does not hold `identity:write`, so nothing it produces can apply one (M8). Every mutating effect appends one record to the `activity` namespace (M7), and every owner notification writes one record to the `notifications` namespace under [contracts/notifications.md](../../contracts/notifications.md).
 
 ## Workflow
 

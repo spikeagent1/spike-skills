@@ -12,7 +12,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "provider:read",
@@ -38,7 +38,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "provider:read"
           ],
@@ -62,7 +62,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write"
           ],
@@ -83,7 +83,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "fs:write-local",
@@ -110,7 +110,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "belief:update",
@@ -147,7 +147,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read"
           ],
           "hints": {
@@ -169,7 +169,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read"
           ],
           "hints": {
@@ -191,7 +191,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read"
           ],
           "hints": {
@@ -213,7 +213,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read"
           ],
           "hints": {
@@ -235,7 +235,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "fs:write-local"
@@ -276,7 +276,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read"
           ],
           "hints": {
@@ -298,7 +298,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read"
           ],
           "hints": {
@@ -320,7 +320,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read"
           ],
           "hints": {
@@ -342,7 +342,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read"
           ],
           "hints": {
@@ -364,7 +364,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read"
           ],
           "hints": {
@@ -392,7 +392,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "provider:read",
@@ -417,7 +417,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "checkpoint:advance",
@@ -446,7 +446,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "checkpoint:advance",
@@ -473,7 +473,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "repo:write"
@@ -507,7 +507,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "provider:read"
           ],
           "hints": {
@@ -529,7 +529,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read"
           ],
           "hints": {
@@ -551,7 +551,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "checkpoint:advance",
@@ -598,7 +598,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "identity:propose"
@@ -622,7 +622,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "credential:manage",
@@ -647,7 +647,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "repo:write",
@@ -672,7 +672,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "credential:manage",
@@ -699,7 +699,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "schedule:manage",
@@ -722,7 +722,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "message:send"
@@ -746,7 +746,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:read",
             "datastore:write",
             "repo:write"
@@ -770,7 +770,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [
+          "capabilities": [
             "datastore:write",
             "repo:write",
             "fs:write-local"
@@ -794,7 +794,7 @@
             "openclaw",
             "claude-code"
           ],
-          "effects": [],
+          "capabilities": [],
           "hints": {
             "readOnlyHint": true,
             "destructiveHint": false,

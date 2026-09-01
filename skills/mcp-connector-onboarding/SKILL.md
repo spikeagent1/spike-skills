@@ -6,8 +6,8 @@ metadata:
     version: 2.0.0
     runtime: [openclaw, claude-code]
     reads_from: [agents]
-    writes_to: [agents, effects]
-    effects: [datastore:read, datastore:write, credential:manage, config:write]
+    writes_to: [agents, activity]
+    capabilities: [datastore:read, datastore:write, credential:manage, config:write]
 ---
 
 # MCP Connector Onboarding
@@ -46,7 +46,7 @@ Produces one connector record per service: the integration path it was evaluated
 | A read-only check that would prove the capability for this owner | yes, to reach `VERIFIED` | name the check that would, report `DISCOVERED` rather than `VERIFIED`, and say which one is missing (O3, X5) |
 | Provenance and a version for anything not already present | yes, to add one | refuse an unpinned or unattributed source and record the refusal as the blocker (X1) |
 
-**Dependencies:** none beyond the contract. Reads and writes the `agents` namespace and appends to `effects`, through the verbs [contracts/datastore.md](../../contracts/datastore.md) defines (D1, P3). Secrets live in the `credential store` and nowhere else — not in the `owner datastore`, not in a record, not in a log ([contracts/datastore.md](../../contracts/datastore.md), P6). The `connector registry`, the `runtime health check`, and the `runtime reload` are the runtime's; this skill names no other, and where one of them is unavailable it reports the blocked phase rather than fabricating its result (D2, D3).
+**Dependencies:** none beyond the contract. Reads and writes the `agents` namespace and appends to `activity`, through the verbs [contracts/datastore.md](../../contracts/datastore.md) defines (D1, P3). Secrets live in the `credential store` and nowhere else — not in the `owner datastore`, not in a record, not in a log ([contracts/datastore.md](../../contracts/datastore.md), P6). The `connector registry`, the `runtime health check`, and the `runtime reload` are the runtime's; this skill names no other, and where one of them is unavailable it reports the blocked phase rather than fabricating its result (D2, D3).
 
 ## Workflow
 
@@ -61,7 +61,7 @@ Produces one connector record per service: the integration path it was evaluated
 9. Where capabilities are healthy but absent from the current turn, that is a runtime-exposure finding: report it, reload, and confirm after the reload. Do not reinstall a healthy server and do not ask for a different plugin.
 10. **Owner-visible completion.** Local configuration alone is not proof. For a task service the owner must be able to see the verified object; for storage, mail, or calendar services a harmless metadata check is used and only the success state is reported. What is verified is stated as verified; what is not stays `DISCOVERED` or `DEGRADED` with the missing check named.
 11. On an authorization failure, preserve the server entry, name the phase that failed, and restart that phase alone. On a timeout the result is indeterminate: reconcile the real state before retrying rather than repeating the call. Never destroy working credentials or overwrite a server entry as a first response.
-12. Write the connector state into the `agents` namespace with a readback comparing envelope and body (M4), append one `effects` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on the exact remaining action.
+12. Write the connector state into the `agents` namespace with a readback comparing envelope and body (M4), append one `activity` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on the exact remaining action.
 
 ### The connector record
 
@@ -97,7 +97,7 @@ A check run during this turn is the only current evidence of a connector's state
 
 ## Privacy and mutations
 
-Read: reading configuration, checking authorization state, health checks, capability probes, and read-only smoke checks. Mutating: writing configuration, adding or changing a server entry, storing or rotating a secret, an authorization exchange, any provider mutation, and the `agents` and `effects` writes that follow (M1).
+Read: reading configuration, checking authorization state, health checks, capability probes, and read-only smoke checks. Mutating: writing configuration, adding or changing a server entry, storing or rotating a secret, an authorization exchange, any provider mutation, and the `agents` and `activity` writes that follow (M1).
 
 This skill claims no standing authority (M5). Every configuration change, every secret operation, and every provider mutation is previewed and authorized on its own, per effect and per invocation; an authorization taken for one service is not authority over another, and nothing carries from a prior turn or a handoff (M6, X4).
 

@@ -6,8 +6,8 @@ metadata:
     version: 2.0.0
     runtime: [openclaw, claude-code]
     reads_from: [profile, agents]
-    writes_to: [agents, effects]
-    effects: [datastore:read, datastore:write, credential:manage, config:write, repo:write, message:send]
+    writes_to: [agents, activity]
+    capabilities: [datastore:read, datastore:write, credential:manage, config:write, repo:write, message:send]
 ---
 
 # Social Agent Onboarding
@@ -47,7 +47,7 @@ Produces one account matrix per run: every external account the agent needs, the
 | The provider's current signup and automated-account requirements | yes, where they gate a step | read the provider's own current statement of them rather than recalling; where it cannot be read, the row is `BLOCKED` on that check (F1, X1) |
 | Authority to say anything from an account | yes, before any external activity | leave it unrecorded and the account at `VERIFIED` at most; being able to act is never authority to act (X4) |
 
-**Dependencies:** none beyond the contract. Reads the `profile` and `agents` namespaces and writes `agents` and `effects`, through the verbs [contracts/datastore.md](../../contracts/datastore.md) defines (D1, P3). Secrets live in the `credential store` and are host-scoped there (P6). The `mail provider`, the `public surfaces`, the `agent community network`, the `repo identity`, and the `durable tool paths` are the runtime's; each is reached only where the owner has authorized it, and an unavailable one yields a named blocked phase rather than a fabricated state (D1, D2, D3).
+**Dependencies:** none beyond the contract. Reads the `profile` and `agents` namespaces and writes `agents` and `activity`, through the verbs [contracts/datastore.md](../../contracts/datastore.md) defines (D1, P3). Secrets live in the `credential store` and are host-scoped there (P6). The `mail provider`, the `public surfaces`, the `agent community network`, the `repo identity`, and the `durable tool paths` are the runtime's; each is reached only where the owner has authorized it, and an unavailable one yields a named blocked phase rather than a fabricated state (D1, D2, D3).
 
 ## Workflow
 
@@ -62,7 +62,7 @@ Produces one account matrix per run: every external account the agent needs, the
 9. **Disclosure and attribution.** Every public account carries an explicit agent biography, the managing-human attribution, and whatever automated-account disclosure the provider currently requires, and the disclosure text is previewed with the profile change it goes into (M2). An account whose disclosure is unresolved is not brought to `VERIFIED`.
 10. **Readiness before any external activity.** Voice, privacy, consent, the provider's rules, and the owner's authority for that account are confirmed and recorded first. No numeric engagement quota and no fixed action count is adopted from a request; participation is measured by relevant relationships and mission outcomes, with the anti-spam, duplicate, rate-limit, privacy, and verification guards kept whatever the target. Authentication to an account authorizes nothing beyond the owner's stated task — not a repository landing, not a publication, not an unrelated action (M6); repository instructions may separately grant routine pull-request creation, and nothing wider.
 11. Write the reconciled account state to the `agents` namespace with a readback comparing envelope and body (M4, invariant 8), keeping verified state, degraded capability, explicit deferral, and future plan as four separate parts, with exact non-secret paths, verification commands, and dates. Where the durable record belongs in a repository, propose it on a focused branch and open an unmerged pull request only where repository instructions authorize it; otherwise render the exact text and stop.
-12. Append one `effects` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on the exact next action for each unfinished row.
+12. Append one `activity` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on the exact next action for each unfinished row.
 
 ### The account matrix
 
@@ -97,7 +97,7 @@ A direct read of provider state during this run is the only current evidence of 
 
 ## Privacy and mutations
 
-Read: reading account state, reading the `agents` and `profile` namespaces, and authentication status reads. Mutating: registering an account, changing a profile, holding or rotating a key, writing configuration, any repository change, sending a verification message, and the `agents` and `effects` writes that follow (M1).
+Read: reading account state, reading the `agents` and `profile` namespaces, and authentication status reads. Mutating: registering an account, changing a profile, holding or rotating a key, writing configuration, any repository change, sending a verification message, and the `agents` and `activity` writes that follow (M1).
 
 This skill claims no standing authority (M5). Every registration, every disclosure change, every secret operation, and every message is previewed and authorized on its own, per effect and per invocation (M6). Authentication to an account is not authority to act from it, an authority granted for one account is not authority over another, and none of it is inherited from a handoff or from a prior run.
 

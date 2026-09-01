@@ -42,8 +42,8 @@ enforces the set, the order, and the body quality of every one of them.
 
 Frontmatter is the six agentskills.io keys plus `metadata.spike-os`, which
 declares the semantic version, the runtimes the skill claims, the datastore
-namespaces it reads and writes, and the effects it performs. The closed effect
-enum is [contracts/capabilities.yaml](contracts/capabilities.yaml); the
+namespaces it reads and writes, and the capabilities it performs. The closed
+effect enum is [contracts/capabilities.yaml](contracts/capabilities.yaml); the
 namespaces are [contracts/datastore.md](contracts/datastore.md); the neutral
 runtime terms are [adapters/vocabulary.yaml](adapters/vocabulary.yaml).
 
@@ -94,7 +94,7 @@ it quotes or routes elsewhere, and it misses any phrasing outside the list. So
 the declaration is **lint, not a boundary**: nothing at run time stops a skill taking an effect it never
 declared. What the declaration does buy is a machine-readable claim -- the
 installer refuses on it, `--check` re-derives the hints from it, and the
-`effects/` ledger is auditable against it after the fact. Emitting a
+`activity/` ledger is auditable against it after the fact. Emitting a
 `PreToolUse` hook from the declaration is the enforcement path, and it is on the
 roadmap rather than in the repository.
 

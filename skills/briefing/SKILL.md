@@ -7,7 +7,7 @@ metadata:
     runtime: [openclaw, claude-code]
     reads_from: [profile, people, projects, decisions, tasks, calendar, inbox, journal]
     writes_to: []
-    effects: [datastore:read, provider:read]
+    capabilities: [datastore:read, provider:read]
 ---
 
 # Briefing

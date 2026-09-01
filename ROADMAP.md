@@ -73,7 +73,7 @@ What is open, and where it is tracked:
 - **Effect enforcement.** The effect declaration is lint: the validator
   greps the body for keywords and cannot see intent, and nothing at run
   time stops an undeclared effect. The enforcement path is emitting a
-  `PreToolUse` hook from `metadata.spike-os.effects` so the runtime denies
+  `PreToolUse` hook from `metadata.spike-os.capabilities` so the runtime denies
   the call rather than the repository documenting that it should not
   happen. Nothing of it exists yet.
 - **Listing budget bound to the adapter.** `LISTING_BUDGET_CHARS` is

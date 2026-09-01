@@ -32,8 +32,10 @@ states what it does without it; the installer installs such a skill with a print
 | `runtime reload` | a deploy, which restarts the gateway and re-seeds the git-owned workspace files |
 | `identity files` | SOUL.md, IDENTITY.md, USER.md, AGENTS.md, TOOLS.md, BOOTSTRAP.md, HANDOFF.md, and HEARTBEAT.md under /data/.openclaw/workspace |
 | `skills dir` | /data/.openclaw/workspace/skills |
-| `effects ledger` | ops/effects/ pages in the owner datastore |
+| `activity log` | ops/activity/ pages in the owner datastore |
 | `checkpoint store` | ops/checkpoints/ pages in the owner datastore |
+| `autonomy contract` | autonomy/ pages in the owner datastore |
+| `capabilities` | metadata.spike-os.capabilities on the staged skill, beside metadata.openclaw.requires |
 | `repo identity` | spikeagent1, with GH_CONFIG_DIR pointed at /data/.openclaw/credentials/github-cli |
 | `proposal workflow` | a Skill Workshop proposal, applied only on explicit owner approval |
 | `journal build toolchain` | Astro, building site/ in ${DEPLOY_REPO} |
@@ -43,8 +45,8 @@ states what it does without it; the installer installs such a skill with a print
 
 ## Datastore
 GBrain page slugs. At the brain root: `profile` `people` `agents` `decisions`
-`journal`, and `projects/<slug>/`. Under `ops/`: `tasks` `calendar` `inbox` `jobs`
-`effects` `checkpoints` `notifications`. `conversations/` is a separate root, so
+`journal` `autonomy`, and `projects/<slug>/`. Under `ops/`: `tasks` `calendar` `inbox`
+`jobs` `activity` `checkpoints` `notifications`. `conversations/` is a separate root, so
 far empty. One page per record key.
 
 | Verb | Invocation |

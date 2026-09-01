@@ -7,7 +7,7 @@ metadata:
     runtime: [openclaw, claude-code]
     reads_from: [profile]
     writes_to: []
-    effects: [datastore:read]
+    capabilities: [datastore:read]
 ---
 
 # Sleep Review

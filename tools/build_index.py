@@ -41,7 +41,7 @@ BADGE_LABELS: tuple[tuple[str, str], ...] = (
     ("openWorldHint", "OPEN"),
 )
 
-TABLE_HEADER = "| skill | use when | version | runtime | effects | cluster |"
+TABLE_HEADER = "| skill | use when | version | runtime | capabilities | cluster |"
 TABLE_RULE = "| --- | --- | --- | --- | --- | --- |"
 
 
@@ -93,14 +93,14 @@ def _build_row(
     capability_entries: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     spike_os = validate_repo.spike_os_block(meta)
-    effects = _as_list(spike_os.get("effects"))
+    capabilities = _as_list(spike_os.get("capabilities"))
     return {
         "name": name,
         "description": str(meta.get("description", "")),
         "version": str(spike_os.get("version", "")),
         "runtime": _as_list(spike_os.get("runtime")),
-        "effects": effects,
-        "hints": validate_repo.derived_hints(effects, capability_entries),
+        "capabilities": capabilities,
+        "hints": validate_repo.derived_hints(capabilities, capability_entries),
         "contract_version": str(approved.get(name, {}).get("contract_version", "")),
         "cluster": clusters_by_skill.get(name, []),
     }
@@ -183,11 +183,13 @@ def _badges(hints: dict[str, bool]) -> str:
 def _skill_row_md(row: dict[str, Any]) -> str:
     description = row["description"].replace("|", "\\|")
     runtime = ", ".join(row["runtime"]) if row["runtime"] else "—"
-    effects = ", ".join(f"`{effect}`" for effect in row["effects"]) if row["effects"] else "—"
+    capabilities = (
+        ", ".join(f"`{name}`" for name in row["capabilities"]) if row["capabilities"] else "—"
+    )
     cluster = ", ".join(row["cluster"]) if row["cluster"] else "—"
     return (
         f"| `{row['name']}` | {description} | {row['version']} | {runtime} | "
-        f"{_badges(row['hints'])} · {effects} | {cluster} |"
+        f"{_badges(row['hints'])} · {capabilities} | {cluster} |"
     )
 
 

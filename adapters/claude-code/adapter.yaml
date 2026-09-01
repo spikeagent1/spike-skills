@@ -71,11 +71,17 @@ vocabulary:
   skills_dir:
     value: ~/.claude/skills
     note: About a hundred unrelated skills already live here; install only into directories carrying a spike-os stamp.
-  effects_ledger:
-    value: ${VAULT_ROOT}/ops/effects/
+  activity_log:
+    value: ${VAULT_ROOT}/ops/activity/
     note: The vault has no ops/ tree yet; the installer creates it.
   checkpoint_store:
     value: ${VAULT_ROOT}/ops/checkpoints/
+  autonomy_contract:
+    value: ${VAULT_ROOT}/autonomy/
+    note: An owner-written root namespace like decisions/; empty until the owner writes one.
+  capabilities:
+    value: metadata.spike-os.capabilities on the installed skill, plus the disable-model-invocation flag a never_autonomous tier renders
+    note: Declaration is lint and launcher policy on this runtime, never a sandbox.
   repo_identity:
     value: ${REPO_IDENTITY}, through the gh CLI
   proposal_workflow:
@@ -97,13 +103,14 @@ datastore:
     agents: agents/
     projects: projects/<name>/
     decisions: decisions/
+    autonomy: autonomy/
     journal: ops/journal/
     conversations: ${CONVERSATIONS_ROOT}
     tasks: ops/tasks/
     calendar: ops/calendar/
     inbox: ops/inbox/
     jobs: ops/jobs/
-    effects: ops/effects/
+    activity: ops/activity/
     checkpoints: ops/checkpoints/
     notifications: ops/notifications/
   verbs:

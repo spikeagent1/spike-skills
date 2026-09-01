@@ -19,7 +19,7 @@ What each tracked directory holds, and what may never enter one.
 - `contracts/capabilities.yaml` — the closed effect enum and each effect's
   approval floor.
 - `contracts/datastore.{md,yaml}` — the namespaces, the record envelope, the
-  verbs, and the closed `effect_state` enum.
+  verbs, and the closed `activity_state` enum.
 - `contracts/notifications.md`, `contracts/sync.md` — the owner-notification
   and provider-sync contracts.
 

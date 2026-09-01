@@ -1725,7 +1725,7 @@ class ValidateRepoTest(unittest.TestCase):
             "  spike-os:\n"
             "    version: 2.0.0\n"
             "    runtime: [openclaw, claude-code]\n"
-            "    effects:\n"
+            "    capabilities:\n"
             "      - publish\n"
             "---\n\n# Demo\n"
         )
@@ -1737,7 +1737,7 @@ class ValidateRepoTest(unittest.TestCase):
             {
                 "version": "2.0.0",
                 "runtime": ["openclaw", "claude-code"],
-                "effects": ["publish"],
+                "capabilities": ["publish"],
             },
         )
         self.assertIs(validate_repo.frontmatter, validate_repo.parse_frontmatter)
@@ -1753,7 +1753,7 @@ class ValidateRepoTest(unittest.TestCase):
         runtime: str = "[openclaw, claude-code]",
         reads_from: str | None = None,
         writes_to: str | None = None,
-        effects: str | None = None,
+        capabilities: str | None = None,
     ) -> str:
         """A metadata.spike-os block with only the keys a case needs."""
         block = (
@@ -1765,7 +1765,7 @@ class ValidateRepoTest(unittest.TestCase):
         for key, value in (
             ("reads_from", reads_from),
             ("writes_to", writes_to),
-            ("effects", effects),
+            ("capabilities", capabilities),
         ):
             if value is not None:
                 block += f"    {key}: {value}\n"
@@ -1793,7 +1793,7 @@ class ValidateRepoTest(unittest.TestCase):
             "approved-skill",
             "pending-skill",
             metadata_block=self._v2_metadata(
-                reads_from="[projects]", effects="[datastore:read]"
+                reads_from="[projects]", capabilities="[datastore:read]"
             ),
             sections={"Workflow": workflow},
         )
@@ -1808,7 +1808,7 @@ class ValidateRepoTest(unittest.TestCase):
             "approved-skill",
             "pending-skill",
             metadata_block=self._v2_metadata(
-                writes_to="[calendar, ghost]", effects="[datastore:write]"
+                writes_to="[calendar, ghost]", capabilities="[datastore:write]"
             ),
         )
         self._git_add()
@@ -1849,8 +1849,8 @@ class ValidateRepoTest(unittest.TestCase):
             "pending-skill",
             metadata_block=self._v2_metadata(
                 reads_from="[profile]",
-                writes_to="[decisions, effects]",
-                effects="[datastore:read, datastore:write]",
+                writes_to="[decisions, activity]",
+                capabilities="[datastore:read, datastore:write]",
             ),
         )
         self._git_add()
@@ -1863,7 +1863,7 @@ class ValidateRepoTest(unittest.TestCase):
         self._promote_to_v2(
             "approved-skill",
             "pending-skill",
-            metadata_block=self._v2_metadata(effects="[datastore:teleport]"),
+            metadata_block=self._v2_metadata(capabilities="[datastore:teleport]"),
             sections={
                 "Workflow": (
                     "1. Publish the fixture verdict where the audience reads it.\n"
@@ -1876,7 +1876,7 @@ class ValidateRepoTest(unittest.TestCase):
         code, output = self._run_validator()
 
         self.assertEqual(code, 1)
-        self.assertIn("effects names unknown effect 'datastore:teleport'", output)
+        self.assertIn("capabilities names unknown effect 'datastore:teleport'", output)
         self.assertIn("implies publish:external", output)
         self.assertIn("Publish the fixture verdict where the audience reads it", output)
 
@@ -1924,8 +1924,8 @@ class ValidateRepoTest(unittest.TestCase):
             "pending-skill",
             "approved-skill",
             metadata_block=self._v2_metadata(
-                writes_to="[effects]",
-                effects="[datastore:write, publish:external]",
+                writes_to="[activity]",
+                capabilities="[datastore:write, publish:external]",
             ),
         )
         self._promote_to_v2(
@@ -1950,8 +1950,8 @@ class ValidateRepoTest(unittest.TestCase):
             "pending-skill",
             "approved-skill",
             metadata_block=self._v2_metadata(
-                writes_to="[effects]",
-                effects="[datastore:write, publish:external]",
+                writes_to="[activity]",
+                capabilities="[datastore:write, publish:external]",
             ),
         )
         self._promote_to_v2(
@@ -2210,8 +2210,8 @@ class ValidateRepoTest(unittest.TestCase):
 
         code, output = self._scan_workflow(
             "Create the fixture record in the `task provider` and read it back.",
-            writes_to="[effects]",
-            effects="[datastore:write, provider:write]",
+            writes_to="[activity]",
+            capabilities="[datastore:write, provider:write]",
         )
         self.assertEqual(code, 0, output)
 
@@ -2224,8 +2224,8 @@ class ValidateRepoTest(unittest.TestCase):
 
         code, output = self._scan_workflow(
             "Apply the confirmed change to the `identity files` once it is named.",
-            writes_to="[effects]",
-            effects="[datastore:write, identity:write]",
+            writes_to="[activity]",
+            capabilities="[datastore:write, identity:write]",
         )
         self.assertEqual(code, 0, output)
 
@@ -2238,8 +2238,8 @@ class ValidateRepoTest(unittest.TestCase):
 
         code, output = self._scan_workflow(
             "Revise the stored belief when new evidence arrives.",
-            writes_to="[effects]",
-            effects="[datastore:write, belief:update]",
+            writes_to="[activity]",
+            capabilities="[datastore:write, belief:update]",
         )
         self.assertEqual(code, 0, output)
 
@@ -2252,8 +2252,8 @@ class ValidateRepoTest(unittest.TestCase):
 
         code, output = self._scan_workflow(
             "Write the rendered fixture verdict to a unique local path.",
-            writes_to="[effects]",
-            effects="[datastore:write, fs:write-local]",
+            writes_to="[activity]",
+            capabilities="[datastore:write, fs:write-local]",
         )
         self.assertEqual(code, 0, output)
 
@@ -2265,8 +2265,8 @@ class ValidateRepoTest(unittest.TestCase):
 
         code, output = self._scan_workflow(
             "Write the fixture verdict to a file.",
-            writes_to="[effects]",
-            effects="[datastore:write, fs:write-local]",
+            writes_to="[activity]",
+            capabilities="[datastore:write, fs:write-local]",
         )
         self.assertEqual(code, 0, output)
 
@@ -2289,8 +2289,8 @@ class ValidateRepoTest(unittest.TestCase):
 
         code, output = self._scan_workflow(
             "Notify the `owner` once the fixture run finishes.",
-            writes_to="[effects, notifications]",
-            effects="[datastore:write, notify:owner]",
+            writes_to="[activity, notifications]",
+            capabilities="[datastore:write, notify:owner]",
         )
         self.assertEqual(code, 0, output)
 
@@ -2309,8 +2309,8 @@ class ValidateRepoTest(unittest.TestCase):
         code, output = self._scan_workflow(
             "Write the connector state into the `agents` namespace with a readback.",
             reads_from="[agents]",
-            writes_to="[agents, effects]",
-            effects="[datastore:read, datastore:write]",
+            writes_to="[agents, activity]",
+            capabilities="[datastore:read, datastore:write]",
         )
         self.assertEqual(code, 0, output)
 
@@ -2319,8 +2319,8 @@ class ValidateRepoTest(unittest.TestCase):
     def test_a_skill_the_namespace_does_not_authorize_fails(self) -> None:
         code, output = self._scan_workflow(
             "Emit the approved skill fixture verdict twice.",
-            writes_to="[conversations, effects]",
-            effects="[datastore:read, datastore:write]",
+            writes_to="[conversations, activity]",
+            capabilities="[datastore:read, datastore:write]",
         )
         self.assertEqual(code, 1)
         self.assertIn("writes_to names 'conversations'", output)
@@ -2330,8 +2330,8 @@ class ValidateRepoTest(unittest.TestCase):
         self._authorize("conversations", "approved-skill")
         code, output = self._scan_workflow(
             "Emit the approved skill fixture verdict twice.",
-            writes_to="[conversations, effects]",
-            effects="[datastore:read, datastore:write]",
+            writes_to="[conversations, activity]",
+            capabilities="[datastore:read, datastore:write]",
         )
         self.assertEqual(code, 0, output)
 
@@ -2354,8 +2354,8 @@ class ValidateRepoTest(unittest.TestCase):
         # writer that holds the effect needs no name in the contract.
         code, output = self._scan_workflow(
             "Emit the approved skill fixture verdict twice.",
-            writes_to="[projects, effects]",
-            effects="[datastore:read, datastore:write]",
+            writes_to="[projects, activity]",
+            capabilities="[datastore:read, datastore:write]",
         )
         self.assertEqual(code, 0, output)
 
@@ -2364,8 +2364,8 @@ class ValidateRepoTest(unittest.TestCase):
         # declares the namespace without the effect.
         code, output = self._scan_workflow(
             "Emit the approved skill fixture verdict twice.",
-            writes_to="[checkpoints, effects]",
-            effects="[datastore:read, datastore:write]",
+            writes_to="[checkpoints, activity]",
+            capabilities="[datastore:read, datastore:write]",
         )
         self.assertEqual(code, 1)
         self.assertIn("every holder of 'checkpoint:advance'", output)
@@ -2383,13 +2383,13 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("contracts/datastore.md", output)
         self.assertIn("checkpoint:advance", output)
 
-    def test_a_mutating_effect_requires_the_effects_namespace(self) -> None:
+    def test_a_mutating_effect_requires_the_activity_namespace(self) -> None:
         # Task 25 item 14: every mutating skill appends to the side-effect ledger.
         self._promote_to_v2(
             "approved-skill",
             "pending-skill",
             metadata_block=self._v2_metadata(
-                writes_to="[journal]", effects="[datastore:write]"
+                writes_to="[journal]", capabilities="[datastore:write]"
             ),
         )
         self._git_add()
@@ -2399,16 +2399,16 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn(
             "declares mutating effect 'datastore:write' but writes_to does not "
-            "name 'effects'",
+            "name 'activity'",
             output,
         )
 
-    def test_a_read_only_skill_needs_no_effects_namespace(self) -> None:
+    def test_a_read_only_skill_needs_no_activity_namespace(self) -> None:
         self._promote_to_v2(
             "approved-skill",
             "pending-skill",
             metadata_block=self._v2_metadata(
-                reads_from="[journal]", effects="[datastore:read]"
+                reads_from="[journal]", capabilities="[datastore:read]"
             ),
         )
         self._git_add()
@@ -2422,7 +2422,7 @@ class ValidateRepoTest(unittest.TestCase):
             "approved-skill",
             "pending-skill",
             metadata_block=self._v2_metadata(
-                writes_to="[journal, effects]", effects="[datastore:write, notify:owner]"
+                writes_to="[journal, activity]", capabilities="[datastore:write, notify:owner]"
             ),
         )
         self._git_add()
@@ -2994,7 +2994,7 @@ class ValidateRepoTest(unittest.TestCase):
             "approved-skill",
             "pending-skill",
             metadata_block=self._v2_metadata(
-                writes_to="[effects]", effects="[datastore:write, repo:write]"
+                writes_to="[activity]", capabilities="[datastore:write, repo:write]"
             ),
             sections={"Workflow": workflow},
         )
@@ -3057,7 +3057,7 @@ class EffectLedgerEntriesTest(unittest.TestCase):
         )
         self.assertEqual(len(errors), 1, errors)
         self.assertIn("fixture:mutate", errors[0])
-        self.assertIn("effects", errors[0])
+        self.assertIn("activity", errors[0])
 
     def test_a_read_only_entry_obliges_no_ledger_write(self) -> None:
         errors: list[str] = []

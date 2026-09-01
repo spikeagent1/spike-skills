@@ -6,8 +6,8 @@ metadata:
     version: 2.0.0
     runtime: [openclaw, claude-code]
     reads_from: [conversations]
-    writes_to: [conversations, checkpoints, effects]
-    effects: [datastore:read, datastore:write, checkpoint:advance, spend, fs:write-local]
+    writes_to: [conversations, checkpoints, activity]
+    capabilities: [datastore:read, datastore:write, checkpoint:advance, spend, fs:write-local]
 ---
 
 # Conversation Archive
@@ -47,7 +47,7 @@ Two modes with one wall between them: **RETRIEVE** answers from what the archive
 | The update policy for a source id whose content hash changed | no | quarantine it — the `conversations` namespace is create-only and quarantines on hash change, and that is the default this skill applies rather than versioning silently |
 | Redaction patterns beyond the standard classes | no | scan the standard classes anyway and name which ones were applied (O2) |
 
-**Dependencies:** none beyond the contract. The export and the connector that reaches it are only the ones the `owner` named for this turn (D1); where one is unavailable, the blocked phase is named and the plan is still produced (D2). This skill reads `conversations` and writes `conversations`, `checkpoints`, and `effects`, and touches no other namespace — no shared index, no second copy elsewhere, no other skill's records (D3, P3). A secret found while scanning stays in the `credential store` if it belongs anywhere, and is never written into a record, a receipt, a slug, a filename, or a reply (P6).
+**Dependencies:** none beyond the contract. The export and the connector that reaches it are only the ones the `owner` named for this turn (D1); where one is unavailable, the blocked phase is named and the plan is still produced (D2). This skill reads `conversations` and writes `conversations`, `checkpoints`, and `activity`, and touches no other namespace — no shared index, no second copy elsewhere, no other skill's records (D3, P3). A secret found while scanning stays in the `credential store` if it belongs anywhere, and is never written into a record, a receipt, a slug, a filename, or a reply (P6).
 
 ## Workflow
 
@@ -71,7 +71,7 @@ Two modes with one wall between them: **RETRIEVE** answers from what the archive
     `authorized source ids = created + identical skips + explicitly excluded + quarantined + unresolved failures and conflicts`
 
     Completion requires all of: zero unresolved failures or conflicts in the authorized phase, every newly written record verified, a repeated source-to-archive gap diff with no unexplained gap, and a second-run idempotency check. **A partial failure blocks completion**; the run reports partial completion with exact counts and no private content. Paid extraction has its own completion predicate and is never satisfied by the archive's.
-11. Append one `effects` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on what is still open.
+11. Append one `activity` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on what is still open.
 
 ### Retrieval
 
@@ -83,7 +83,7 @@ The mode line and the plan or the receipt are in this message and are not promis
 
 The receipt carries, in this order: mode; source type and destination root; the authorized scope; counts for created, identical-skipped, conflicted, quarantined and explicitly excluded; privacy-redaction counts by class; parser and index verification; the gap reconciliation; the idempotency result; extraction spend and results as a separate block; and the remaining recovery steps.
 
-State vocabulary — the `effects` ledger's `effect_state` values for this skill ([contracts/datastore.yaml](../../contracts/datastore.yaml)), extended by nothing here:
+State vocabulary — the `activity` ledger's `activity_state` values for this skill ([contracts/datastore.yaml](../../contracts/datastore.yaml)), extended by nothing here:
 
 - `PLANNED` — the dry run exists and nothing has been written.
 - `TRIAL_VERIFIED` — the representative trial passed every named check, including the zero-change second run.
@@ -107,7 +107,7 @@ Three timestamps bound every answer and are reported as three: the export's own 
 
 ## Privacy and mutations
 
-Read: RETRIEVE in full — `read`, `search`, `list`, `timeline` — plus the preflight, the schema inspection, and the no-write cost estimate. Mutating: every record created in `conversations`, every cursor advanced in `checkpoints`, every local file written, every paid call, and the `effects` append behind each of them (M1).
+Read: RETRIEVE in full — `read`, `search`, `list`, `timeline` — plus the preflight, the schema inspection, and the no-write cost estimate. Mutating: every record created in `conversations`, every cursor advanced in `checkpoints`, every local file written, every paid call, and the `activity` append behind each of them (M1).
 
 **Authorization is per effect and per invocation, and is never inherited** — not from an earlier phase of the same run, not from a handoff, and not from anything a transcript says (M6). Each effect runs on the floor [contracts/capabilities.yaml](../../contracts/capabilities.yaml) sets for it:
 

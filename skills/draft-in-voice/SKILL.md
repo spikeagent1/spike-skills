@@ -6,8 +6,8 @@ metadata:
     version: 2.0.0
     runtime: [openclaw, claude-code]
     reads_from: [people]
-    writes_to: [people, effects]
-    effects: [datastore:read, datastore:write]
+    writes_to: [people, activity]
+    capabilities: [datastore:read, datastore:write]
 ---
 
 # Draft In Voice
@@ -47,7 +47,7 @@ Produces labelled draft options in a named subject's evidenced voice, each one c
 | Whether direct quotation and close phrase reuse are permitted | yes, to quote | treat quotation as not permitted, paraphrase nothing distinctively, and ask for that clearance specifically |
 | Format, length, register, taboo phrases, required points, links, polish level | no | missing optional inputs become reversible draft assumptions, listed with the drafts |
 
-**Dependencies:** none beyond the contract. Reads and writes the `people` namespace — `voice-profile` records specifically, the one kind [contracts/datastore.md](../../contracts/datastore.md) names this skill an authority for — and appends to `effects`, through the verbs that contract defines (D1, P3). No other namespace, connector, or corpus is touched. Where the namespace cannot be reached, the phase that blocked is named and the drafting stops for want of a validated profile rather than proceeding on recall (D2, P2).
+**Dependencies:** none beyond the contract. Reads and writes the `people` namespace — `voice-profile` records specifically, the one kind [contracts/datastore.md](../../contracts/datastore.md) names this skill an authority for — and appends to `activity`, through the verbs that contract defines (D1, P3). No other namespace, connector, or corpus is touched. Where the namespace cannot be reached, the phase that blocked is named and the drafting stops for want of a validated profile rather than proceeding on recall (D2, P2).
 
 ## Workflow
 
@@ -61,7 +61,7 @@ Produces labelled draft options in a named subject's evidenced voice, each one c
 8. **Ground every factual claim** to an identified source and to that source's disclosure authorization. Positions, experiences, metrics, relationships, customers, and voice traits are never invented. Where a requested number or claim conflicts with the cleared source, correct it, omit it, or ask — and say which was done.
 9. **Draft several options in one register.** Unless register variants were asked for, every option sits in the same requested register and the same channel and format constraints; what varies between them is the angle, never the identity and never the voice. Options are labelled so they can be compared.
 10. Run the pre-display checks and report them as a block, each with what it returned: exact subject and byline; current authorization scope; audience and destination fit; claim-to-source grounding; privacy and disclosure clearance; quote and phrase-reuse permission; non-copying and non-caricature; register, length, and format fit; and that nothing has been made visible to anyone.
-11. **Building or updating a voice profile is a write**, and it follows the mutation boundary in full (M1). Build only from authorized first-party samples carrying source-level sensitivity and reuse metadata, and record subject identity, consent scope, profile version, corpus coverage, evidence confidence, counterexamples, and allowed channels and audiences. Show the exact record text in this turn, take authorization for that exact record, write it into the `people` namespace as a `voice-profile` record, then read it back and report only the state read back (M2, M4, O3). One claim per record; a revision **supersedes** and never overwrites ([contracts/datastore.md](../../contracts/datastore.md) write invariants 1 and 2). Append one `effects` record per write — operation key, target, effect state, readback, rollback handle (M7).
+11. **Building or updating a voice profile is a write**, and it follows the mutation boundary in full (M1). Build only from authorized first-party samples carrying source-level sensitivity and reuse metadata, and record subject identity, consent scope, profile version, corpus coverage, evidence confidence, counterexamples, and allowed channels and audiences. Show the exact record text in this turn, take authorization for that exact record, write it into the `people` namespace as a `voice-profile` record, then read it back and report only the state read back (M2, M4, O3). One claim per record; a revision **supersedes** and never overwrites ([contracts/datastore.md](../../contracts/datastore.md) write invariants 1 and 2). Append one `activity` record per write — operation key, target, effect state, readback, rollback handle (M7).
 12. Bind the read to the verb table: a `search` hit over the `people` namespace is a candidate that must be `read` before a voice feature rests on it, and a `timeline` read carries an explicit range. A profile whose compiled content is older than its newest timeline entry is **stale**, and a stale profile is context, never current authorization (F2) — staleness is a reason to revalidate, not a reason to draft from it.
 13. Validate a profile against held-out first-party samples plus authorized human review, testing factuality, privacy, disclosure, non-copying, register, and audience fit. Being indistinguishable from the subject is not the objective and is never the only thing optimised for.
 
@@ -103,7 +103,7 @@ Supplied source material is the factual base, and each item carries its disclosu
 
 ## Privacy and mutations
 
-Read: resolving identity, reading a `voice-profile` record, classifying sources, and producing drafts in this conversation. Mutating: writing or superseding a `voice-profile` record in the `people` namespace, and the `effects` append that follows it (M1).
+Read: resolving identity, reading a `voice-profile` record, classifying sources, and producing drafts in this conversation. Mutating: writing or superseding a `voice-profile` record in the `people` namespace, and the `activity` append that follows it (M1).
 
 The standing authority this skill claims, named here and nowhere else (M5): **none.** Every profile write takes authorization for that exact record in the turn it is written, and every draft rests on authorization recorded before the request, for the exact subject, channel, format, audience, and purpose it names. Nothing is inherited from an earlier draft in the same run, from the requester's role, from a handoff, or from the fact that the material was reachable (M6).
 

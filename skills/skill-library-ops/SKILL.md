@@ -6,8 +6,8 @@ metadata:
     version: 2.0.0
     runtime: [openclaw, claude-code]
     reads_from: []
-    writes_to: [effects]
-    effects: [datastore:write, repo:write, fs:write-local]
+    writes_to: [activity]
+    capabilities: [datastore:write, repo:write, fs:write-local]
 ---
 
 # Skill Library Operations
@@ -46,7 +46,7 @@ Treats this library as tested software rather than a folder of prompts: an audit
 | Review focus, issue links, or a report destination | no | proceed; their absence never blocks validation or a focused branch |
 | Authorization for anything past the unmerged pull request | no | there is none to assume: landing, adoption, and a live runtime are each their own authorization (M6) |
 
-**Dependencies:** a local `git` checkout of this repository; `python3` for `tools/validate_repo.py`, `tools/run_evals.py`, and the unit tests; `jsonschema` optionally, because the validator carries a stock-library fallback and the two paths must be exercised separately; and the `gh` CLI only to open or read the state of a pull request (D1). It reads three repository files as inputs — [catalog/approved.yaml](../../catalog/approved.yaml), [catalog/sources.yaml](../../catalog/sources.yaml), and [catalog/cohorts.yaml](../../catalog/cohorts.yaml) — so each one travels with the installed package and the audit is run against the catalogs themselves rather than against a remembered shape of them (D1, F2). Where one is unreachable, name the exact blocked phase and produce everything upstream of it (D2). This skill reaches no namespace but the `effects` ledger it appends, and takes no hosted service, shared database, or cross-skill private storage (D3, P3).
+**Dependencies:** a local `git` checkout of this repository; `python3` for `tools/validate_repo.py`, `tools/run_evals.py`, and the unit tests; `jsonschema` optionally, because the validator carries a stock-library fallback and the two paths must be exercised separately; and the `gh` CLI only to open or read the state of a pull request (D1). It reads three repository files as inputs — [catalog/approved.yaml](../../catalog/approved.yaml), [catalog/sources.yaml](../../catalog/sources.yaml), and [catalog/cohorts.yaml](../../catalog/cohorts.yaml) — so each one travels with the installed package and the audit is run against the catalogs themselves rather than against a remembered shape of them (D1, F2). Where one is unreachable, name the exact blocked phase and produce everything upstream of it (D2). This skill reaches no namespace but the `activity` ledger it appends, and takes no hosted service, shared database, or cross-skill private storage (D3, P3).
 
 ## Workflow
 
@@ -61,7 +61,7 @@ Treats this library as tested software rather than a folder of prompts: an audit
 9. **Run the whole gate and report each leg.** Compile and unit tests; the validator over frontmatter and folder shape; JSON and JSONL parsing; schema conformance; catalog and cohort parity; the runtime's own eligibility and dependency checks; provenance, license, and secret scans; privacy checks; and the whitespace and formatting gates. Then the behavioral and routing runs for every package touched and for each of its cluster siblings. Record the evaluator model, the harness version, the commit, and the local date beside the numbers, so the result can be reproduced rather than believed. A releasable package clears all of it — including the near-miss trigger cases and, for a mutating package, the authorization and scope cases — plus an independent read of representative outputs. Rerun the whole gate before anything goes out publicly, not only the legs the last change touched.
 10. **Commit in reviewable pieces and stop at the pull request.** One coherent change per commit, staging only the files it touches. Then push the branch and open exactly one pull request, unmerged, whose body carries the evidence and the limitations honestly — including what was not run and why. Read it back: it is open, unmerged, and carries only the intended files. The idempotency key is the branch and the content of the change, so an identical retry updates that branch rather than opening a second pull request (M3).
 11. **Keep repository source and runtime copies apart.** Each package carries its own semantic version, and an adapted one keeps its upstream pinned by URL, version, and digest. A package is cut from a reviewed commit, never from a working tree, and the copy that lands in a `skills dir` is a separate act under separate authority: whoever performs it runs the runtime's discovery check and one representative prompt against the copied package before trusting it. `templates/skill-catalog-entry.yaml` is the shape a new entry takes in [catalog/approved.yaml](../../catalog/approved.yaml) and [catalog/sources.yaml](../../catalog/sources.yaml), including `contract_version` and the `version` parity between the two files; it is a reference shape and no tool reads it. Keep the previous known-good package so a bad change can be backed out.
-12. Append one `effects` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on what is still open: the leg that could not run, the case still owed, the provenance field nobody supplied.
+12. Append one `activity` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on what is still open: the leg that could not run, the case still owed, the provenance field nobody supplied.
 
 ### The audit block
 
@@ -86,7 +86,7 @@ open         : <leg not run, case still owed, field nobody supplied>
 
 The audit is in this message and is not promised for the next one: describing what an inventory would contain, or offering to start once the package set is settled, is a failure to deliver it. In order: any data-quality warning that changes the decision — an unverifiable license, a fixture carrying private material, a verification leg that could not run (O1); the audit block with `unknown` and `pending` in place; the exact edits; the cases; the per-leg evidence; the branch and pull request as they stand; the state; what is still open; and the next highest-value piece of work the inventory exposed. Findings, assumptions, and measured numbers stay visibly distinct, and a number always carries the run it came from (O2).
 
-State vocabulary — the `effects` ledger's `effect_state` values for this skill, from [contracts/datastore.yaml](../../contracts/datastore.yaml), extended by nothing here:
+State vocabulary — the `activity` ledger's `activity_state` values for this skill, from [contracts/datastore.yaml](../../contracts/datastore.yaml), extended by nothing here:
 
 - `INSPECTED` — the audit ran and nothing was written.
 - `PREVIEWED` — the exact edits and the exact pull request were shown and no repository mutation has been authorized.

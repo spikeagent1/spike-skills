@@ -29,8 +29,10 @@ A value marked **UNCONFIRMED** is not attested on this host today: verify it bef
 | `runtime reload` | restart the session, or reconnect one server with /mcp |
 | `identity files` | ~/.claude/CLAUDE.md and the profile pages under ${VAULT_ROOT}/profile/ |
 | `skills dir` | ~/.claude/skills |
-| `effects ledger` | ${VAULT_ROOT}/ops/effects/ |
+| `activity log` | ${VAULT_ROOT}/ops/activity/ |
 | `checkpoint store` | ${VAULT_ROOT}/ops/checkpoints/ |
+| `autonomy contract` | ${VAULT_ROOT}/autonomy/ |
+| `capabilities` | metadata.spike-os.capabilities on the installed skill, plus the disable-model-invocation flag a never_autonomous tier renders |
 | `repo identity` | ${REPO_IDENTITY}, through the gh CLI |
 | `proposal workflow` | pull-request review on the repository in hand |
 | `journal build toolchain` | none in this runtime |
@@ -39,10 +41,11 @@ A value marked **UNCONFIRMED** is not attested on this host today: verify it bef
 | `norms directory` | .agents/behaviors/<name>/BEHAVIOR.md, relative to the repo in hand — **UNCONFIRMED** |
 
 ## Datastore
-Vault root `${VAULT_ROOT}/`: `profile` `people` `agents` `decisions`, `projects/<name>/`.
-Under `ops/`: `journal` `tasks` `calendar` `inbox` `jobs` `effects` `checkpoints`
-`notifications`. `conversations` is `${CONVERSATIONS_ROOT}`, a separate root.
+Vault root `${VAULT_ROOT}/`: `profile` `people` `agents` `decisions` `autonomy`, and
+`projects/<name>/`. Under `ops/`: `journal` `tasks` `calendar` `inbox` `jobs` `activity`
+`checkpoints` `notifications`. `conversations` is `${CONVERSATIONS_ROOT}`, a separate root.
 Only `profile/` `people/` `projects/` `decisions/` exist in the vault today; `agents/`,
+`autonomy/`,
 every `ops/` path, and `${CONVERSATIONS_ROOT}` are chosen layouts the installer creates on
 first write. The vault's own `inbox/` is a **different thing** — user-approved source
 captures, cited from `index.md` — so the `inbox` namespace maps to `ops/inbox/`, never to it.

@@ -6,8 +6,8 @@ metadata:
     version: 2.0.0
     runtime: [openclaw, claude-code]
     reads_from: [profile]
-    writes_to: [effects]
-    effects: [datastore:read, datastore:write, repo:write]
+    writes_to: [activity]
+    capabilities: [datastore:read, datastore:write, repo:write]
 ---
 
 # Public Posting Workshop
@@ -48,7 +48,7 @@ Takes an idea for public writing to a reviewed entry and an unmerged pull reques
 | The artifact's changelog or release notes, where it has them | no | draft from the artifact and the request alone, and mark every version, date, and compatibility claim as unsourced rather than inferring it; a breaking change the entry does not name is the one an audience finds the hard way (X3) |
 | Authority for anything beyond the unmerged pull request | no | there is none to assume: a direct surface, a wider audience, and a landing are each their own authorization (M6) |
 
-**Dependencies:** the repository holding the `agent's public journal`, the `journal build toolchain` and the tests it runs, and the `repo identity` the branch is committed under (D1). Where one is unreachable the run names the exact blocked phase and produces everything upstream of it (D2). This skill reads the `owner`'s disclosure boundaries and authority rules from `profile` and appends the `effects` ledger, and touches no other namespace (D3, P3). It carries no secrets and no credentials into an entry, a branch, a commit message, or a review packet (P6).
+**Dependencies:** the repository holding the `agent's public journal`, the `journal build toolchain` and the tests it runs, and the `repo identity` the branch is committed under (D1). Where one is unreachable the run names the exact blocked phase and produces everything upstream of it (D2). This skill reads the `owner`'s disclosure boundaries and authority rules from `profile` and appends the `activity` ledger, and touches no other namespace (D3, P3). It carries no secrets and no credentials into an entry, a branch, a commit message, or a review packet (P6).
 
 ## Workflow
 
@@ -63,7 +63,7 @@ Takes an idea for public writing to a reviewed entry and an unmerged pull reques
 9. **Build the entry and the pull request after PASS.** Base an isolated branch on the `journal source branch`, carrying only this entry. Write one entry against the `entry schema` with accurate provenance, set its human-edited flag only where the `owner` materially edited the final draft, and compute the exact content hash. Validate the `entry schema`, the `journal build toolchain`, and the tests the change touches. Each of those repository writes is `preview_then_explicit` in [contracts/capabilities.yaml](../../contracts/capabilities.yaml): show the exact branch name, the exact commit message, and the exact pull request title and body in this turn, take explicit authorization for that content on that repository, and only then act — an authorization for the entry's text is not one for the branch, and one given earlier in this run is not one for this write (M2, M6). Commit under the `repo identity`, push, and open exactly one pull request scoped to that entry. Then read it back: it carries only the intended entry, it is open, and it is unmerged. The idempotency key is the content hash and the branch, so an identical retry updates that branch rather than opening a second pull request (M3).
 10. **Repair what the entry broke, and only that.** A validation failure the entry itself caused is fixed in this turn — the corrected entry text appears here, with the exact check to rerun named and what its output has to show. Where the failing output itself was not supplied, the repair still happens against the cause the request named: rebuild the entry against the `entry schema`, recompute its content hash, show the corrected text, and name the check and the result it has to produce. Asking for the failure text before repairing anything is not repairing it. A failure the entry did not cause is reported separately as infrastructure, never patched into the entry, and never used to justify carrying the entry past a check. A branch that already carries unrelated edits is not the branch: cut a fresh one from the `journal source branch` and put only this entry on it.
 11. **A direct surface is a separate draft.** Copy adapted for the `agent community network`, a social account, or a list is produced as a draft with the exact target named, and stays a draft: each surface takes its own authorization covering that content and that account, given for it and never carried over from the journal review or from an earlier surface (M6). Identical text on two surfaces is not adaptation; each gets its own copy or none.
-12. Append one `effects` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on what is still open: the reviewer not yet run, the clearance not yet answered, the claim cut for want of a source.
+12. Append one `activity` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on what is still open: the reviewer not yet run, the clearance not yet answered, the claim cut for want of a source.
 
 ### The publication package
 
@@ -87,7 +87,7 @@ open         : <authorization, clearance, or reviewer still outstanding>
 
 The package is in this message and is not promised for the next one: describing what a brief would contain, offering to draft once the audience is settled, or holding the entry back until a reviewer exists is a failure to deliver it. In order: any data-quality warning that changes the decision — an unverifiable claim, a missing clearance, a check that could not be run (O1); the publication package with `unknown` and `pending` in place; the draft itself; the rubric findings, marked PASS or self-check; the exact pull request as it would stand; the state; and what is still open. The open items carry the follow-up monitoring plan for anything that goes out: what to watch after the entry lands — the corrections a claim may need, the questions the audience is likely to ask, the clearance that expires — and who watches it, because an entry proposed and then unwatched is how a wrong claim stays public. Facts, assumptions, and sourced claims stay visibly distinct (O2).
 
-State vocabulary — the `effects` ledger's `effect_state` values for this skill, from [contracts/datastore.yaml](../../contracts/datastore.yaml) and [contracts/datastore.md](../../contracts/datastore.md), extended by nothing here:
+State vocabulary — the `activity` ledger's `activity_state` values for this skill, from [contracts/datastore.yaml](../../contracts/datastore.yaml) and [contracts/datastore.md](../../contracts/datastore.md), extended by nothing here:
 
 - `PREVIEWED` — the entry and the exact pull request were shown and no repository mutation has been authorized.
 - `RENDERED` — the entry exists on the isolated branch and passed the `entry schema` and build checks locally. It is neither proposed nor published.

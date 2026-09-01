@@ -27,16 +27,17 @@ skill must:
    with "Use when", names concrete phrasings, names no principal and no runtime,
    and carries one negative clause naming a sibling skill.
 3. Declare in `metadata.spike-os` its semantic version, the runtimes it claims,
-   the namespaces it reads and writes, and the effects it performs. A non-empty
-   `reads_from` needs `datastore:read`; a non-empty `writes_to` needs
-   `datastore:write`; any mutating effect needs `effects` in `writes_to`, and
+   the namespaces it reads and writes, and the capabilities it performs under
+   `capabilities`. A non-empty `reads_from` needs `datastore:read`; a non-empty
+   `writes_to` needs `datastore:write`; any mutating effect needs `activity` in
+   `writes_to`, and
    `notify:owner` needs `notifications`. Declare what the skill actually does,
    not what makes the scan quiet: the validator's effect check greps the body
    for keywords ("publish", "send", "delete", "commit") and cannot tell a verb
    the skill performs from one it forbids or routes elsewhere, so it both
    misfires and misses. And the declaration is lint, not a boundary — nothing at
    run time stops an undeclared effect; it buys a claim the installer can refuse
-   on and the `effects/` ledger can be audited against.
+   on and the `activity/` ledger can be audited against.
 4. Name every runtime fact with a term from
    [adapters/vocabulary.yaml](adapters/vocabulary.yaml), never a product name, a
    path, or a proper noun a single runtime supplies.

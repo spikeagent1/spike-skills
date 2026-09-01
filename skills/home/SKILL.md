@@ -7,7 +7,7 @@ metadata:
     runtime: [openclaw, claude-code]
     reads_from: []
     writes_to: []
-    effects: []
+    capabilities: []
 ---
 
 # Home
@@ -86,7 +86,7 @@ route  : <skill name, exactly as the index spells it>
 intent : <the request restated in one line>
 index  : read | unread (<reason>)
 target : verified against the index | unverified
-effects: <badges and effect list, only when the intent carries a mutation verb>
+capabilities: <badges and capability list, only when the intent carries a mutation verb>
 ```
 
 or
@@ -118,7 +118,7 @@ target : verified against the index
 
 ## Privacy and mutations
 
-Every step here is a decision about where a request goes; the skill declares no effect, holds no standing authority, and its `effects` list is empty and stays empty (M8). It reads one repository file and no namespace of the `owner datastore` (P3). Naming a target's effect badges is disclosure, not authorization: the target takes its own, per effect and per invocation, in its own turn (M6, M2). Nothing about the request is written anywhere, and its sensitive detail is not repeated into the restated-intent line beyond what routing needs (P4, P6).
+Every step here is a decision about where a request goes; the skill declares no effect, holds no standing authority, and its `capabilities` list is empty and stays empty (M8). It reads one repository file and no namespace of the `owner datastore` (P3). Naming a target's effect badges is disclosure, not authorization: the target takes its own, per effect and per invocation, in its own turn (M6, M2). Nothing about the request is written anywhere, and its sensitive detail is not repeated into the restated-intent line beyond what routing needs (P4, P6).
 
 ## Failure conditions
 

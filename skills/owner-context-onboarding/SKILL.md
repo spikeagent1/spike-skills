@@ -6,8 +6,8 @@ metadata:
     version: 2.0.0
     runtime: [openclaw, claude-code]
     reads_from: [profile, people, projects]
-    writes_to: [profile, effects]
-    effects: [datastore:read, datastore:write, identity:propose]
+    writes_to: [profile, activity]
+    capabilities: [datastore:read, datastore:write, identity:propose]
 ---
 
 # Owner Context Onboarding
@@ -46,7 +46,7 @@ Produces one owner-context matrix per turn: every topic the owner and the `agent
 | Authorization for the exact record about to be stored | yes, to write | show the exact record text in this turn and stop at **previewed** (M2, X4) |
 | The audience and the scope, for anything to be shown outside this conversation | yes | resolve them from the request or leave the topic at `declined`; onboarding disclosure grants neither (X1, X4) |
 
-**Dependencies:** none beyond the contract. Reads the `profile`, `people`, and `projects` namespaces and writes `profile` and `effects`, through the verbs [contracts/datastore.md](../../contracts/datastore.md) defines (D1, P3). `identity files` sit outside the `owner datastore` and are reached only through `identity:propose`, which records a candidate; this skill does not hold `identity:write`, so nothing it produces can apply one (M8). Text, a document, a transcript, and a dictated note are all accepted as input and none needs a connector; where an attachment cannot be opened, the phase that blocked is named rather than its content guessed (D2).
+**Dependencies:** none beyond the contract. Reads the `profile`, `people`, and `projects` namespaces and writes `profile` and `activity`, through the verbs [contracts/datastore.md](../../contracts/datastore.md) defines (D1, P3). `identity files` sit outside the `owner datastore` and are reached only through `identity:propose`, which records a candidate; this skill does not hold `identity:write`, so nothing it produces can apply one (M8). Text, a document, a transcript, and a dictated note are all accepted as input and none needs a connector; where an attachment cannot be opened, the phase that blocked is named rather than its content guessed (D2).
 
 ## Workflow
 
@@ -58,7 +58,7 @@ Produces one owner-context matrix per turn: every topic the owner and the `agent
 6. Sort what the owner said into the claim classes the record envelope names — `owner-stated`, `agent-inference`, `unresolved`, `public-fact`, `private-context`, `proposed-change` — and put the class on the row. An inference is never relabelled as something the owner stated ([contracts/datastore.md](../../contracts/datastore.md) write invariant 3), and the two are kept visibly apart in the matrix as well as in the record (O2).
 7. **The write boundary, stated once.** Write invariant 4 reserves *curated* `profile` records — the ones consolidation derives from a span of past turns — for consolidation. This skill's writes are not derivations: they are the owner's own statement, recorded in the turn the owner made it, with the owner present, `claim_class: owner-stated`, and authorization for that exact record taken in that turn (M5, capabilities `datastore:write` at `turn_scoped`). Three things follow and none of them bends: an `agent-inference` never enters the `profile` namespace from here; a candidate the owner has not stated is left on the matrix and not written; and a change to identity, role, autonomy, privacy, or worldview is recorded through `identity:propose` as a candidate for explicit owner confirmation in a later interaction, never auto-applied.
 8. Preview the exact record by showing its text in this turn — the claim, the claim class, the visibility, the provenance, and the review or expiry condition — and take authorization for that exact record (M2). One record carries one claim (invariant 1). A correction **supersedes** and never overwrites (invariant 2): the older record keeps its content and gains `status: superseded`, and the contradiction is kept only where keeping it stops the same mistake recurring.
-9. Write, then read back the exact saved record and compare envelope and body (invariant 8, M4). Then run one narrow recall in neutral wording — not the words the record was written in — and confirm the returned claim carries the visibility and provenance labels it was written with. Repair duplicates and stale contradictions found that way. Append one `effects` record per mutating effect: operation key, target, effect state, readback, rollback handle (M7).
+9. Write, then read back the exact saved record and compare envelope and body (invariant 8, M4). Then run one narrow recall in neutral wording — not the words the record was written in — and confirm the returned claim carries the visibility and provenance labels it was written with. Repair duplicates and stale contradictions found that way. Append one `activity` record per mutating effect: operation key, target, effect state, readback, rollback handle (M7).
 10. Close on the state, what is newly confirmed, what is deferred or declined, and the one next question.
 
 ### The owner-context matrix
@@ -91,7 +91,7 @@ The owner's answers in this turn are the primary evidence, and a durable record 
 
 ## Privacy and mutations
 
-Read: interviewing, summarising back, searching, and rendering the matrix. Mutating: writing or superseding a `profile` record, the `effects` append that follows it, and recording an identity proposal (M1).
+Read: interviewing, summarising back, searching, and rendering the matrix. Mutating: writing or superseding a `profile` record, the `activity` append that follows it, and recording an identity proposal (M1).
 
 The standing authority this skill claims, named here and nowhere else (M5): **the owner stating a fact, a preference, or a boundary in this turn authorizes one `profile` record for that statement, once, with the preview still shown.** Nothing else carries it: a topic approved earlier in the run, an authority granted for a different record, a handoff, and a cadence each grant it never (M6).
 

@@ -56,9 +56,9 @@ from tools.validators.catalog import (
     validate_provenance_artifacts, validate_source_catalog
 )
 from tools.validators.contracts import (
-    ADAPTERS_DIR, ADAPTER_REQUIRED_KEYS, ADAPTER_SCHEMA, BACKTICKED_RE, BACKTICKED_SPAN_RE,
-    CAPABILITIES_CONTRACT, CAPABILITY_HINTS, CAPABILITY_HINT_RULES, CLAUSE_NEGATION_RE,
-    CLAUSE_SPLIT_RE, Contracts, DATASTORE_CONTRACT, DATASTORE_VIEW, EFFECTS_LEDGER_NS,
+    ACTIVITY_LEDGER_NS, ADAPTERS_DIR, ADAPTER_REQUIRED_KEYS, ADAPTER_SCHEMA, BACKTICKED_RE,
+    BACKTICKED_SPAN_RE, CAPABILITIES_CONTRACT, CAPABILITY_HINTS, CAPABILITY_HINT_RULES,
+    CLAUSE_NEGATION_RE, CLAUSE_SPLIT_RE, Contracts, DATASTORE_CONTRACT, DATASTORE_VIEW,
     EFFECT_NEGATION_RE, EFFECT_VERBS, EM_DASH, HOLDERS_OF, NAMESPACE_BOUNDARY,
     NEGATION_CLAUSE_SPLIT_RE, NOTIFICATIONS_NS, NOTIFY_EFFECT, PAIRED_EM_DASH_RE,
     PROTECTED_DASH, PROTECTED_DOT, PROTECTED_SPAN_RE, QUOTED_SPAN_RE, REJECTED_CLAUSE_END_RE,
@@ -140,7 +140,7 @@ def validate_skill(
 ) -> tuple[str, dict[str, str], dict[str, list[str]]]:
     """Validate one skill; returns its contract version, section bodies, and declarations.
 
-    The declarations are the `writes_to` and `effects` lists this run already
+    The declarations are the `writes_to` and `capabilities` lists this run already
     parsed, handed back so the namespace-authority rule can score every skill
     against the contract without re-reading a single SKILL.md.
 
@@ -156,7 +156,7 @@ def validate_skill(
     validate_skill_config(skill_dir, errors)
 
     skill_md = skill_dir / "SKILL.md"
-    no_declarations: dict[str, list[str]] = {"writes_to": [], "effects": []}
+    no_declarations: dict[str, list[str]] = {"writes_to": [], "capabilities": []}
     if not skill_md.exists():
         add_error(errors, f"{rel}: missing SKILL.md")
         return SUPPORTED_CONTRACT_VERSION, {}, no_declarations
@@ -169,7 +169,7 @@ def validate_skill(
 
     declarations = {
         "writes_to": _declared_list(spike_os_block(meta).get("writes_to")),
-        "effects": _declared_list(spike_os_block(meta).get("effects")),
+        "capabilities": _declared_list(spike_os_block(meta).get("capabilities")),
     }
 
     entry = inventory.get(skill_dir.name)

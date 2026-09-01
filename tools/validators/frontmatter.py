@@ -23,7 +23,9 @@ FRONTMATTER_ALLOWED_KEYS = frozenset(
 METADATA_NS = "spike-os"
 
 
-METADATA_KEYS = frozenset({"version", "runtime", "reads_from", "writes_to", "effects"})
+METADATA_KEYS = frozenset(
+    {"version", "runtime", "reads_from", "writes_to", "capabilities"}
+)
 
 
 # A source SKILL.md nests exactly one level under `metadata`; `metadata` is 0,

@@ -6,8 +6,8 @@ metadata:
     version: 2.0.0
     runtime: [openclaw, claude-code]
     reads_from: [profile, journal]
-    writes_to: [journal, effects]
-    effects: [datastore:read, datastore:write, repo:write]
+    writes_to: [journal, activity]
+    capabilities: [datastore:read, datastore:write, repo:write]
 ---
 
 # Audience Content Engine
@@ -48,7 +48,7 @@ Turns work that is already true — a shipped artifact, an approved entry, a cle
 | Disclosure clearance for anything private, quoted, or third-party | yes | ask in the thread it belongs to; nothing private reaches a draft before the answer, and redaction is not the answer (P5) |
 | Tone constraints, artifact links, media needs, prior analytics, a call to action, banned topics | no | become stated assumptions in the brief; ask only where one changes privacy, factuality, attribution, or authority |
 
-**Dependencies:** the connector or account state for each channel in scope, the source material the request names, the current official documentation of a channel where an exact limit or feature is load-bearing, and the channel's own native analytics for any performance claim (D1). Where one is unreachable, name the exact blocked phase and produce everything upstream of it (D2). This skill reads the `owner`'s boundaries from `profile` and prior run reports from `journal`, appends `journal` and the `effects` ledger, and touches no other namespace (P3, D3). An address, a credential, and a raw private excerpt never enter a draft, a record, or a queue (P6).
+**Dependencies:** the connector or account state for each channel in scope, the source material the request names, the current official documentation of a channel where an exact limit or feature is load-bearing, and the channel's own native analytics for any performance claim (D1). Where one is unreachable, name the exact blocked phase and produce everything upstream of it (D2). This skill reads the `owner`'s boundaries from `profile` and prior run reports from `journal`, appends `journal` and the `activity` ledger, and touches no other namespace (P3, D3). An address, a credential, and a raw private excerpt never enter a draft, a record, or a queue (P6).
 
 ## Workflow
 
@@ -62,7 +62,7 @@ Turns work that is already true — a shipped artifact, an approved entry, a cle
 8. **Route the entry, do not shortcut it.** An entry for the `agent's public journal` goes to `public-post-workshop` and through its cold review and unmerged pull request every time, whatever this run has already been authorized to do. For a channel reached directly, the exact target and the exact text are previewed in this turn, and the authorization for that content on that account is taken before anything leaves — per channel, per item, never carried from another channel or from earlier in this run (M6, M2).
 9. **Build the program from evidence, not from a calendar.** Group step 3's inventory by recurring audience question, active work, relationship context, and existing artifacts; name the gaps the intended audience needs and current work can honestly show; queue one brief per item, each written out as **source → idea → outcome** on its own line; and prepare or hand off each item when its source is ready and its channel is authorized. A request for a calendar of N items is answered with the queue the inventory actually supports, at whatever size that is, each row carrying its source and its outcome — and then the shortfall named as a shortfall. Returning the number without the rows, or the rows without their sources, is not the queue. Cadence follows source availability, channel capacity, audience response, and sustainable quality. No universal daily count, pillar percentage, score threshold, or best-time rule enters the queue, and a request for one is answered with what the sources actually support.
 10. **Measure outcomes apart from production.** [references/outcome-taxonomy.md](references/outcome-taxonomy.md) is the taxonomy and the attribution rule. Record what the channels expose: meaningful replies and continuing conversations, repeat interlocutors and relevant new followers, profile or repository visits with their attribution level, saves, shares, citations, inbound questions, collaboration or research movement, and negative signals such as low-quality replies, corrections, or audience mismatch. Never fabricate a missing analytic and never claim an item caused a visit or a follower change without an observable path (X3). A content test states its hypothesis, changes one meaningful variable, gathers enough native evidence to decide, and records what stayed uncertain.
-11. Hand replies, relationship opportunities, and follow-ups to `social-listening-engagement-loop`, append one `journal` run report keyed to the review, append one `effects` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on what is still open.
+11. Hand replies, relationship opportunities, and follow-ups to `social-listening-engagement-loop`, append one `journal` run report keyed to the review, append one `activity` record per mutating effect — operation key, target, effect state, readback, rollback handle (M7) — and close on what is still open.
 
 ### The content package
 
@@ -86,7 +86,7 @@ open         : <clearance, authority, or source still outstanding>
 
 The drafts are in this message and are not promised for the next one: describing what each channel's item would cover, or offering to write once the audience is settled, is a failure to deliver them. Return only the sections the task needs, in order: any data-quality warning that changes the decision — an unsourced claim, a missing clearance, an unavailable channel (O1); the brief; the source inventory with each candidate linked to its idea and its intended outcome; the channel drafts in full with their format rationale, media needs, and authority state; the blockers; the engagement handoff; the measurement plan with its attribution limits; the state; and what is still open. Facts, assumptions, inferences, and sourced claims stay visibly distinct (O2), and production volume is never reported as traction.
 
-State vocabulary — the `effects` ledger's `effect_state` values for this skill, from [contracts/datastore.yaml](../../contracts/datastore.yaml), extended by nothing here:
+State vocabulary — the `activity` ledger's `activity_state` values for this skill, from [contracts/datastore.yaml](../../contracts/datastore.yaml), extended by nothing here:
 
 - `PREVIEWED` — the drafts and their exact targets were shown and nothing has been authorized.
 - `RENDERED` — a draft exists in the form its channel requires and is neither scheduled nor live.

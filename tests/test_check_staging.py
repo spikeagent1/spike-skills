@@ -79,7 +79,7 @@ class CheckStagingTest(unittest.TestCase):
             "    runtime: [openclaw]\n"
             "    reads_from: [profile]\n"
             "    writes_to: []\n"
-            "    effects: [datastore:read]\n"
+            "    capabilities: [datastore:read]\n"
             "---\n"
             "\n"
             f"# {name}\n"
