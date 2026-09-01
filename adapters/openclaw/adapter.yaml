@@ -1,5 +1,5 @@
 # Runtime adapter: OpenClaw. The deployment is the Railway service `spike` in
-# chughtapan/vibe-blogging, built from runtime/, with one volume at /data.
+# ${DEPLOY_REPO}, built from runtime/, with one volume at /data.
 # Repo-side values only: every personal value is a ${PLACEHOLDER} the installer
 # resolves from local_overrides_file. Shape: adapters/adapter.schema.json.
 # A note beginning UNCONFIRMED marks a value no git-owned runtime file states,
@@ -46,7 +46,7 @@ vocabulary:
     value: the wall, X, and the agent community network
     note: Only the approved X verification post is authorized; anything further needs owner approval.
   agents_public_journal:
-    value: the wall, built from site/src/content/stream/ in chughtapan/vibe-blogging
+    value: the wall, built from site/src/content/stream/ in ${DEPLOY_REPO}
   agent_community_network:
     value: Moltbook, where the agent is claimed and active
   agent_inbox:
@@ -78,11 +78,11 @@ vocabulary:
     value: ops/checkpoints/ pages in the owner datastore
   repo_identity:
     value: spikeagent1, with GH_CONFIG_DIR pointed at /data/.openclaw/credentials/github-cli
-    note: Write access is scoped to chughtapan/vibe-blogging; never expose hosts.yml.
+    note: Write access is scoped to ${DEPLOY_REPO}; never expose hosts.yml.
   proposal_workflow:
     value: a Skill Workshop proposal, applied only on explicit owner approval
   journal_build_toolchain:
-    value: Astro, building site/ in chughtapan/vibe-blogging
+    value: Astro, building site/ in ${DEPLOY_REPO}
   entry_schema:
     value: the stream contract v1 at contracts/stream.v1.schema.json
     note: Carries edited_by_human and content_hash; the provenance strip is rendered from it.
@@ -145,7 +145,7 @@ skills_dir: /data/.openclaw/workspace/skills
 adapter_file: dist/openclaw/workspace/ADAPTER.md
 
 identity_import:
-  file: runtime/workspace/AGENTS.md in chughtapan/vibe-blogging
+  file: runtime/workspace/AGENTS.md in ${DEPLOY_REPO}
   line: "See `ADAPTER.md` for what the runtime terms in your skills resolve to."
   begin_marker: <!-- spike-os:begin -->
   end_marker: <!-- spike-os:end -->

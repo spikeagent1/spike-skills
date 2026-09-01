@@ -441,7 +441,12 @@ def bind_identity_file(adapter: dict[str, Any], dry_run: bool, report: Report) -
     raw = str(imports.get("file") or "")
     if not raw:
         return []
-    if not (raw.startswith(("~", "/")) or PLACEHOLDER_RE.search(raw)):
+    # A file this installer edits has to be a path on this host. `${HOME}/x` is
+    # one once the environment fills it; a placeholder the environment does not
+    # know -- OpenClaw's identity file lives in another repository, named as
+    # "runtime/workspace/AGENTS.md in ${DEPLOY_REPO}" -- leaves a string that is
+    # a sentence rather than a path, and the run prints the manual step.
+    if not os.path.expandvars(raw).startswith(("~", "/")):
         report.notes.append(
             f"identity file {raw!r} is not on this host: add the line "
             f"{imports['line']!r} between {imports['begin_marker']} and "

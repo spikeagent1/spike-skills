@@ -291,7 +291,7 @@ class InstallSkillTest(unittest.TestCase):
             "skills_dir: /data/.openclaw/workspace/skills\n"
             "adapter_file: dist/openclaw/workspace/ADAPTER.md\n"
             "identity_import:\n"
-            "  file: runtime/workspace/AGENTS.md in chughtapan/vibe-blogging\n"
+            "  file: runtime/workspace/AGENTS.md in ${DEPLOY_REPO}\n"
             '  line: "See `ADAPTER.md` for what the runtime terms resolve to."\n'
             "  begin_marker: <!-- spike-os:begin -->\n"
             "  end_marker: <!-- spike-os:end -->\n"
@@ -1230,6 +1230,66 @@ class InstallSkillTest(unittest.TestCase):
             self.assertTrue((self.dest / name / "SKILL.md").is_file(), name)
         self.assertFalse((self.dest / "fixture-openclaw-only").exists())
         self.assertFalse((self.dest / "fixture-tasks").exists())
+
+
+class DeployRepoPlaceholderTest(unittest.TestCase):
+    """The deploy-repo slug is a personal value, so the adapter carries a placeholder."""
+
+    def test_the_openclaw_adapter_leaves_the_deploy_repo_to_the_local_file(self) -> None:
+        self.assertIn("DEPLOY_REPO", install_skill.placeholder_names("openclaw"))
+
+    def test_no_committed_openclaw_adapter_file_names_the_repository(self) -> None:
+        repo = Path(__file__).resolve().parents[1]
+        for name in ("adapter.yaml", "ADAPTER.md"):
+            text = (repo / "adapters" / "openclaw" / name).read_text(encoding="utf-8")
+            with self.subTest(file=name):
+                self.assertNotIn("vibe-blogging", text)
+                self.assertIn("${DEPLOY_REPO}", text)
+
+
+class IdentityFileOnThisHostTest(unittest.TestCase):
+    """An identity file the installer edits has to be a path on this host.
+
+    OpenClaw's is a file in another repository -- "runtime/workspace/AGENTS.md
+    in <deploy repo>" -- and the run prints the manual step instead. The
+    placeholder that stands for the deploy repo must not make that string read
+    as a local path.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _bind(self, raw: str) -> tuple[list[str], object]:
+        adapter = {
+            "identity_import": {
+                "file": raw,
+                "line": "See `ADAPTER.md`.",
+                "begin_marker": "<!-- spike-os:begin -->",
+                "end_marker": "<!-- spike-os:end -->",
+            }
+        }
+        report = install_skill.Report()
+        install_skill.bind_identity_file(adapter, True, report)
+        return report.notes, report.identity_change
+
+    def test_a_path_in_another_repository_is_reported_not_edited(self) -> None:
+        notes, change = self._bind("runtime/workspace/AGENTS.md in ${DEPLOY_REPO}")
+        self.assertIsNone(change)
+        self.assertTrue([note for note in notes if "is not on this host" in note], notes)
+
+    def test_the_committed_openclaw_adapter_takes_that_path(self) -> None:
+        adapter = install_skill.load_contract("adapters")["openclaw"]
+        notes, change = self._bind(str(adapter["identity_import"]["file"]))
+        self.assertIsNone(change)
+        self.assertTrue([note for note in notes if "is not on this host" in note], notes)
+
+    def test_a_home_placeholder_is_still_a_path_on_this_host(self) -> None:
+        notes, _change = self._bind("${HOME}/.claude/CLAUDE.md")
+        self.assertEqual([note for note in notes if "is not on this host" in note], [])
 
 
 class GitIgnoredDestinationTest(unittest.TestCase):

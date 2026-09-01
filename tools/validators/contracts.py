@@ -250,8 +250,11 @@ RUNTIME_SPECIFIC_TOKENS = (
 # what an adapter exists to bind, but a personal path or handle in a git-tracked
 # adapter is a personal value published to everyone who clones the repository.
 # It belongs in the gitignored local_overrides_file, behind a ${PLACEHOLDER} the
-# installer fills, so adapters/ gets no exemption for these.
-PERSONAL_TOKENS = ("Tapan",)
+# installer fills, so adapters/ gets no exemption for these. The account handle
+# is its own token: a repository slug written around it -- `<owner>/<repo>` --
+# reads as one word to the name gate, which is how a deploy-repo slug sat in a
+# tracked adapter through three releases.
+PERSONAL_TOKENS = ("Tapan", "chughtapan")
 
 
 PERSONAL_RE = re.compile(

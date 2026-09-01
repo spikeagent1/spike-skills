@@ -22,7 +22,7 @@ states what it does without it; the installer installs such a skill with a print
 | `notification channel` | a Telegram owner DM, which lands in the main session |
 | `owner channel` | the Telegram main session, agent:main:main |
 | `public surfaces` | the wall, X, and the agent community network |
-| `agent's public journal` | the wall, built from site/src/content/stream/ in chughtapan/vibe-blogging |
+| `agent's public journal` | the wall, built from site/src/content/stream/ in ${DEPLOY_REPO} |
 | `agent community network` | Moltbook, where the agent is claimed and active |
 | `agent inbox` | ${AGENT_INBOX} |
 | `durable tool paths` | /data/.local/bin and /data/.bun/bin |
@@ -36,7 +36,7 @@ states what it does without it; the installer installs such a skill with a print
 | `checkpoint store` | ops/checkpoints/ pages in the owner datastore |
 | `repo identity` | spikeagent1, with GH_CONFIG_DIR pointed at /data/.openclaw/credentials/github-cli |
 | `proposal workflow` | a Skill Workshop proposal, applied only on explicit owner approval |
-| `journal build toolchain` | Astro, building site/ in chughtapan/vibe-blogging |
+| `journal build toolchain` | Astro, building site/ in ${DEPLOY_REPO} |
 | `entry schema` | the stream contract v1 at contracts/stream.v1.schema.json |
 | `journal source branch` | main, reached by an unmerged pull request |
 | `norms directory` | /data/.openclaw/workspace/team-roster/.agents/behaviors/<name>/BEHAVIOR.md |

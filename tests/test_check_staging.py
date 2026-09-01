@@ -189,7 +189,7 @@ class CheckStagingTest(unittest.TestCase):
             "skills_dir: /data/.openclaw/workspace/skills\n"
             "adapter_file: dist/openclaw/workspace/ADAPTER.md\n"
             "identity_import:\n"
-            "  file: runtime/workspace/AGENTS.md in chughtapan/vibe-blogging\n"
+            "  file: runtime/workspace/AGENTS.md in ${DEPLOY_REPO}\n"
             '  line: "See `ADAPTER.md` for what the runtime terms resolve to."\n'
             "  begin_marker: <!-- spike-os:begin -->\n"
             "  end_marker: <!-- spike-os:end -->\n"

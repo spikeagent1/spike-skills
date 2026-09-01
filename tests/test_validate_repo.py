@@ -2541,6 +2541,16 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("adapters/claude-code/adapter.yaml", output)
         self.assertIn("personal value 'Tapan'", output)
 
+    def test_the_owner_handle_inside_a_repo_slug_is_a_personal_value(self) -> None:
+        # `<owner>/<repo>` reads as one word to a name gate that only knows the
+        # first name, which is how a deploy-repo slug sat in a tracked adapter.
+        self.assertEqual(
+            validate_repo.personal_value_hits(
+                "identity_import.file: runtime/workspace/AGENTS.md in chughtapan/vibe-blogging"
+            ),
+            ["chughtapan"],
+        )
+
     def test_the_committed_adapters_carry_no_personal_value(self) -> None:
         for runtime in ("claude-code", "openclaw"):
             for name in ("adapter.yaml", "ADAPTER.md"):
