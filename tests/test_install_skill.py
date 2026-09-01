@@ -1399,5 +1399,42 @@ class GitIgnoredDestinationTest(unittest.TestCase):
         self.assertTrue([note for note in notes if "git work tree" in note], notes)
 
 
+class UsageDocTest(unittest.TestCase):
+    """`--help` prints the module's own usage doc, not a second copy of it.
+
+    The 42-line docstring at the top of `tools/install_skill.py` is the written
+    explanation of the tool -- the refusals, the stamp, the DEGRADED rule. A
+    hand-written `description=` on the parser was a second source that no reader
+    could tell was shorter than the first.
+    """
+
+    def _help(self) -> str:
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            with self.assertRaises(SystemExit) as raised:
+                install_skill.main(["--help"])
+        self.assertEqual(raised.exception.code, 0)
+        return stream.getvalue()
+
+    def test_help_prints_the_module_docstring(self) -> None:
+        text = self._help()
+        for line in (install_skill.__doc__ or "").strip().splitlines():
+            with self.subTest(line=line):
+                self.assertIn(line.strip(), text)
+
+    def test_help_carries_the_refusals_and_the_degraded_rule(self) -> None:
+        text = self._help()
+        self.assertIn("The refusals are the point of the tool", text)
+        self.assertIn("DEGRADED is knowledge", text)
+        self.assertIn("--local-overrides", text)
+
+    def test_the_parser_holds_no_second_description(self) -> None:
+        parser_source = Path(install_skill.cli.__file__).read_text(encoding="utf-8")
+        self.assertFalse(
+            "description=\"Render and install skills" in parser_source,
+            "installer/cli.py carries a second description; --help has one source",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

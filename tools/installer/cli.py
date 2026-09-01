@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import shutil
 import sys
 from dataclasses import dataclass
@@ -388,10 +389,25 @@ def do_list(context: Context, names: Sequence[str]) -> int:
     return 0
 
 
+def usage_doc() -> str:
+    """The entry module's own docstring -- what `--help` prints.
+
+    `tools/install_skill.py` carries the written explanation of the tool: the
+    three refusals, the stamp, and why DEGRADED is not one of them. A
+    hand-written `description=` here was a second, shorter account of the same
+    thing that no reader of either could tell was incomplete.
+    """
+    module = sys.modules.get("tools.install_skill") or sys.modules.get("install_skill")
+    if module is None:  # imported without the entry module ever being loaded
+        module = importlib.import_module("tools.install_skill")
+    return (module.__doc__ or "").strip()
+
+
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="install_skill.py",
-        description="Render and install skills for one runtime, and audit what is installed.",
+        description=usage_doc(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--runtime", required=True, choices=list(RUNTIMES))
     parser.add_argument("--dest", help="override the runtime's default destination")
