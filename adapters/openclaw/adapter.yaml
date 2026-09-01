@@ -159,4 +159,12 @@ render:
     metadata.openclaw.requires.bins: backticked tokens on that line that name a command or an absolute path
     metadata.openclaw.requires.config: backticked tokens on that line that name a connector registry key
 
+limits:
+  # The runtime's own skills.limits.maxSkillsPromptChars, which caps the whole
+  # skill listing this runtime builds. Left unset: nothing has read it off a
+  # live gateway, and a number written here on a guess would be enforced as if
+  # it had been. Until it is filled, tools/validate_repo.py applies its own
+  # LISTING_BUDGET_CHARS and says which source it used.
+  max_skills_prompt_chars: null
+
 local_overrides_file: ${HOME}/.config/spike-os/openclaw.local.yaml

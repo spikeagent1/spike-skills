@@ -138,6 +138,18 @@
         }
       }
     },
+    "limits": {
+      "description": "Numbers the runtime configures and the repository has to fit. Optional; a limit left null is one nobody has read off the runtime, and the validator applies its own default and says so.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_skills_prompt_chars": {
+          "description": "The runtime's cap on the whole skill listing (OpenClaw: skills.limits.maxSkillsPromptChars). null until it is read from the runtime.",
+          "type": ["integer", "null"],
+          "minimum": 1
+        }
+      }
+    },
     "local_overrides_file": {
       "description": "Gitignored file holding the personal values the placeholders stand for.",
       "type": "string",

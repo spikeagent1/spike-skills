@@ -32,9 +32,10 @@ from tools.validators.context import (
 from tools.validators.frontmatter import (
     BLOCK_SCALAR_RE, DESCRIPTION_FORBIDDEN_RE, DESCRIPTION_MAX_CHARS, DESCRIPTION_TRIGGER_RE,
     FRONTMATTER_ALLOWED_KEYS, FRONTMATTER_PARSE_ERRORS, FRONTMATTER_REJECTED_KEYS,
-    LISTING_BUDGET_WARN_RATIO, METADATA_KEYS, METADATA_MAX_DEPTH, METADATA_NS, REQUIRE_VERSION,
-    SEMVER_RE,
-    SKILL_LISTING_MAX_CHARS, _declared_list, _frontmatter_value, frontmatter, installer_module,
+    LISTING_BUDGET_KEY, LISTING_BUDGET_WARN_RATIO, METADATA_KEYS, METADATA_MAX_DEPTH,
+    METADATA_NS, REQUIRE_VERSION, SEMVER_RE,
+    SKILL_LISTING_MAX_CHARS, VALIDATOR_BUDGET_SOURCE, _declared_list, _frontmatter_value,
+    frontmatter, installer_module, listing_budget,
     parse_frontmatter, rendered_listing_chars, skill_body, spike_os_block,
     validate_description, validate_frontmatter, validate_listing_budget, validate_version
 )
@@ -333,7 +334,7 @@ def main(argv: list[str] | None = None) -> int:
         validate_namespace_authority(contracts.datastore, declarations, errors)
         validate_authority_view(contracts.datastore, errors)
     validate_adapter_files(contracts, errors)
-    validate_listing_budget(inventory, errors, context.warnings)
+    validate_listing_budget(inventory, errors, context.warnings, contracts.adapters)
     validate_catalog_index(errors)
     validate_provenance_artifacts(sources, errors)
     validate_baseline(errors, require_baseline)

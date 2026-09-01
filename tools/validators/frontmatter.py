@@ -346,15 +346,47 @@ def rendered_listing_chars(description: str) -> int:
     return len(description) + len(clause or "")
 
 
+LISTING_BUDGET_KEY = "max_skills_prompt_chars"
+
+
+VALIDATOR_BUDGET_SOURCE = "the validator's own LISTING_BUDGET_CHARS"
+
+
+def listing_budget(adapters: dict[str, dict[str, Any]] | None) -> tuple[int, str]:
+    """The library listing budget in force, and the source that set it.
+
+    The number stands for a value the runtime configures -- OpenClaw's
+    `skills.limits.maxSkillsPromptChars` -- so an adapter that declares
+    `limits.max_skills_prompt_chars` is the authority for its own listing. Where
+    more than one runtime declares one, the smallest applies: the library has to
+    fit every runtime its skills claim. Where none does, the validator's own
+    default applies, and the caller says which of the two it was.
+    """
+    declared: dict[str, int] = {}
+    for runtime, adapter in (adapters or {}).items():
+        value = ((adapter or {}).get("limits") or {}).get(LISTING_BUDGET_KEY)
+        if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+            declared[str(runtime)] = value
+    if not declared:
+        return context.LISTING_BUDGET_CHARS, VALIDATOR_BUDGET_SOURCE
+    runtime = min(declared, key=lambda name: (declared[name], name))
+    return declared[runtime], f"adapters/{runtime}/adapter.yaml"
+
+
 def validate_listing_budget(
-    inventory: dict[str, dict[str, str]], errors: list[str], warning_sink: list[str]
+    inventory: dict[str, dict[str, str]],
+    errors: list[str],
+    warning_sink: list[str],
+    adapters: dict[str, dict[str, Any]] | None = None,
 ) -> None:
     """Each skill's launcher listing, and the library total, against the budget.
 
     A runtime lists a skill as `name: description`; an adapter that emits a
     separate `when_to_use` field also spends the description's "Use when" clause,
-    and that pair is what the per-skill cap bounds.
+    and that pair is what the per-skill cap bounds. The library total is held to
+    whichever budget `listing_budget` puts in force, and the message names it.
     """
+    budget, source = listing_budget(adapters)
     total = 0
     for name in sorted(inventory):
         path = context.SKILLS / name / "SKILL.md"
@@ -373,15 +405,15 @@ def validate_listing_budget(
             )
         total += len(f"{name}: {description}")
 
-    if total > context.LISTING_BUDGET_CHARS:
+    if total > budget:
         add_error(
             errors,
             f"catalog/approved.yaml: the library listing is {total} characters; "
-            f"the budget is {context.LISTING_BUDGET_CHARS}",
+            f"the budget is {budget}, from {source}",
         )
-    elif total > context.LISTING_BUDGET_CHARS * LISTING_BUDGET_WARN_RATIO:
+    elif total > budget * LISTING_BUDGET_WARN_RATIO:
         warning_sink.append(
             f"catalog/approved.yaml: the library listing is {total} characters, over "
             f"{int(LISTING_BUDGET_WARN_RATIO * 100)}% of the "
-            f"{context.LISTING_BUDGET_CHARS}-character budget"
+            f"{budget}-character budget from {source}"
         )

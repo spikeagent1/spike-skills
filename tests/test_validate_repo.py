@@ -105,6 +105,21 @@ class ValidateRepoTest(unittest.TestCase):
                 )
             self._write(rel, text)
 
+    def _declare_listing_budget(self, runtime: str, chars: int) -> None:
+        """Fill the fixture adapter's `limits.max_skills_prompt_chars`."""
+        path = self.root / "adapters" / runtime / "adapter.yaml"
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("  max_skills_prompt_chars:", text)
+        path.write_text(
+            re.sub(
+                r"^  max_skills_prompt_chars:.*$",
+                f"  max_skills_prompt_chars: {chars}",
+                text,
+                flags=re.M,
+            ),
+            encoding="utf-8",
+        )
+
     def _authorize(self, namespace: str, *skills: str) -> None:
         """Name `skills` the fixture contract's writers for `namespace`, in both halves."""
         contract = self.root / "contracts" / "datastore.yaml"
@@ -2646,6 +2661,63 @@ class ValidateRepoTest(unittest.TestCase):
             f"the library listing is {total} characters; the budget is {total - 1}",
             output,
         )
+
+    def test_the_listing_budget_names_the_validator_when_no_adapter_declares_one(
+        self,
+    ) -> None:
+        short = {
+            "approved-skill": "Use when the approved fixture verdict is wanted here.",
+            "pending-skill": "Use when the pending fixture verdict is wanted here.",
+        }
+        for name, description in short.items():
+            self._promote_to_v2(name, self.SIBLINGS[name], description=description)
+        self._git_add()
+        total = sum(len(f"{name}: {text}") for name, text in short.items())
+        validate_repo.LISTING_BUDGET_CHARS = total - 1
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(f"the budget is {total - 1}", output)
+        self.assertIn("the validator's own LISTING_BUDGET_CHARS", output)
+
+    def test_an_adapter_that_declares_a_budget_is_the_one_that_applies(self) -> None:
+        short = {
+            "approved-skill": "Use when the approved fixture verdict is wanted here.",
+            "pending-skill": "Use when the pending fixture verdict is wanted here.",
+        }
+        for name, description in short.items():
+            self._promote_to_v2(name, self.SIBLINGS[name], description=description)
+        self._git_add()
+        total = sum(len(f"{name}: {text}") for name, text in short.items())
+        # The validator's own budget is generous; the runtime's is not, and the
+        # runtime is the one that configures the listing.
+        validate_repo.LISTING_BUDGET_CHARS = total * 10
+        self._declare_listing_budget("openclaw", total - 1)
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn(f"the budget is {total - 1}", output)
+        self.assertIn("adapters/openclaw/adapter.yaml", output)
+
+    def test_a_declared_budget_warns_at_the_same_ratio(self) -> None:
+        short = {
+            "approved-skill": "Use when the approved fixture verdict is wanted here.",
+            "pending-skill": "Use when the pending fixture verdict is wanted here.",
+        }
+        for name, description in short.items():
+            self._promote_to_v2(name, self.SIBLINGS[name], description=description)
+        self._git_add()
+        total = sum(len(f"{name}: {text}") for name, text in short.items())
+        validate_repo.LISTING_BUDGET_CHARS = total * 10
+        self._declare_listing_budget("openclaw", int(total / 0.9))
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+        self.assertIn("over 80%", output)
+        self.assertIn("adapters/openclaw/adapter.yaml", output)
 
     def test_adapter_files_cover_vocabulary_and_namespaces(self) -> None:
         adapter = (self.root / "adapters/openclaw/adapter.yaml").read_text(
