@@ -239,9 +239,14 @@ def display_path(value: str) -> str:
     return f"~/{text[len(prefix):]}" if text.startswith(prefix) else text
 
 
+def sha256_bytes(data: bytes) -> str:
+    """The digest the stamp records for one installed file."""
+    return hashlib.sha256(data).hexdigest()
+
+
 def sha256_text(text: str) -> str:
     """The digest the stamp records for a rendered SKILL.md."""
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    return sha256_bytes(text.encode("utf-8"))
 
 
 def load_contract(name: str) -> dict[str, Any]:

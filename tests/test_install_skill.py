@@ -562,6 +562,7 @@ class InstallSkillTest(unittest.TestCase):
                 "installed_at",
                 "capabilities",
                 "hints",
+                "files",
             },
         )
         self.assertEqual(stamp["name"], "fixture-notes")
@@ -574,6 +575,55 @@ class InstallSkillTest(unittest.TestCase):
         self.assertEqual(
             stamp["sha256"], install_skill.sha256_text(self._installed("fixture-notes"))
         )
+
+    def test_the_stamp_records_a_digest_for_every_installed_file(self) -> None:
+        """Skill granularity could not tell an edited reference from a stale one.
+
+        The stamp hashed the rendered SKILL.md and nothing else, so a bundled
+        input, a copied script, or the annotated index could be replaced in the
+        install and every reader of the stamp would still call the directory
+        clean.
+        """
+        self._configure()
+        code, out = self._run("--runtime", "claude-code", "fixture-launcher")
+        self.assertEqual(code, 0, out)
+
+        directory = self.dest / "fixture-launcher"
+        stamp = self._stamp("fixture-launcher")
+        on_disk = {
+            path.relative_to(directory).as_posix()
+            for path in directory.rglob("*")
+            if path.is_file()
+        } - {".spike-os.json"}
+        self.assertEqual(set(stamp["files"]), on_disk)
+        self.assertIn("references/detail.md", stamp["files"])
+        self.assertIn("references/index.md", stamp["files"])
+        self.assertIn("scripts/run.sh", stamp["files"])
+        for rel, digest in stamp["files"].items():
+            with self.subTest(rel=rel):
+                self.assertEqual(
+                    digest, install_skill.sha256_bytes((directory / rel).read_bytes())
+                )
+        # The skill-level hash stays what it was, and agrees with the file it names.
+        self.assertEqual(stamp["files"]["SKILL.md"], stamp["sha256"])
+
+    def test_the_digest_of_a_bundled_index_is_the_annotated_one(self) -> None:
+        """The index is rewritten on the way in, so the stamp hashes what landed."""
+        self._configure()
+        self._run("--runtime", "claude-code", "fixture-launcher")
+        stamp = self._stamp("fixture-launcher")
+        source = (self.root / "catalog" / "index.md").read_bytes()
+        self.assertNotEqual(stamp["files"]["references/index.md"],
+                            install_skill.sha256_bytes(source))
+
+    def test_a_copied_script_keeps_the_mode_it_had_in_the_repository(self) -> None:
+        """`scripts/run.sh` is run, not read; the executable bit travels with it."""
+        self._configure()
+        source = self.root / "skills" / "fixture-launcher" / "scripts" / "run.sh"
+        source.chmod(0o755)
+        self._run("--runtime", "claude-code", "fixture-launcher")
+        installed = self.dest / "fixture-launcher" / "scripts" / "run.sh"
+        self.assertTrue(os.access(installed, os.X_OK), oct(installed.stat().st_mode))
 
     def test_install_refuses_a_destination_directory_without_a_stamp(self) -> None:
         foreign = self.dest / "fixture-notes"

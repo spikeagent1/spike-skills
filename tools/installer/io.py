@@ -13,8 +13,9 @@ import os
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Sequence
 
 try:
@@ -27,7 +28,7 @@ except ImportError:  # pragma: no cover - one of the two branches always runs.
 from .render import (
     COPY_DIRS, EXCLUDED_NAMES, InstallError, LAUNCHER_INDEX, OS_NAME, PLACEHOLDER_RE,
     Rendered, Report, STAMP_NAME, annotate_index, declared, display_path, expand,
-    repo_root, sha256_text
+    repo_root, sha256_bytes, sha256_text
 )
 
 
@@ -255,49 +256,125 @@ def stamped_installs(dest: Path) -> list[Path]:
     return sorted(path for path in dest.iterdir() if path.is_dir() and read_stamp(path))
 
 
-def write_skill(rendered: Rendered, dest: Path, runtime: str, adapter: dict[str, Any],
-                commit: str, skipped: list[str] | None = None,
-                statuses: dict[str, str] | None = None) -> list[Path]:
-    """Replace the stamped directory with this render; report every path written.
+@dataclass(frozen=True)
+class Planned:
+    """One file an install writes: where it lands, what it holds, how it is read.
 
-    `skipped` collects any entry the skill carries that is neither rendered,
-    copied, nor excluded by name, so an unexpected file is reported rather than
-    dropped in silence. `statuses` maps a skill name to its state in this
-    destination; where it is given, the bundled catalog index is written with
-    that extra column rather than copied byte for byte.
+    `mode` is carried for a file copied out of `scripts/` or another supporting
+    directory, which may be executed rather than read; a rendered or bundled
+    file takes the default the filesystem gives it.
+    """
+
+    rel: str
+    data: bytes
+    mode: int | None = None
+
+
+def planned_files(
+    rendered: Rendered,
+    statuses: dict[str, str] | None = None,
+    skipped: list[str] | None = None,
+) -> dict[str, Planned]:
+    """Every file installing this render writes, keyed by its path in the skill dir.
+
+    One reading of what an install puts in a directory, so the digests the stamp
+    records, the bytes `write_skill` lays down, and the files `--update`
+    compares against cannot drift apart. `skipped` collects any entry the skill
+    carries that is neither rendered, copied, nor excluded by name. `statuses`
+    maps a skill name to its state in this destination; where it is given, the
+    bundled catalog index is annotated with that extra column rather than
+    carried byte for byte.
     """
     skipped = [] if skipped is None else skipped
-    target = dest / rendered.name
-    if target.is_symlink():
-        raise InstallError(f"{target}: is a symlink; refusing to remove or write through it")
-    if target.exists():
-        shutil.rmtree(target)
-    target.mkdir(parents=True)
-    written = [target / "SKILL.md"]
-    (target / "SKILL.md").write_text(rendered.text, encoding="utf-8")
+    planned: dict[str, Planned] = {"SKILL.md": Planned("SKILL.md", rendered.text.encode("utf-8"))}
 
     for source in sorted(rendered.source_dir.iterdir()):
         if source.name == "SKILL.md" or source.name in EXCLUDED_NAMES:
             continue  # rendered above, or eval material the install never carries
         if source.is_dir() and source.name in COPY_DIRS:
-            shutil.copytree(source, target / source.name)
-            written.extend(
-                sorted(path for path in (target / source.name).rglob("*") if path.is_file())
-            )
+            for path in sorted(item for item in source.rglob("*") if item.is_file()):
+                rel = path.relative_to(rendered.source_dir).as_posix()
+                planned[rel] = Planned(rel, path.read_bytes(), path.stat().st_mode & 0o777)
         else:
             skipped.append(source.name)
+
     for bundle in rendered.bundles:
-        destination = target / bundle.installed_rel
-        destination.parent.mkdir(parents=True, exist_ok=True)
+        rel = PurePosixPath(bundle.installed_rel).as_posix()
         if statuses is not None and bundle.repo_rel == LAUNCHER_INDEX:
-            destination.write_text(
-                annotate_index(bundle.source.read_text(encoding="utf-8"), statuses),
-                encoding="utf-8",
-            )
+            data = annotate_index(
+                bundle.source.read_text(encoding="utf-8"), statuses
+            ).encode("utf-8")
         else:
-            shutil.copyfile(bundle.source, destination)
-        if destination not in written:
-            written.append(destination)
+            data = bundle.source.read_bytes()
+        # A bundle landing on a path a copied directory already filled replaces
+        # it, and is still one file: the dict keeps the first position and the
+        # last bytes, which is what the loops above wrote.
+        planned[rel] = Planned(rel, data, planned[rel].mode if rel in planned else None)
+    return planned
+
+
+def file_digests(planned: dict[str, Planned]) -> dict[str, str]:
+    """The stamp's per-file record: one digest per path this install writes."""
+    return {rel: sha256_bytes(item.data) for rel, item in planned.items()}
+
+
+def installed_digests(directory: Path) -> dict[str, str]:
+    """Every file in an installed skill directory, by digest -- the stamp excluded.
+
+    Symlinks are neither followed nor descended into: what they point at is not
+    this install's, and reading through one would let a link outside the
+    destination answer for a file inside it.
+    """
+    digests: dict[str, str] = {}
+    for root, directories, names in os.walk(directory, followlinks=False):
+        directories[:] = sorted(
+            name for name in directories if not Path(root, name).is_symlink()
+        )
+        for name in sorted(names):
+            path = Path(root, name)
+            if path.is_symlink():
+                continue
+            rel = path.relative_to(directory).as_posix()
+            if rel == STAMP_NAME:
+                continue
+            digests[rel] = sha256_bytes(path.read_bytes())
+    return digests
+
+
+def write_planned(target: Path, planned: dict[str, Planned],
+                  only: Sequence[str] | None = None) -> list[Path]:
+    """Lay down the planned files (or just `only` of them) and return their paths."""
+    written: list[Path] = []
+    for rel, item in planned.items():
+        if only is not None and rel not in only:
+            continue
+        path = target / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(item.data)
+        if item.mode is not None:
+            os.chmod(path, item.mode)
+        written.append(path)
+    return written
+
+
+def write_stamp(target: Path, stamp: dict[str, Any]) -> Path:
+    path = stamp_path(target)
+    path.write_text(json.dumps(stamp, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+def write_skill(rendered: Rendered, dest: Path, runtime: str, adapter: dict[str, Any],
+                commit: str, skipped: list[str] | None = None,
+                statuses: dict[str, str] | None = None) -> list[Path]:
+    """Replace the stamped directory with this render; report every path written."""
+    target = dest / rendered.name
+    if target.is_symlink():
+        raise InstallError(f"{target}: is a symlink; refusing to remove or write through it")
+    planned = planned_files(rendered, statuses, skipped)
+    if target.exists():
+        shutil.rmtree(target)
+    target.mkdir(parents=True)
+    written = write_planned(target, planned)
 
     stamp = {
         "name": rendered.name,
@@ -309,9 +386,11 @@ def write_skill(rendered: Rendered, dest: Path, runtime: str, adapter: dict[str,
         "installed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "capabilities": list(rendered.capabilities),
         "hints": rendered.hints,
+        # Per file, not per skill: a bundled input or a copied script edited in
+        # the install is drift the skill-level hash could not see.
+        "files": file_digests(planned),
     }
-    stamp_path(target).write_text(json.dumps(stamp, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    written.append(stamp_path(target))
+    written.append(write_stamp(target, stamp))
     return written
 
 
