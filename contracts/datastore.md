@@ -59,7 +59,7 @@ clinical fact.
 Record keys: `journal/` dream-report is `<local-date>--<corpus-hash-8>`
 (`skills/owner-dream-cycle/SKILL.md:52`); `jobs/` job-spec is the stable job key
 and occurrence is `<job-key>@<scheduled-instant>`
-(`skills/cron-scheduler/SKILL.md:58`); `checkpoints/` cursor is
+(`skills/cron-scheduler/SKILL.md:60`); `checkpoints/` cursor is
 `<skill>/<channel-or-source>` (`skills/social-listening-engagement-loop/SKILL.md:89`);
 `activity/` activity carries `operation_key`, `target`, `activity_state`,
 `readback`, and `rollback_handle` (`skills/publish/SKILL.md:62`).
@@ -73,7 +73,7 @@ nothing here". `publish` is the origin of the core six — `PREVIEWED`, `RENDERE
 (`skills/publish/SKILL.md:87`) — and `PREVIEWED` is the one name shared across
 skills, because previewing a mutation is the one state every mutating skill can
 reach. Adding a state is a change to this enum, never a local extension
-(`skills/cron-scheduler/SKILL.md:100`, `skills/conversation-archive/SKILL.md:86`).
+(`skills/cron-scheduler/SKILL.md:103`, `skills/conversation-archive/SKILL.md:86`).
 
 An `autonomy/` record is one standing permission the owner wrote: `capability`
 (a name from `contracts/capabilities.yaml`, and only one whose

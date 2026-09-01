@@ -54,7 +54,7 @@ effects:
     approval: turn_scoped
     contract_eligible: true
     resource_class: classified
-    derived_from: [skills/owner-context-onboarding/SKILL.md:103, skills/daily-task-manager/SKILL.md:92]
+    derived_from: [skills/owner-context-onboarding/SKILL.md:103, skills/daily-task-manager/SKILL.md:102]
     note: owner-context-onboarding:103 argues preview_then_explicit; turn_scoped chosen because daily-task-manager:92 authorizes the exact mutation the owner named this turn
     summary: Write or supersede a record in a declared namespace, with readback.
   - name: checkpoint:advance
@@ -115,7 +115,7 @@ effects:
     approval: turn_scoped
     contract_eligible: true
     resource_class: network
-    derived_from: [skills/daily-task-manager/SKILL.md:56, skills/daily-task-manager/SKILL.md:92]
+    derived_from: [skills/daily-task-manager/SKILL.md:59, skills/daily-task-manager/SKILL.md:102]
     summary: Create or update an object in an external provider, with readback.
   - name: delete:external
     readOnlyHint: false
@@ -125,7 +125,7 @@ effects:
     approval: preview_then_explicit
     contract_eligible: false
     resource_class: network
-    derived_from: [skills/daily-task-manager/SKILL.md:54, skills/cron-scheduler/SKILL.md:52]
+    derived_from: [skills/daily-task-manager/SKILL.md:56, skills/cron-scheduler/SKILL.md:54]
     summary: Delete an external object; explicit delete language is required per object.
   - name: schedule:manage
     readOnlyHint: false
@@ -135,7 +135,7 @@ effects:
     approval: preview_then_explicit
     contract_eligible: true
     resource_class: exec
-    derived_from: [skills/cron-scheduler/SKILL.md:52, skills/cron-scheduler/SKILL.md:132]
+    derived_from: [skills/cron-scheduler/SKILL.md:54, skills/cron-scheduler/SKILL.md:137]
     summary: Create, update, pause, resume, or remove a scheduled job.
   - name: notify:owner
     readOnlyHint: false
@@ -145,7 +145,7 @@ effects:
     approval: never_require
     contract_eligible: true
     resource_class: network
-    derived_from: [skills/cron-scheduler/SKILL.md:92]
+    derived_from: [skills/cron-scheduler/SKILL.md:95]
     summary: Deliver an owner notification under contracts/notifications.md, quiet hours applying.
   - name: message:send
     readOnlyHint: false

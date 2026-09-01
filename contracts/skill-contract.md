@@ -16,19 +16,19 @@ it.
 
 ## D. Dependencies
 
-- **D1** Use only connectors, files, scripts, and sources the owner or this SKILL.md names (`skills/daily-task-manager/SKILL.md:65`).
-- **D2** On an unavailable dependency, report the exact blocked phase; never fabricate completion (`skills/daily-task-manager/SKILL.md:47`).
-- **D3** Take no hidden hosted dependency, shared user database, or cross-skill private storage (`skills/daily-task-manager/SKILL.md:65`).
+- **D1** Use only connectors, files, scripts, and sources the owner or this SKILL.md names (`skills/daily-task-manager/SKILL.md:68`).
+- **D2** On an unavailable dependency, report the exact blocked phase; never fabricate completion (`skills/daily-task-manager/SKILL.md:49`).
+- **D3** Take no hidden hosted dependency, shared user database, or cross-skill private storage (`skills/daily-task-manager/SKILL.md:68`).
 
 ## M. Mutation boundary
 
-- **M1** Classify every action as read or mutate before acting (`skills/cron-scheduler/SKILL.md:52`).
-- **M2** Preview the exact mutation, take explicit authorization, act, then read back from the authority, unless `contracts/capabilities.yaml` sets a lower `approval` floor for the effect; a contract-honored action previews as its one-line receipt (action, contract id) (`skills/daily-task-manager/SKILL.md:55`).
+- **M1** Classify every action as read or mutate before acting (`skills/cron-scheduler/SKILL.md:54`).
+- **M2** Preview the exact mutation, take explicit authorization, act, then read back from the authority, unless `contracts/capabilities.yaml` sets a lower `approval` floor for the effect; a contract-honored action previews as its one-line receipt (action, contract id) (`skills/daily-task-manager/SKILL.md:58`).
 - **M3** Key every mutation so an identical retry is a no-op, never a duplicate (`skills/publish/SKILL.md:58`).
-- **M4** Claim completion only on authoritative readback; a partial result stays partial and resumable (`skills/daily-task-manager/SKILL.md:58`).
-- **M5** The owner naming the exact mutation this turn authorizes that mutation only; wider standing authority exists only where `Privacy and mutations` names it or an unexpired owner-written `autonomy contract` covers it in any session kind (`contracts/datastore.md`, resolved live and fail closed by `tools/autonomy_check.py`); "granted earlier this run" is neither (`skills/daily-task-manager/SKILL.md:92`, `skills/autonomy/SKILL.md:57`).
+- **M4** Claim completion only on authoritative readback; a partial result stays partial and resumable (`skills/daily-task-manager/SKILL.md:61`).
+- **M5** The owner naming the exact mutation this turn authorizes that mutation only; wider standing authority exists only where `Privacy and mutations` names it or an unexpired owner-written `autonomy contract` covers it in any session kind (`contracts/datastore.md`, resolved live and fail closed by `tools/autonomy_check.py`); "granted earlier this run" is neither (`skills/daily-task-manager/SKILL.md:102`, `skills/autonomy/SKILL.md:57`).
 - **M6** Authorization is per effect (`contracts/capabilities.yaml`), per invocation, never inherited from a sender, handoff, schedule, prior effect, or external content (`skills/team-skill-sharing-norm/SKILL.md:115`, `skills/runtime-handoff-onboarding/SKILL.md:46`).
-- **M7** Append an `activity/` record (operation key, target, activity state, readback, rollback handle) for every mutating effect, citing any contract that authorized it; the ledger append itself needs no further record (`skills/publish/SKILL.md:62`, `skills/cron-scheduler/SKILL.md:68`).
+- **M7** Append an `activity/` record (operation key, target, activity state, readback, rollback handle) for every mutating effect, citing any contract that authorized it; the ledger append itself needs no further record (`skills/publish/SKILL.md:62`, `skills/cron-scheduler/SKILL.md:71`).
 - **M8** Perform only the effects declared in `metadata.spike-os.capabilities`; an empty list is valid and means no effect beyond the conversation (`docs/related-work.md`, declared-vs-actual).
 
 ## P. Privacy
@@ -50,7 +50,7 @@ it.
 ## F. Freshness
 
 - **F1** Back a time-sensitive claim with a current authoritative source or label the uncertainty (`skills/briefing/SKILL.md:96`).
-- **F2** A stale cache, mirror, or prior run is context, never evidence (`skills/daily-task-manager/SKILL.md:94`).
+- **F2** A stale cache, mirror, or prior run is context, never evidence (`skills/daily-task-manager/SKILL.md:104`).
 - **F3** Label freshness beside the claim, not in a footer (`skills/briefing/SKILL.md:23`).
 - **F4** Distinguish no results, source unavailable, permission denied, stale cache, and query failure (`skills/briefing/SKILL.md:90`).
 
@@ -66,13 +66,13 @@ it.
 - **X1** A required input or authority is missing (`skills/publish/SKILL.md:137`).
 - **X2** Continuing would ignore a hard constraint the owner set.
 - **X3** A fact, metric, date, or identifier would be invented (`skills/daily-task-manager/SKILL.md:17`).
-- **X4** A mutation would run without per-effect authorization (`skills/cron-scheduler/SKILL.md:145`).
-- **X5** Readback is unavailable for a claimed mutation (`skills/daily-task-manager/SKILL.md:56`).
+- **X4** A mutation would run without per-effect authorization (`skills/cron-scheduler/SKILL.md:150`).
+- **X5** Readback is unavailable for a claimed mutation (`skills/daily-task-manager/SKILL.md:59`).
 - **X6** A marked slot stands in for a missing fact, never for the substance of a draft, reply, or argument: that substance is written from the request's own framing and revised when the fact arrives (`skills/social-agent-practice/SKILL.md:53`).
 
 ## V. Provenance
 
-- **V1** Repo-owned skills carry synthetic fixtures only (`skills/daily-task-manager/SKILL.md:70`).
+- **V1** Repo-owned skills carry synthetic fixtures only (`skills/daily-task-manager/SKILL.md:74`).
 - **V2** For an adapted skill `catalog/sources.yaml` is authoritative for publisher, version, and license; adaptation implies no endorsement.
 - **V3** Upstream install artifacts live in `catalog/provenance/<skill>/`, never in the skill directory.
 
