@@ -1,4 +1,4 @@
-.PHONY: validate test index eval-baseline eval-doctor eval-report eval-routing eval-skill stage-openclaw
+.PHONY: start validate test index eval-baseline eval-doctor eval-report eval-routing eval-skill stage-openclaw
 
 EVAL_MODEL ?= sonnet
 EVAL_GRADER ?= opus
@@ -11,6 +11,13 @@ validate: test
 	python3 tools/validate_repo.py
 	python3 tools/check_citations.py
 	python3 tools/build_index.py --check
+
+# The one command a newcomer runs: it probes this host, asks for the local
+# values the adapter leaves as placeholders, installs `home` and the starter
+# set through tools/install_skill.py, and verifies with one real invocation.
+# Not the default goal -- `make` on its own still runs the gate.
+start:
+	python3 tools/bootstrap.py
 
 # Globbed, not listed: a module the list forgot was a module CI never compiled.
 test:

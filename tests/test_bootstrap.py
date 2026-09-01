@@ -201,6 +201,33 @@ class PlaceholderTest(unittest.TestCase):
             self.assertEqual(install_skill.read_local_overrides(path)["OLD_KEY"], "kept")
 
 
+class MakeTargetTest(unittest.TestCase):
+    """`make start` is the newcomer's one command, and it runs this tool."""
+
+    def test_make_start_runs_the_bootstrap(self) -> None:
+        recipe: list[str] = []
+        inside = False
+        for line in (ROOT / "Makefile").read_text(encoding="utf-8").splitlines():
+            if line.startswith("start:"):
+                inside = True
+                continue
+            if inside:
+                if line.startswith("\t"):
+                    recipe.append(line[1:].strip())
+                elif line.strip():
+                    break
+        self.assertEqual(recipe, ["python3 tools/bootstrap.py"])
+
+    def test_the_gate_is_still_the_default_goal(self) -> None:
+        targets = [
+            line.split(":", 1)[0]
+            for line in (ROOT / "Makefile").read_text(encoding="utf-8").splitlines()
+            if line and not line[0].isspace() and ":" in line
+            and not line.startswith(("#", ".PHONY"))
+        ]
+        self.assertEqual(targets[0], "validate")
+
+
 class RunTest(unittest.TestCase):
     """`main` end to end, with the installer and the host stubbed out."""
 
