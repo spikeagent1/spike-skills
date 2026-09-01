@@ -1,5 +1,5 @@
 {
-  "commit": "39ba6ad",
+  "commit": "286f339",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.257",
@@ -10,7 +10,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-09-01T18:11:43+00:00",
+  "generated_at": "2026-09-01T18:15:05+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -657,15 +657,15 @@
         "examples:4/4 No SYNCED claim",
         "examples:4/4 Mirror not marked active"
       ],
-      "run_id": "20260901T180937-39ba6ad-t4-green",
-      "skill_sha256": "ef559950f0e2eaf47381950af0e85c84967a1260fc635fab0dc7e180fdcc8f05",
-      "source_commit": "39ba6ad",
+      "run_id": "20260901T181305-286f339-t4-green2",
+      "skill_sha256": "a80ea0f933736fb99a2bf0c2332df7d6fb10476f397cd2cae3f95bda13048274",
+      "source_commit": "286f339",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.660324,
+        "cost_usd": 0.690978,
         "pass_rate": 0.5208,
-        "tokens_mean": 30181.0
+        "tokens_mean": 31291.75
       },
       "without_skill": {
         "cost_usd": 0.310034,
