@@ -18,9 +18,9 @@ from pathlib import Path
 from tools import python_floor
 
 ROOT = Path(__file__).resolve().parents[1]
-ENTRY_POINTS = ("tools/install_skill.py", "tools/python_floor.py")
+ENTRY_POINTS = ("tools/install_skill.py", "tools/bootstrap.py", "tools/python_floor.py")
 # The entry points that run the gate themselves, rather than defining it.
-GATED_ENTRY_POINTS = ("tools/install_skill.py",)
+GATED_ENTRY_POINTS = ("tools/install_skill.py", "tools/bootstrap.py")
 # The oldest interpreter that might read these files far enough to print the floor.
 OLDEST_READER = (3, 8)
 
