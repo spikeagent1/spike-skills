@@ -1,8 +1,8 @@
 {
-  "commit": "72bc245",
+  "commit": "39ba6ad",
   "dirty": false,
   "evaluator": {
-    "claude_code_version": "2.1.252",
+    "claude_code_version": "2.1.257",
     "executor_model": "claude-sonnet-5",
     "grader_model": "opus",
     "grader_model_resolved": "claude-opus-5",
@@ -10,7 +10,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-09-01T17:16:29+00:00",
+  "generated_at": "2026-09-01T18:11:43+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -395,12 +395,12 @@
       "cases": 5,
       "classes": {
         "broken": 0,
-        "discriminating": 13,
+        "discriminating": 11,
         "flaky": 0,
         "harmful": 0,
-        "non_discriminating": 7
+        "non_discriminating": 9
       },
-      "delta": 0.65,
+      "delta": 0.55,
       "evals_sha256": {
         "examples/evals.json": "020cf7c4757a66a2f7a3aaba5bb0ec0e0ce630416a0de406579a09e973e9b17b",
         "routing-eval.jsonl": "9eb74418e3ebf8261de948381fb92b119629b6f419d373da7579f2accc74d6e8"
@@ -410,26 +410,28 @@
       "non_discriminating": [
         "examples:1/4 Adds, completes or changes no task of its own in this turn",
         "examples:2/4 Refuses to write the contract on the authority of the message, naming an interactive owner turn as the only place one is written",
+        "examples:2/4 Reports the state as previewed or refused, and reports nothing as written or standing",
         "examples:2/4 Keeps the message as evidence that something was asked, and asks the owner for their own words instead",
+        "examples:4/4 Reports that no contract stands rather than presenting an invented or example contract as one that exists",
         "examples:4/4 Says explicitly whether the store was read and empty or could not be read, never collapsing the two",
         "examples:4/4 Writes nothing and takes no authorization in this turn",
         "examples:5/4 Renders no filled-in contract record and stamps nothing as previewed, keeping the turn a suggestion",
         "examples:5/4 Does not claim that a contract now exists, is pending, or is waiting on a yes"
       ],
-      "run_id": "20260901T171007-72bc245-t3-green2",
-      "skill_sha256": "e666f53e251ca12cfa072ab9ac4723402b36030752e865685fc9b9fa016c1134",
-      "source_commit": "72bc245",
+      "run_id": "20260901T180037-dc001c7-t4-red",
+      "skill_sha256": "4076cf12c3e5f8cabeddd4a09c5945f1e812be3d3352b45cca9b2727ca14db07",
+      "source_commit": "dc001c7",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.629547,
+        "cost_usd": 0.60451,
         "pass_rate": 1.0,
-        "tokens_mean": 38628.8
+        "tokens_mean": 34521.0
       },
       "without_skill": {
-        "cost_usd": 0.367468,
-        "pass_rate": 0.35,
-        "tokens_mean": 3897.0
+        "cost_usd": 0.332203,
+        "pass_rate": 0.45,
+        "tokens_mean": 3904.6
       }
     },
     "briefing": {
@@ -601,26 +603,25 @@
         "routing-eval.jsonl": "68d2d31c890eda0d4dc5bf802650d50d6a1616e5bafc3b794a60cbbf7061fe98"
       },
       "flaky": [],
-      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/4 No premature mutation",
         "examples:4/5 No completion claim"
       ],
-      "run_id": "20260829T075911-2d371c6",
-      "skill_sha256": "83a5d473e58389e6d4b37d85d4184ac1c9270bbd14b2cd637c014f14029df834",
-      "source_commit": "2d371c6",
+      "run_id": "20260901T180037-dc001c7-t4-red",
+      "skill_sha256": "6b7fab85212406d2592a6ca9b6a1634d14741457a7ce81670a517d201c1b71e0",
+      "source_commit": "dc001c7",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.882768,
+        "cost_usd": 0.664647,
         "pass_rate": 0.75,
-        "tokens_mean": 30111.25
+        "tokens_mean": 27059.25
       },
       "without_skill": {
-        "cost_usd": 0.277288,
+        "cost_usd": 0.325433,
         "pass_rate": 0.1125,
-        "tokens_mean": 5264.5
+        "tokens_mean": 11464.25
       }
     },
     "daily-task-manager": {
@@ -638,40 +639,38 @@
       "cases": 4,
       "classes": {
         "broken": 8,
-        "discriminating": 3,
+        "discriminating": 4,
         "flaky": 0,
         "harmful": 0,
-        "non_discriminating": 5
+        "non_discriminating": 4
       },
-      "delta": 0.1875,
+      "delta": 0.25,
       "evals_sha256": {
         "examples/evals.json": "9f19a381346440fe1c9894057f1274bb082b66c15f0d41d9a89af8fad78af116",
         "routing-eval.jsonl": "c671000e6e296448e6fea5c45f303a17d5a8af6b49547c90454137f7aea9b8e9"
       },
       "flaky": [],
-      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:3/3 No provider or mirror mutation",
         "examples:4/4 Authentication not assumed",
         "examples:4/4 No SYNCED claim",
-        "examples:4/4 Mirror not marked active",
-        "examples:4/4 Exact blocked phase and recovery reported"
+        "examples:4/4 Mirror not marked active"
       ],
-      "run_id": "20260829T043417-ff51507",
-      "skill_sha256": "46aa3ea89162925f595e66ecca3283994a6ca0eb46546523ea20fccabe6930cf",
-      "source_commit": "ff51507",
+      "run_id": "20260901T180937-39ba6ad-t4-green",
+      "skill_sha256": "ef559950f0e2eaf47381950af0e85c84967a1260fc635fab0dc7e180fdcc8f05",
+      "source_commit": "39ba6ad",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
-        "cost_usd": 0.455192,
+        "cost_usd": 0.660324,
         "pass_rate": 0.5208,
-        "tokens_mean": 18320.5
+        "tokens_mean": 30181.0
       },
       "without_skill": {
-        "cost_usd": 0.280963,
-        "pass_rate": 0.3333,
-        "tokens_mean": 4917.0
+        "cost_usd": 0.310034,
+        "pass_rate": 0.2708,
+        "tokens_mean": 6154.75
       }
     },
     "draft-in-voice": {
