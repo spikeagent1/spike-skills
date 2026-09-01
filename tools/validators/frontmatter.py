@@ -288,16 +288,26 @@ def without_fenced_blocks(body: str) -> str:
     A fenced block is rendered, not performed: a record template, a worked
     example, or another skill's object pattern quoted inside one is not this
     skill naming a thing it touches. The fence lines themselves stay, so line
-    counts and anything that reads structure around them are unchanged.
+    counts and anything that reads structure around them are unchanged. Both
+    fence markers count, and a block is one only when something closes it with
+    the marker that opened it -- an unterminated fence exempts nothing, so a
+    stray marker cannot turn the lint off for the rest of the body.
     """
-    kept: list[str] = []
-    inside = False
-    for line in body.splitlines():
-        if line.lstrip().startswith("```"):
-            inside = not inside
-            kept.append(line)
+    lines = body.splitlines()
+    kept = list(lines)
+    fence: str | None = None
+    opened_at = 0
+    for index, line in enumerate(lines):
+        stripped = line.lstrip()
+        if fence is None:
+            if stripped.startswith(("```", "~~~")):
+                fence = stripped[:3]
+                opened_at = index
             continue
-        kept.append("" if inside else line)
+        if stripped.startswith(fence):
+            for inner in range(opened_at + 1, index):
+                kept[inner] = ""
+            fence = None
     return "\n".join(kept)
 
 

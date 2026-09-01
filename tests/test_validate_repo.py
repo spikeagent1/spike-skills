@@ -1833,6 +1833,53 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertEqual(code, 0, output)
         self.assertNotIn("body names namespace 'projects/'", output)
 
+    def test_a_namespace_inside_a_tilde_fence_is_not_a_use(self) -> None:
+        """`~~~` opens a fenced block exactly as ``` does; both render, not perform."""
+        workflow = (
+            "1. Render the record before asking anything back.\n"
+            "~~~\n"
+            "object-pattern : projects/*\n"
+            "~~~\n"
+            "2. Emit the approved skill fixture verdict."
+        )
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={"Workflow": workflow},
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+        self.assertNotIn("body names namespace 'projects/'", output)
+
+    def test_an_unterminated_fence_does_not_exempt_the_rest_of_the_file(self) -> None:
+        """A fence nothing closes exempts nothing: the remainder is still prose.
+
+        Otherwise one stray ``` would turn the namespace lint off for the rest
+        of the body -- an accident (or a cheap dodge) widening what a skill may
+        name without declaring it.
+        """
+        workflow = (
+            "1. Render the record before asking anything back.\n"
+            "```\n"
+            "2. Read the brief under projects/ before answering."
+        )
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={"Workflow": workflow},
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 1)
+        self.assertIn("body names namespace 'projects/'", output)
+
     def test_reserved_namespace_not_writable(self) -> None:
         self._promote_to_v2(
             "approved-skill",
