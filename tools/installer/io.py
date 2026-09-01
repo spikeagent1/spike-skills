@@ -67,6 +67,30 @@ def inside_git_work_tree(path: Path) -> bool:
     return result.returncode == 0 and result.stdout.strip() == "true"
 
 
+def git_ignored(path: Path) -> bool:
+    """True when git is configured to ignore `path`.
+
+    `check-ignore` is pattern-based, so it answers for a file this run has not
+    written yet and a dry run reaches the same verdict as the real one. A path
+    outside any work tree is not ignored -- `inside_git_work_tree` is what
+    decides that case.
+    """
+    target = Path(path)
+    probe = target.parent
+    while not probe.is_dir() and probe != probe.parent:
+        probe = probe.parent
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(probe), "check-ignore", "-q", "--", str(target)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return False
+    return result.returncode == 0
+
+
 def run_validator() -> int:
     """`tools/validate_repo.py`, run in-process; the install refuses on failure."""
     return validate_repo.main([])
@@ -396,10 +420,12 @@ def install_adapter(
         resolved.write_text(rendered_yaml, encoding="utf-8")
     written.extend([adapter_md, resolved])
 
-    if inside_git_work_tree(adapter_md.parent):
+    if inside_git_work_tree(adapter_md.parent) and not git_ignored(resolved):
         # The repository's own adapter carries only ${PLACEHOLDER}s; this render
         # is the one file where the owner's values are written out, and it lands
-        # in a directory git is watching.
+        # in a directory git is watching. A destination git already ignores --
+        # `dist/`, which `make stage-openclaw` renders into -- is not one a
+        # commit can carry, so it earns no note.
         report.notes.append(
             f"{display_path(str(resolved))} is inside a git work tree and holds the "
             "personal values from the overrides file; keep it out of a commit"

@@ -1232,5 +1232,61 @@ class InstallSkillTest(unittest.TestCase):
         self.assertFalse((self.dest / "fixture-tasks").exists())
 
 
+class GitIgnoredDestinationTest(unittest.TestCase):
+    """The personal-values note is about a destination a commit could carry.
+
+    `make stage-openclaw` renders into `dist/`, which `.gitignore` covers, so
+    the note fired on every stage about a file git will never offer to commit.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        subprocess.run(
+            ["git", "init", "-q", str(self.root)], check=True, capture_output=True
+        )
+        (self.root / ".gitignore").write_text("dist/\n", encoding="utf-8")
+        (self.root / "dist").mkdir()
+        (self.root / "adapters").mkdir()
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_a_destination_git_ignores_is_reported_ignored(self) -> None:
+        self.assertTrue(
+            install_skill.git_ignored(self.root / "dist" / "adapter.resolved.yaml")
+        )
+
+    def test_a_destination_git_watches_is_not(self) -> None:
+        self.assertFalse(
+            install_skill.git_ignored(self.root / "adapters" / "adapter.resolved.yaml")
+        )
+
+    def test_a_destination_outside_any_work_tree_is_not_ignored(self) -> None:
+        outside = Path(self.tmp.name).parent / "not-a-repo-adapter.resolved.yaml"
+        self.assertFalse(install_skill.git_ignored(outside))
+
+    def _render_into(self, directory: Path) -> list[str]:
+        """Notes from a dry-run adapter render whose output lands in `directory`."""
+        adapters = install_skill.load_contract("adapters")
+        adapter = dict(adapters["openclaw"])
+        adapter["adapter_file"] = str(directory / "ADAPTER.md")
+        report = install_skill.Report()
+        install_skill.install_adapter(
+            "openclaw", adapter, self.root / "overrides.yaml", True, report
+        )
+        return report.notes
+
+    def test_a_render_into_an_ignored_directory_earns_no_note(self) -> None:
+        """The whole point: `make stage-openclaw` should not warn about `dist/`."""
+        notes = self._render_into(self.root / "dist")
+        self.assertFalse(
+            [note for note in notes if "git work tree" in note], notes
+        )
+
+    def test_a_render_into_a_watched_directory_still_earns_one(self) -> None:
+        notes = self._render_into(self.root / "adapters")
+        self.assertTrue([note for note in notes if "git work tree" in note], notes)
+
 if __name__ == "__main__":
     unittest.main()

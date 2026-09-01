@@ -11,6 +11,7 @@ from pathlib import Path
 
 import tools.contracts_check as contracts_check
 import tools.validate_repo as validate_repo
+from tools.installer import render
 
 
 CAPABILITIES = contracts_check.load_capabilities()
@@ -311,14 +312,7 @@ class AdapterMarkdownTest(unittest.TestCase):
                 note = str(adapter["vocabulary"][entry["key"]].get("note") or "").strip()
                 # Only a note that *opens* with the marker declares the state; a
                 # note that merely mentions one is prose.
-                declared = next(
-                    (
-                        marker
-                        for marker in contracts_check.BINDING_MARKERS
-                        if note.upper().startswith(marker)
-                    ),
-                    "",
-                )
+                declared = contracts_check.binding_marker(note)
                 with self.subTest(runtime=runtime, term=entry["term"]):
                     self.assertEqual(rendered[entry["term"]], declared)
 
@@ -326,6 +320,46 @@ class AdapterMarkdownTest(unittest.TestCase):
         self.assertEqual(contracts_check.binding_marker("DEGRADED - mirror-only"), "DEGRADED")
         self.assertEqual(contracts_check.binding_marker("UNCONFIRMED - unknown"), "UNCONFIRMED")
         self.assertEqual(contracts_check.binding_marker("a plain caveat"), "")
+
+    def test_a_rendered_cell_declares_its_marker_in_bold(self) -> None:
+        self.assertEqual(
+            contracts_check.rendered_binding_marker(
+                "the Gmail MCP server for the owner -- **DEGRADED** (owner half only)"
+            ),
+            "DEGRADED",
+        )
+        self.assertEqual(
+            contracts_check.rendered_binding_marker(
+                "a value that would be UNCONFIRMED if nobody had checked it"
+            ),
+            "",
+        )
+
+    def test_a_marker_only_counts_where_the_note_opens_with_it(self) -> None:
+        """The render side and the .md side read one note the same way.
+
+        `binding_marker` matched a marker anywhere and preferred UNCONFIRMED,
+        while `render.marked_bindings` required the note to open with it: a
+        DEGRADED note whose prose names UNCONFIRMED read as UNCONFIRMED on the
+        .md side and as DEGRADED on the YAML side.
+        """
+        note = (
+            "DEGRADED (owner half only) -- the agent half is attested, so it is "
+            "not UNCONFIRMED"
+        )
+        adapter = {"vocabulary": {"mail_provider": {"value": "agentmail", "note": note}}}
+
+        self.assertEqual(contracts_check.binding_marker(note), "DEGRADED")
+        self.assertEqual(render.degraded_bindings(adapter), {"mail_provider": note})
+        self.assertEqual(render.unconfirmed_bindings(adapter), {})
+
+    def test_a_marker_named_only_in_prose_marks_nothing(self) -> None:
+        note = "the value is attested; an UNCONFIRMED one would be refused"
+        adapter = {"vocabulary": {"scheduler": {"value": "cron", "note": note}}}
+
+        self.assertEqual(contracts_check.binding_marker(note), "")
+        self.assertEqual(render.unconfirmed_bindings(adapter), {})
+        self.assertEqual(render.degraded_bindings(adapter), {})
 
 
 class CoverageGapTest(unittest.TestCase):

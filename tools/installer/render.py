@@ -538,11 +538,17 @@ def render_skill(
 
 
 def marked_bindings(adapter: dict[str, Any], marker: str) -> dict[str, str]:
-    """Adapter key -> the note, for every binding whose note begins with `marker`."""
+    """Adapter key -> the note, for every binding whose note declares `marker`.
+
+    `contracts_check.binding_marker` is the one reader of a note's marker, so the
+    rendered ADAPTER.md cell and the adapter.yaml note are always read the same
+    way: a DEGRADED note that names UNCONFIRMED in its prose is DEGRADED on both
+    sides.
+    """
     marked: dict[str, str] = {}
     for key, binding in (adapter.get("vocabulary") or {}).items():
         note = str((binding or {}).get("note") or "").strip()
-        if note.upper().startswith(marker):
+        if contracts_check.binding_marker(note) == marker:
             marked[key] = note
     return marked
 

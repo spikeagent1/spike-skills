@@ -200,11 +200,37 @@ BINDING_MARKERS = ("UNCONFIRMED", "DEGRADED")
 
 
 def binding_marker(text: str) -> str:
-    """`UNCONFIRMED`, `DEGRADED`, or an empty string, from a note or a rendered cell."""
+    """`UNCONFIRMED`, `DEGRADED`, or an empty string, from a note or a rendered cell.
+
+    Only a note that *opens* with a marker declares that state; one that merely
+    names a marker in its prose is prose. `tools/installer/render.py` reads the
+    YAML notes through this same helper, so the two sides cannot disagree about
+    what one note says.
+    """
+    upper = str(text).strip().upper()
     for marker in BINDING_MARKERS:
-        if marker in str(text).upper():
+        if upper.startswith(marker):
             return marker
     return ""
+
+
+# A rendered `## Vocabulary` cell carries its marker as a bold suffix
+# ("... -- **DEGRADED** (owner half only)"), not as an opening word, so the cell
+# is read by the marker's emphasis rather than by position.
+RENDERED_MARKER_RE = re.compile(
+    r"\*\*(" + "|".join(BINDING_MARKERS) + r")\*\*", re.IGNORECASE
+)
+
+
+def rendered_binding_marker(cell: str) -> str:
+    """The marker a rendered ADAPTER.md vocabulary cell declares, or `""`.
+
+    The counterpart of `binding_marker` for the rendered view: the cell states
+    the marker in bold, so an unbolded mention in the prose of a value is prose,
+    the same way an unopened mention in a note is.
+    """
+    match = RENDERED_MARKER_RE.search(str(cell))
+    return match.group(1).upper() if match else ""
 
 
 def adapter_markdown_terms(runtime: str, root: Path | None = None) -> dict[str, str]:
@@ -224,7 +250,7 @@ def adapter_markdown_terms(runtime: str, root: Path | None = None) -> dict[str, 
             continue
         match = VOCABULARY_ROW_RE.match(line)
         if match is not None:
-            rendered[match.group(1)] = binding_marker(match.group(2))
+            rendered[match.group(1)] = rendered_binding_marker(match.group(2))
     return rendered
 
 

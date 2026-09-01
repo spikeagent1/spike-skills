@@ -5676,6 +5676,16 @@ class RepoInputGrantTest(unittest.TestCase):
     def test_a_skill_with_no_grant_carries_no_repo_input_header(self) -> None:
         scaffold = executor.request_scaffold("# alpha\n", "alpha", self.root)
         self.assertEqual(scaffold["extra_dirs"], [])
+        # The header the run never appends is not part of the question asked, so
+        # editing it must not invalidate a skill that has no grant.
+        self.assertEqual(scaffold["repo_input_header"], "")
+
+    def test_the_repo_input_header_only_moves_a_granted_skill_key(self) -> None:
+        with mock.patch.object(executor, "REPO_INPUT_HEADER", "Readable under {paths}.\n\n"):
+            self.assertEqual(
+                executor.request_scaffold("# alpha\n", "alpha", self.root),
+                {"skill_header": executor.SKILL_HEADER, "repo_input_header": "", "extra_dirs": []},
+            )
 
     def test_the_without_skill_leg_has_an_empty_scaffold(self) -> None:
         self.assertEqual(

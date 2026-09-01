@@ -206,7 +206,9 @@ def request_scaffold(body: Optional[str], skill: str, root: Path) -> Dict[str, A
 
     Directories are recorded relative to the repository root: the absolute
     prefix is a property of the checkout, not of the question. A leg with no
-    skill body appends no header at all, and its scaffold is empty.
+    skill body appends no header at all, and its scaffold is empty; a skill with
+    no repo-input grant records no repo-input header, because `build_request`
+    appends that header only when there is a grant to name in it.
     """
     empty = {"skill_header": "", "repo_input_header": "", "extra_dirs": []}
     if body is None:
@@ -218,7 +220,7 @@ def request_scaffold(body: Optional[str], skill: str, root: Path) -> Dict[str, A
     )
     return {
         "skill_header": SKILL_HEADER,
-        "repo_input_header": REPO_INPUT_HEADER,
+        "repo_input_header": REPO_INPUT_HEADER if dirs else "",
         "extra_dirs": dirs,
     }
 

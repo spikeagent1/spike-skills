@@ -76,8 +76,8 @@ from tools.installer.render import (
 from tools.installer.io import (
     repo_commit, run_validator,
     adapter_template, apply_identity_import, bind_identity_file, check_adapter_template,
-    default_dest, install_adapter, local_overrides_path, local_overrides_template,
-    locate_block, marker_block, marker_lines, placeholder_names, print_diff,
+    default_dest, git_ignored, install_adapter, inside_git_work_tree, local_overrides_path,
+    local_overrides_template, locate_block, marker_block, marker_lines, placeholder_names, print_diff,
     read_local_overrides, read_stamp, stamp_path, stamped_installs, substitute,
     write_skill, write_text_atomically
 )
