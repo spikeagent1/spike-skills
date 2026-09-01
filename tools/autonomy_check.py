@@ -20,7 +20,8 @@ instead (`contracts/capabilities.yaml`, `on_ambiguity: fail_closed`):
   the exclusion below;
 - a pattern that is neither form parses to nothing, so its record matches nothing;
 - a record missing any of `required_fields` -- `expires` above all, since M5
-  authorizes an *unexpired* contract -- never matches;
+  authorizes an *unexpired* contract -- never matches, and the absent-expiry
+  refusal stands on its own where `required_fields` cannot be read;
 - a record past its `expires`, before its `granted-at`, superseded, or not
   `active` never matches;
 - a capability whose `contract_eligible` flag is false, or that the enum does not
@@ -265,7 +266,9 @@ def _live(record: dict[str, Any], now: datetime, required: Sequence[str] = ()) -
     `required` is `contracts/datastore.yaml`'s `required_fields`: a record
     missing one of them is not a contract the resolver can read, and `expires`
     is the one that matters most -- M5 authorizes an unexpired contract, so a
-    record that names no end names no bound the owner set (review I3).
+    record that names no end names no bound the owner set (review I3). The
+    absent-expiry refusal does not ride on `required`: it holds even when that
+    list cannot be read, because a lookup failure never widens autonomy (2A).
     """
     status = str(record.get("status") or "").strip()
     if not status:
@@ -288,7 +291,7 @@ def _live(record: dict[str, Any], now: datetime, required: Sequence[str] = ()) -
             return f"not yet live: granted-at is {granted}"
     expires = record.get("expires")
     if expires is None:
-        return ""
+        return "no expires, and a permission with no end is never live"
     instant = _instant(expires)
     if instant is None:
         return f"expires {expires!r} is not a readable date"

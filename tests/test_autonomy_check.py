@@ -387,6 +387,24 @@ class RequiredFieldsTest(unittest.TestCase):
             ("capability", "skill-pattern", "object-pattern", "granted-at", "expires"),
         )
 
+    def test_a_missing_expiry_fails_closed_even_when_the_required_list_degrades(self) -> None:
+        """I3 holds in `_live` itself: `required=()` must not revive an endless record.
+
+        `required_fields()` reads `contracts/datastore.yaml` and returns `()` on
+        any failure -- a missing key, an unparsed shape, a foreign root. A lookup
+        failure must never widen autonomy (2A), so the absent-expiry refusal
+        cannot be mediated by that read.
+        """
+        now = autonomy_check._instant(NOW)
+        assert now is not None
+        missing = contract("endless")
+        del missing["expires"]
+        for record in (contract("endless", expires=None), missing):
+            with self.subTest(has_key="expires" in record):
+                reason = autonomy_check._live(record, now, required=())
+                self.assertNotEqual(reason, "")
+                self.assertIn("expires", reason)
+
 
 class NotYetValidTest(unittest.TestCase):
     """`granted-at` is read, not just stored (review M3)."""
