@@ -308,8 +308,8 @@ def adapter_notes(runtime: str, adapter: dict[str, Any], overrides_path: Path) -
         )
     elif installed != text:
         notes.append(
-            f"{where} is not what this tree renders; --update re-renders skills only, "
-            "so re-run the install to refresh the file they read"
+            f"{where} is not what this tree renders; neither --update nor --check "
+            "re-renders it, so re-run the install to refresh the file they read"
         )
     if unfilled:
         notes.append(
