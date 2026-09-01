@@ -44,7 +44,11 @@ guessed at -- there, an edit and a stale render are the same bytes.
 So `--update` does not clear the drift it refuses: an edited file stays drift
 until `--overwrite` or a re-install takes the repository's version, and a file
 the owner added is drift for as long as they keep it, since no update removes
-one. Neither action re-renders `ADAPTER.md` either; both report it when the file
+one. Two refusals `--overwrite` cannot take either, being checked after it has
+had its say -- a name the filesystem already holds under another case, and a path
+reached through a symlink the owner placed -- so those two print what does clear
+them (a re-install, or removing the link) rather than an offer that would reprint
+this output forever. Neither action re-renders `ADAPTER.md` either; both report it when the file
 on the host is not what this tree renders, or still carries a `${NAME}` literal.
 
 One more nonzero exit is not a refusal to install but a refusal to call the

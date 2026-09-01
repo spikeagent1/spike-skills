@@ -132,6 +132,13 @@ a file you added yourself is drift for as long as it is there, and no `--update`
 will ever remove it — that is the point. `--check` will keep reporting both, which
 is the honest reading of an install that is partly yours.
 
+Two refusals `--overwrite` cannot take either, because they are checked after it
+has had its say: a file whose name your filesystem treats as one the install
+already holds (a re-install applies that rename; copy your copy out first), and
+any path reached through a symlink you placed (remove the link, then re-run). The
+run prints that on the file itself rather than offering a command that cannot
+work.
+
 `make stage-openclaw` stages every eligible skill into `dist/` for
 [OpenClaw](docs/openclaw-handoff.md), the second runtime — a hosted agent on a
 Railway volume rather than a CLI on your Mac. Its handoff note is also the

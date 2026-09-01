@@ -376,8 +376,10 @@ def linked_component(directory: Path, rel: str) -> Path | None:
     return None
 
 
-def write_blocker(directory: Path, rel: str, recorded: dict[str, str]) -> str | None:
-    """Why this render's file is not the update's to write here, or None.
+def write_blocker(
+    directory: Path, rel: str, recorded: dict[str, str]
+) -> tuple[str, str] | None:
+    """Why this render's file is not the update's to write here, and what clears it.
 
     Two ways it is not ours. A link anywhere in the path leads out of the tree
     this installer wrote. And the classifier reads the install through
@@ -386,18 +388,26 @@ def write_blocker(directory: Path, rel: str, recorded: dict[str, str]) -> str | 
     variants collide the same way, so a file the owner wrote can be invisible to
     the comparison and still be the thing a write would truncate. The destination
     itself is asked instead.
+
+    Both are checked after `--overwrite` has had its say, so neither is a refusal
+    that flag can buy past -- which is why each carries the thing that does clear
+    it, rather than the offer every other refusal ends with.
     """
     linked = linked_component(directory, rel)
     if linked is not None:
+        name = linked.relative_to(directory).as_posix()
         return (
-            f"reached through the symlink {linked.relative_to(directory).as_posix()}; "
-            "never written through, whatever it points at"
+            f"reached through the symlink {name}; never written through, whatever "
+            "it points at",
+            f"remove the link {name} and re-run; --overwrite cannot take this one",
         )
     path = directory / rel
     if recorded.get(rel) is None and (path.exists() or path.is_symlink()):
         return (
             "already in the install under a name this filesystem treats as the "
-            "same one, and recorded by no stamp"
+            "same one, and recorded by no stamp",
+            "a re-install applies this rename; --overwrite cannot, and re-installing "
+            "replaces the whole directory, so copy anything of yours out first",
         )
     return None
 
@@ -456,12 +466,17 @@ def report_skill(
     notes: Sequence[str],
     blocked: dict[str, str],
     planned: dict[str, Any],
+    unclearable: dict[str, str],
 ) -> list[str]:
     """This skill's notes, its per-file refusals with their diffs, and the offer.
 
     The offer is the point: a run that leaves a file alone prints the one command
     that would take this tree's render instead, so skipping and overwriting are
-    both choices the owner makes, and neither is one the tool makes quietly.
+    both choices the owner makes, and neither is one the tool makes quietly. It is
+    made only where it would work. Two of the refusals -- a name the filesystem
+    already holds, a link in the path -- are checked after `--overwrite` has had
+    its say, so offering it there would name a command that reprints this same
+    output forever; each of those carries what does clear it instead.
     """
     for note in notes:
         print(f"  note: {note}")
@@ -494,9 +509,12 @@ def report_skill(
                 print("    (neither diffed nor written)")
                 continue
             print_file_diff(rel, installed, planned[rel].data)
-    if blocked:
+        if rel in unclearable:
+            print(f"    {unclearable[rel]}")
+    clearable = [rel for rel in blocked if rel not in unclearable]
+    if clearable:
         print(
-            f"  {len(blocked)} file(s) skipped -- what is installed is yours. To take "
+            f"  {len(clearable)} file(s) skipped -- what is installed is yours. To take "
             "this repository's render instead, discarding the above:"
         )
         print(
@@ -641,11 +659,14 @@ def update_one(
     # Last, and independent of the flags: what is not ours to write is not ours
     # on request either. This runs after the promotion so that no file is
     # reported replaced and refused in the same run.
+    unclearable: dict[str, str] = {}
     for rel in list(write):
-        reason = write_blocker(directory, rel, recorded)
-        if reason is not None:
+        blocker = write_blocker(directory, rel, recorded)
+        if blocker is not None:
+            reason, advice = blocker
             write.remove(rel)
             blocked[rel] = reason
+            unclearable[rel] = advice
     notes.extend(
         f"{name}: {rel} {reason}; --overwrite "
         f"{'would replace' if args.dry_run else 'replaced'} it "
@@ -653,7 +674,9 @@ def update_one(
         for rel, reason in promoted.items()
         if rel in write
     )
-    refusals.extend(report_skill(context, name, directory, notes, blocked, planned))
+    refusals.extend(
+        report_skill(context, name, directory, notes, blocked, planned, unclearable)
+    )
     report.refused.extend(refusals)
 
     if write or blocked:

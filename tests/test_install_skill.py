@@ -1851,6 +1851,56 @@ class InstallSkillTest(unittest.TestCase):
         self.assertIn("neither read nor written", out)
         self.assertNotIn("not ours", out)
 
+    def test_a_link_refusal_names_the_cost_and_offers_no_overwrite(self) -> None:
+        """The offer is a command that cannot work for this class, so it is not made."""
+        self._install_launcher()
+        outside = Path(self.tmp.name) / "outside"
+        outside.mkdir()
+        (outside / "probe.md").write_text("the owner's relocated file\n", encoding="utf-8")
+        (self.dest / "fixture-launcher" / "references" / "sub").symlink_to(outside)
+        self._write("skills/fixture-launcher/references/sub/probe.md", "from the repo\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update", "--overwrite")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("remove the link", out)
+        self.assertNotIn("--update --overwrite fixture-launcher", out)
+        self.assertNotIn("file(s) skipped", out)
+
+    def test_a_collision_refusal_names_the_re_install_that_applies_it(self) -> None:
+        if not self._case_insensitive():
+            self.skipTest("this filesystem is case-sensitive; the collision cannot arise")
+        self._install_launcher()
+        (self.dest / "fixture-launcher" / "references" / "Probe.md").write_text(
+            "the owner's notes\n", encoding="utf-8"
+        )
+        self._write("skills/fixture-launcher/references/probe.md", "probe body\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update", "--overwrite")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("re-install", out)
+        self.assertIn("cannot", out)
+        self.assertNotIn("--update --overwrite fixture-launcher", out)
+
+    def test_the_offer_is_still_made_for_the_files_overwrite_can_take(self) -> None:
+        """One of each: the offer counts only the file it can actually clear."""
+        self._install_launcher()
+        detail = self.dest / "fixture-launcher" / "references" / "detail.md"
+        detail.write_text("mine\n", encoding="utf-8")
+        self._repo_detail("a second edition\n")
+        outside = Path(self.tmp.name) / "outside"
+        outside.mkdir()
+        (self.dest / "fixture-launcher" / "references" / "sub").symlink_to(outside)
+        self._write("skills/fixture-launcher/references/sub/probe.md", "from the repo\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("1 file(s) skipped", out)
+        self.assertIn("--update --overwrite fixture-launcher", out)
+        self.assertIn("remove the link", out)
+
     def test_update_never_writes_through_a_symlinked_directory(self) -> None:
         """A link in any component of the path is still a link out of the install."""
         self._install_launcher()
