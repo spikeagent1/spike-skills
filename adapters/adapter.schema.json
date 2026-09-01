@@ -116,13 +116,14 @@
       "description": "What the installer adds to a SKILL.md for this runtime.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["when_to_use", "disable_model_invocation_on", "user_invocable_default"],
+      "required": ["when_to_use", "disable_model_invocation_on_approval", "user_invocable_default"],
       "properties": {
         "when_to_use": {"type": "boolean"},
-        "disable_model_invocation_on": {
+        "disable_model_invocation_on_approval": {
+          "description": "Approval tiers from contracts/capabilities.yaml that take a skill off the model's ballot. An effect the enum does not list is scored never_autonomous.",
           "type": "array",
           "uniqueItems": true,
-          "items": {"enum": ["readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"]}
+          "items": {"enum": ["never_require", "turn_scoped", "preview_then_explicit", "never_autonomous"]}
         },
         "user_invocable_default": {"type": "boolean"},
         "background_skills": {

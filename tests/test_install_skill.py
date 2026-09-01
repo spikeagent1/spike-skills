@@ -105,26 +105,37 @@ class InstallSkillTest(unittest.TestCase):
             "    destructiveHint: false\n"
             "    idempotentHint: true\n"
             "    openWorldHint: false\n"
+            "    approval: never_require\n"
             "  - name: datastore:write\n"
             "    readOnlyHint: false\n"
             "    destructiveHint: false\n"
             "    idempotentHint: true\n"
             "    openWorldHint: false\n"
+            "    approval: turn_scoped\n"
             "  - name: provider:read\n"
             "    readOnlyHint: true\n"
             "    destructiveHint: false\n"
             "    idempotentHint: true\n"
             "    openWorldHint: true\n"
+            "    approval: never_require\n"
             "  - name: delete:external\n"
             "    readOnlyHint: false\n"
             "    destructiveHint: true\n"
             "    idempotentHint: true\n"
             "    openWorldHint: true\n"
+            "    approval: preview_then_explicit\n"
             "  - name: notify:owner\n"
             "    readOnlyHint: false\n"
             "    destructiveHint: false\n"
             "    idempotentHint: true\n"
-            "    openWorldHint: true\n",
+            "    openWorldHint: true\n"
+            "    approval: never_require\n"
+            "  - name: repo:merge\n"
+            "    readOnlyHint: false\n"
+            "    destructiveHint: true\n"
+            "    idempotentHint: false\n"
+            "    openWorldHint: true\n"
+            "    approval: never_autonomous\n",
         )
         self._write(
             "contracts/datastore.yaml",
@@ -233,7 +244,7 @@ class InstallSkillTest(unittest.TestCase):
             "  end_marker: <!-- spike-os:end -->\n"
             "render:\n"
             "  when_to_use: true\n"
-            "  disable_model_invocation_on: [destructiveHint, openWorldHint]\n"
+            "  disable_model_invocation_on_approval: [never_autonomous]\n"
             "  user_invocable_default: true\n"
             "  background_skills: [fixture-background]\n"
             "  metadata_extra:\n"
@@ -297,7 +308,7 @@ class InstallSkillTest(unittest.TestCase):
             "  end_marker: <!-- spike-os:end -->\n"
             "render:\n"
             "  when_to_use: false\n"
-            "  disable_model_invocation_on: []\n"
+            "  disable_model_invocation_on_approval: []\n"
             "  user_invocable_default: true\n"
             "  metadata_extra:\n"
             "    metadata.openclaw.requires.env: backticked ALL_CAPS tokens\n"
@@ -387,6 +398,15 @@ class InstallSkillTest(unittest.TestCase):
                 "fixture-destructive",
                 description="Use when a local record is deleted. Not for provider objects.",
                 effects=("datastore:read", "delete:external"),
+                reads_from=("profile",),
+            ),
+        )
+        self._write(
+            "skills/fixture-merger/SKILL.md",
+            self._skill_md(
+                "fixture-merger",
+                description="Use when a change is landed on the trunk. Not for drafts.",
+                effects=("datastore:read", "repo:merge"),
                 reads_from=("profile",),
             ),
         )
@@ -583,14 +603,44 @@ class InstallSkillTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("1536", out)
 
-    def test_disable_model_invocation_follows_the_derived_hints(self) -> None:
+    def test_disable_model_invocation_follows_the_approval_tier(self) -> None:
+        """Only an effect the owner must authorize in the moment leaves the ballot.
+
+        The trigger used to be `destructiveHint`, which took every reversible
+        mutation off the native router with it -- a skill the owner could reach
+        only by naming it. `never_autonomous` is the tier that actually means
+        "no standing authority", and it is the one that disables invocation.
+        """
         code, out = self._run(
-            "--runtime", "claude-code", "fixture-destructive", "fixture-notes"
+            "--runtime",
+            "claude-code",
+            "fixture-merger",
+            "fixture-destructive",
+            "fixture-notes",
         )
         self.assertEqual(code, 0, out)
-        self.assertIn("disable-model-invocation: true", self._installed("fixture-destructive"))
+        self.assertIn("disable-model-invocation: true", self._installed("fixture-merger"))
+        # delete:external is destructive but previewable, so it stays routable.
         self.assertIs(self._stamp("fixture-destructive")["hints"]["destructiveHint"], True)
+        self.assertNotIn(
+            "disable-model-invocation", self._frontmatter("fixture-destructive")
+        )
         self.assertNotIn("disable-model-invocation", self._frontmatter("fixture-notes"))
+
+    def test_an_effect_outside_the_enum_is_scored_at_the_strictest_tier(self) -> None:
+        """An unknown effect is scored pessimistically, as `derived_hints` does."""
+        self._write(
+            "skills/fixture-unknown/SKILL.md",
+            self._skill_md(
+                "fixture-unknown",
+                description="Use when an unlisted effect is taken. Not for listed ones.",
+                effects=("datastore:read", "invented:effect"),
+                reads_from=("profile",),
+            ),
+        )
+        code, out = self._run("--runtime", "claude-code", "fixture-unknown")
+        self.assertEqual(code, 0, out)
+        self.assertIn("disable-model-invocation: true", self._installed("fixture-unknown"))
 
     def test_user_invocable_false_for_a_background_skill(self) -> None:
         self._run("--runtime", "claude-code", "fixture-background")

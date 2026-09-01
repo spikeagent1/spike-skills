@@ -152,7 +152,7 @@ identity_import:
 
 render:
   when_to_use: false
-  disable_model_invocation_on: []
+  disable_model_invocation_on_approval: []
   user_invocable_default: true
   metadata_extra:
     metadata.openclaw.requires.env: backticked ALL_CAPS tokens on the Inputs Dependencies line

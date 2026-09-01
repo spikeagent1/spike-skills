@@ -83,11 +83,12 @@ What is open, and where it is tracked:
   validator enforces is the budget the runtime actually applies.
 - **Rendered-frontmatter routing mode.** Every routing baseline puts the
   portable `skills/*/SKILL.md` frontmatter on the ballot. The installed
-  form differs -- claude-code renders `disable-model-invocation: true` from
-  `destructiveHint`, which removes a skill from the native router's ballot
-  -- so no measurement yet describes routing over an installed library.
-  `run_evals.py routing` needs a mode that renders each ballot entry
-  through the adapter first.
+  form differs -- claude-code renders `disable-model-invocation: true` for
+  any skill declaring a `never_autonomous` effect, which removes it from
+  the native router's ballot -- so no measurement yet describes routing
+  over an installed library. `run_evals.py routing` needs a mode that
+  renders each ballot entry through the adapter first. No skill in the
+  library declares one today, so the two ballots currently agree.
 - **New domains.** Wealth and travel/mobility have no packages. They are
   the next cohorts, not unfinished work in these eight.
 

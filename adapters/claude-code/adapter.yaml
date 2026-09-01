@@ -157,7 +157,7 @@ render:
   # router's ballot, so the routing baselines would have described a library the
   # model cannot reach. An irreversible effect is the one case worth costing a
   # deliberate invocation.
-  disable_model_invocation_on: [destructiveHint]
+  disable_model_invocation_on_approval: [never_autonomous]
   user_invocable_default: true
   background_skills: []
   metadata_extra:

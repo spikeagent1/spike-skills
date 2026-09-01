@@ -58,6 +58,20 @@ PROVIDER_EFFECTS = ("provider:read", "provider:write", "delete:external")
 NOTIFY_EFFECT = "notify:owner"
 
 
+# contracts/capabilities.yaml's approval ladder, strictest last. An effect
+# outside the enum is scored at the strictest tier, the way `derived_hints`
+# scores an unknown effect pessimistically.
+APPROVAL_LADDER = (
+    "never_require",
+    "turn_scoped",
+    "preview_then_explicit",
+    "never_autonomous",
+)
+
+
+STRICTEST_APPROVAL = APPROVAL_LADDER[-1]
+
+
 NOTIFICATION_TERM = "notification channel"
 
 
@@ -442,6 +456,7 @@ def render_frontmatter(
     runtime: str,
     adapter: dict[str, Any],
     hints: dict[str, bool],
+    approvals: frozenset[str] = frozenset(),
     vocabulary: dict[str, Any] | None = None,
     datastore: dict[str, Any] | None = None,
 ) -> str:
@@ -461,8 +476,12 @@ def render_frontmatter(
                 )
             lines.append(f"when_to_use: {quoted(clause)}")
 
-    triggers = list(render.get("disable_model_invocation_on") or [])
-    if any(hints.get(hint) for hint in triggers):
+    # The approval tier, not the hint: `destructiveHint` took every reversible
+    # mutation off the native router with it, and a skill the owner can reach
+    # only by naming it is one the launcher cannot hand work to.
+    # `never_autonomous` is the tier that means no standing authority.
+    triggers = list(render.get("disable_model_invocation_on_approval") or [])
+    if any(tier in approvals for tier in triggers):
         lines.append("disable-model-invocation: true")
 
     background = list(render.get("background_skills") or [])
@@ -505,6 +524,23 @@ def render_trailer(runtime: str, adapter: dict[str, Any], commit: str, version: 
     )
 
 
+def declared_approvals(
+    effects: Sequence[str], capabilities: dict[str, dict[str, Any]]
+) -> frozenset[str]:
+    """The approval tier every declared effect carries.
+
+    An effect the enum does not list is scored at `never_autonomous`: the
+    installer knows nothing about it, and the strictest tier is the only honest
+    reading of an effect nobody declared the ladder for.
+    """
+    tiers: set[str] = set()
+    for name in effects:
+        entry = capabilities.get(name)
+        tier = str((entry or {}).get("approval") or "")
+        tiers.add(tier if tier in APPROVAL_LADDER else STRICTEST_APPROVAL)
+    return frozenset(tiers)
+
+
 def render_skill(
     name: str,
     runtime: str,
@@ -517,10 +553,11 @@ def render_skill(
     meta, body, _ = read_skill(name)
     effects = tuple(declared(meta, "effects"))
     hints = validate_repo.derived_hints(effects, capabilities)
+    approvals = declared_approvals(effects, capabilities)
     version = str(os_block(meta).get("version", ""))
     bundles = tuple(declared_repo_inputs(body))
     frontmatter = render_frontmatter(
-        name, meta, body, runtime, adapter, hints, vocabulary, datastore
+        name, meta, body, runtime, adapter, hints, approvals, vocabulary, datastore
     )
     rendered_body = rewrite_links(body, bundles).rstrip("\n")
     trailer = render_trailer(runtime, adapter, commit, version)

@@ -265,22 +265,37 @@ class AdapterTest(unittest.TestCase):
                     adapter["notification"]["quiet_hours"]["timezone_term"], "owner_timezone"
                 )
 
-    def test_open_world_skills_stay_model_invocable(self) -> None:
-        """`openWorldHint` must never disable model invocation.
+    def test_only_a_never_autonomous_effect_leaves_the_ballot(self) -> None:
+        """No tier below `never_autonomous` may disable model invocation.
 
-        The hint marks a skill that reaches something outside the runtime -- a
-        read of the web, a provider, a mailbox. Rendering those user-invocable
-        only takes them off the router's ballot, so the routing baselines would
-        describe a library the model cannot actually reach. `destructiveHint` is
-        the one hint that earns the flag: an irreversible effect is worth a
-        deliberate invocation.
+        A skill rendered `disable-model-invocation: true` is off the native
+        router's ballot and out of the launcher's reach, so the routing
+        baselines would describe a library the model cannot actually get to.
+        `never_autonomous` is the one tier that earns it -- the owner authorizes
+        in the moment, with no standing authority, schedule, or handoff. Every
+        tier below it is turn-scoped or previewable, which is a disclosure the
+        skill makes on the way through, not a reason to be unreachable.
         """
         for runtime, adapter in ADAPTERS.items():
             with self.subTest(runtime=runtime):
-                self.assertNotIn(
-                    "openWorldHint",
-                    adapter["render"]["disable_model_invocation_on"],
+                self.assertLessEqual(
+                    set(adapter["render"]["disable_model_invocation_on_approval"]),
+                    {"never_autonomous"},
                 )
+
+    def test_a_reversible_mutation_stays_reachable_from_the_launcher(self) -> None:
+        """`daily-task-manager` deletes external objects, previewably, so "add a
+        task" still reaches it rather than only `/daily-task-manager`."""
+        path = contracts_check.ROOT / "skills" / "daily-task-manager" / "SKILL.md"
+        meta = validate_repo.parse_frontmatter(path.read_text(encoding="utf-8")) or {}
+        effects = validate_repo._declared_list(
+            validate_repo.spike_os_block(meta).get("effects")
+        )
+        self.assertIn("delete:external", effects)
+        self.assertNotIn(
+            "never_autonomous",
+            render.declared_approvals(effects, {item["name"]: item for item in EFFECTS}),
+        )
 
     def test_personal_values_stay_placeholders(self) -> None:
         forbidden = re.compile(

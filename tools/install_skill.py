@@ -61,12 +61,14 @@ from tools.installer import cli, io, render  # noqa: E402,F401
 # Re-exports: the whole installer surface, so importers name one module.
 # ruff: noqa: F401
 from tools.installer.render import (
-    ALL_CAPS_RE, BUNDLE_DIR, Bundle, COMBINED_DESCRIPTION_MAX, COMMAND_RE,
+    ALL_CAPS_RE, APPROVAL_LADDER, BUNDLE_DIR, Bundle, COMBINED_DESCRIPTION_MAX, COMMAND_RE,
     COMMIT_DISPLAY_CHARS, CONNECTOR_CONTEXT_RE, COPY_DIRS, DEPENDENCIES_RE, EXCLUDED_NAMES,
     InstallError, LINK_RE, NOTIFICATION_TERM, NOTIFY_EFFECT, NOT_A_BINARY_CLAUSE_RE,
     NOT_A_BINARY_RE, OS_NAME, PLACEHOLDER_RE, PROVIDER_EFFECTS, RUNTIMES, Rendered, Report,
-    SENTENCE_RE, STAMP_NAME, TERM_SHAPED_RE, TRAILER_HEADING, TRIGGER_RE, adapter_for,
-    channel_terms, declared, declared_repo_inputs, dependencies_line, display_path, expand,
+    SENTENCE_RE, STAMP_NAME, STRICTEST_APPROVAL, TERM_SHAPED_RE, TRAILER_HEADING,
+    TRIGGER_RE, adapter_for,
+    channel_terms, declared, declared_approvals, declared_repo_inputs, dependencies_line,
+    display_path, expand,
     fallback_warnings, home, library_tokens, load_contract, namespace_entries,
     openclaw_requires, os_block, path_globs, quoted, read_skill, render_frontmatter,
     render_skill, render_trailer, repo_root, required_terms, rewrite_links, sha256_text,
