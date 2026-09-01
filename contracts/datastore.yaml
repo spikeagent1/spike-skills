@@ -64,8 +64,10 @@ namespaces:
     status: active
     system_of_record: datastore
     kinds: [person, relationship-context, voice-profile, contact-card]
+    reserved_kinds: [person, relationship-context, contact-card]
     authority:
       writers: [draft-in-voice]
+      note: draft-in-voice writes voice-profile records and nothing else. person, relationship-context, and contact-card are reserved kinds - declared and readable, with no writer yet - the calendar/inbox rule applied to a kind rather than to a namespace.
     scope: one slug per human or org
     mutability: supersede-only
     provenance: owner-stated or agent-inference

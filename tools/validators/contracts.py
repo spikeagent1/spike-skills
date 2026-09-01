@@ -143,6 +143,12 @@ PROTECTED_DASH = "\x01"
 REJECTED_CLAUSE_RE = re.compile(r"^\s*rather\s+than\b", re.IGNORECASE)
 
 
+# Where the alternative ends and the sentence turns back to what the skill does:
+# "rather than the channel, then post it" rejects the channel, not the posting.
+# Without this the exemption ran to the end of the span it opened.
+REJECTED_CLAUSE_END_RE = re.compile(r",\s+then\s|\s+and\s+then\s|;\s", re.IGNORECASE)
+
+
 # Scoped to its own clause rather than the whole sentence.
 CLAUSE_NEGATION_RE = re.compile(r"\bread-only\b", re.IGNORECASE)
 
@@ -189,7 +195,8 @@ CAPABILITY_HINTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("update|revise|change", r"\bbeliefs?\b", ("belief:update",)),
     (
         "write|save|render|overwrite",
-        r"\blocal (?:output )?path\b|\blocal file\b|\bon disk\b|\bto disk\b",
+        r"\blocal (?:output )?path\b|\blocal file\b|\bon disk\b|\bto disk\b"
+        r"|\b(?:in)?to a file\b",
         ("fs:write-local",),
     ),
     # notify:owner was reachable only as a co-effect of the send/reply row, so a
@@ -508,6 +515,20 @@ def split_negation_clauses(sentence: str) -> list[str]:
     ]
 
 
+def scannable_span(span: str) -> str | None:
+    """`span` with the alternative a `rather than` opens removed, or None.
+
+    `rather than X` names the thing not done. The sentence turns back to what the
+    skill does at the next clause boundary -- `, then`, ` and then`, `; ` -- and
+    everything after that boundary is the skill's own verb again. A span that is
+    all alternative has nothing left to scan.
+    """
+    if not REJECTED_CLAUSE_RE.match(span):
+        return span
+    boundary = REJECTED_CLAUSE_END_RE.search(span)
+    return span[boundary.end() :] if boundary else None
+
+
 def split_sentences(body: str) -> list[str]:
     """Sentences of a SKILL.md body, with file names and Markdown links kept whole.
 
@@ -797,6 +818,8 @@ def validate_effects(
     comma-clause it sits in. A sentence naming another skill in backticks
     delegates, but only for the effects that callee declares for itself -- the
     delegator's own effect keywords in the same sentence still need declaring.
+    `rather than X` names the alternative not taken, and its exemption ends at
+    the boundary where the sentence turns back to what the skill does.
     """
     declared = _declared_list(spike_os_block(meta).get("effects"))
     for name in declared:
@@ -814,8 +837,11 @@ def validate_effects(
             continue
         lent = delegated_effects(stripped)
         reported: set[tuple[str, ...]] = set()
-        for span in split_negation_clauses(stripped):
-            if EFFECT_NEGATION_RE.search(span) or REJECTED_CLAUSE_RE.match(span):
+        for raw_span in split_negation_clauses(stripped):
+            if EFFECT_NEGATION_RE.search(raw_span):
+                continue
+            span = scannable_span(raw_span)
+            if span is None:
                 continue
             for clause in CLAUSE_SPLIT_RE.split(span):
                 if CLAUSE_NEGATION_RE.search(clause):

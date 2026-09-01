@@ -2170,6 +2170,25 @@ class ValidateRepoTest(unittest.TestCase):
         )
         self.assertEqual(code, 0, output)
 
+    def test_the_clause_after_a_rather_than_alternative_is_scanned(self) -> None:
+        # `rather than X` names the thing not done, and the sentence turns back
+        # to what the skill does at the next clause boundary; the exemption
+        # cannot run to the end of the span.
+        code, output = self._scan_workflow(
+            "The fixture routes the request rather than the channel, then post "
+            "the verdict where the audience reads it."
+        )
+        self.assertEqual(code, 1)
+        self.assertIn("implies publish:external", output)
+
+    def test_an_and_then_boundary_ends_the_alternative_too(self) -> None:
+        code, output = self._scan_workflow(
+            "The fixture routes the request rather than the channel and then "
+            "upload the verdict."
+        )
+        self.assertEqual(code, 1)
+        self.assertIn("implies publish:external", output)
+
     def test_a_paired_em_dash_aside_stays_under_its_sentence_negation(self) -> None:
         # Two dashes are a parenthetical, not a turn: the negation after the
         # closing dash still governs the words between them.
@@ -2237,6 +2256,26 @@ class ValidateRepoTest(unittest.TestCase):
             effects="[datastore:write, fs:write-local]",
         )
         self.assertEqual(code, 0, output)
+
+    def test_a_plain_file_write_sentence_needs_the_effect(self) -> None:
+        # The canonical phrasing: no "local", no "disk", just a file.
+        code, output = self._scan_workflow("Write the fixture verdict to a file.")
+        self.assertEqual(code, 1)
+        self.assertIn("implies fs:write-local", output)
+
+        code, output = self._scan_workflow(
+            "Write the fixture verdict to a file.",
+            writes_to="[effects]",
+            effects="[datastore:write, fs:write-local]",
+        )
+        self.assertEqual(code, 0, output)
+
+    def test_a_write_into_a_file_needs_it_too(self) -> None:
+        code, output = self._scan_workflow(
+            "Render the fixture verdict into a file the owner named."
+        )
+        self.assertEqual(code, 1)
+        self.assertIn("implies fs:write-local", output)
 
     def test_a_standalone_notification_sentence_needs_the_effect(self) -> None:
         # notify:owner used to be reachable only as a co-effect of the

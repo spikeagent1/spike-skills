@@ -27,7 +27,7 @@ holds the two halves to each other, and both to what each skill declares in
 | Namespace | Status | System of record | Kinds | Authority | Scope | Mutability | Provenance | Recoverability | Actionability |
 |---|---|---|---|---|---|---|---|---|---|
 | `profile/` | active | datastore | owner-fact, preference, boundary, authority-rule, correction | consolidation -- `owner-dream-cycle` -- and `owner-context-onboarding` | owner-private | supersede-only | owner turns | history plus superseded records | authority-rule gates every permission check |
-| `people/` | active | datastore; contact-card from provider | person, relationship-context, voice-profile, contact-card | `draft-in-voice`, for `voice-profile` | one slug per human or org | supersede-only | owner-stated or agent-inference | history | consent required before quoting (P5) |
+| `people/` | active | datastore; contact-card from provider | `person` (reserved), `relationship-context` (reserved), `voice-profile`, `contact-card` (reserved) | `draft-in-voice`, for `voice-profile` only; `person`, `relationship-context` and `contact-card` are reserved kinds with no writer yet | one slug per human or org | supersede-only | owner-stated or agent-inference | history | consent required before quoting (P5) |
 | `agents/` | active | datastore | agent-identity, account-state, roster-entry, connector-state | holders of `datastore:write` on `agents` — `mcp-connector-onboarding`, `runtime-handoff-onboarding`, `social-agent-onboarding`, `social-agent-practice`, `team-skill-sharing-norm` | the agent and its accounts | explicit state transitions | verified probes | re-probe the provider | gates connector and account use |
 | `projects/` | active | datastore | brief, status, handoff | any skill holding `datastore:write` | one page per project slug | append status, supersede brief | session handoffs | history | read before resuming work |
 | `decisions/` | active | datastore | decision, commitment | consolidation -- `owner-dream-cycle` -- only | dated owner choices | supersede-only | corpus span and local date | history | cited in briefings |
@@ -42,7 +42,12 @@ holds the two halves to each other, and both to what each skill declares in
 | `notifications/` | active | datastore | delivery, held | holders of `notify:owner` | one record per delivery key | state transitions only | channel readback | held digest replay | retry on the same key is a no-op |
 
 A reserved namespace may be named and read about; it may not appear in any
-skill's `writes_to`.
+skill's `writes_to`. A reserved *kind* is the same rule one level down: the
+namespace is writable, that kind is not written by anyone yet, and
+`reserved_kinds` in `contracts/datastore.yaml` names them. The `writes_to` lint
+is namespace-level and cannot see which kind a write carries, so a reserved kind
+holds the way write invariants 4 and 5 do -- through each skill's own contract
+and its cases, and visibly in the `effects/` ledger afterwards.
 
 `health-log` (Task 13c ruling 2) is the one `journal/` kind whose authority is
 the record itself rather than a run: it is what the owner said happened, dated.

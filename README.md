@@ -90,8 +90,8 @@ require a context word in the same clause, because the verb alone is ambiguous:
 only beside the `owner`. It reads a negation as governing the clause it sits in
 rather than the whole sentence, so "never publishes -- it hands the draft on"
 scans the second clause; it still cannot tell a verb the skill performs from one
-it quotes or routes elsewhere, and it misses any phrasing outside the list. So the declaration is **lint, not a
-boundary**: nothing at run time stops a skill taking an effect it never
+it quotes or routes elsewhere, and it misses any phrasing outside the list. So
+the declaration is **lint, not a boundary**: nothing at run time stops a skill taking an effect it never
 declared. What the declaration does buy is a machine-readable claim -- the
 installer refuses on it, `--check` re-derives the hints from it, and the
 `effects/` ledger is auditable against it after the fact. Emitting a

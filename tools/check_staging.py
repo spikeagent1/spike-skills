@@ -63,6 +63,11 @@ def staged_skills(dest: Path) -> list[Path]:
     )
 
 
+def staged_frontmatter(text: str) -> dict[str, Any] | None:
+    """A staged SKILL.md's frontmatter, read at the depth rendered output nests to."""
+    return validate_repo.parse_frontmatter(text, max_depth=STAGED_FRONTMATTER_DEPTH)
+
+
 def staged_requires(text: str, runtime: str) -> dict[str, list[str]] | None:
     """The rendered `metadata.<runtime>.requires` lists of a staged SKILL.md.
 
@@ -70,7 +75,13 @@ def staged_requires(text: str, runtime: str) -> dict[str, list[str]] | None:
     block is located by its position under the runtime rather than by a line
     that happens to be named `env:` somewhere else in the frontmatter.
     """
-    meta = validate_repo.parse_frontmatter(text, max_depth=STAGED_FRONTMATTER_DEPTH)
+    return requires_block(staged_frontmatter(text), runtime)
+
+
+def requires_block(
+    meta: dict[str, Any] | None, runtime: str
+) -> dict[str, list[str]] | None:
+    """The `requires` lists of an already-parsed staged frontmatter."""
     if not meta:
         return None
     block = ((meta.get("metadata") or {}).get(runtime) or {}).get("requires")
@@ -117,9 +128,10 @@ def check_requires(
     """The staged `requires.*` block matches a fresh scan of its own Dependencies line."""
     if not requires_declared:
         return []
-    if validate_repo.parse_frontmatter(text, max_depth=STAGED_FRONTMATTER_DEPTH) is None:
+    meta = staged_frontmatter(text)
+    if meta is None:
         return [f"{name}: staged SKILL.md has no frontmatter block"]
-    staged = staged_requires(text, runtime)
+    staged = requires_block(meta, runtime)
     if staged is None:
         return [f"{name}: frontmatter carries no metadata.<runtime>.requires block"]
     expected = install_skill.openclaw_requires(

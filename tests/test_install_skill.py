@@ -1398,5 +1398,6 @@ class GitIgnoredDestinationTest(unittest.TestCase):
         notes = self._render_into(self.root / "adapters")
         self.assertTrue([note for note in notes if "git work tree" in note], notes)
 
+
 if __name__ == "__main__":
     unittest.main()

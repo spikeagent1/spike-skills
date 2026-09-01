@@ -127,6 +127,47 @@ class DatastoreTest(unittest.TestCase):
                 else:
                     self.assertIsInstance(writers, list)
 
+    def test_a_kind_with_no_writer_is_declared_reserved(self) -> None:
+        """`people/` has one writer and it covers one of the four kinds.
+
+        The other three are declared and readable with no writer yet -- the
+        calendar/inbox pattern applied to a kind rather than to a namespace --
+        so the row says so instead of leaving `draft-in-voice` looking like the
+        authority for kinds it never writes.
+        """
+        entry = next(item for item in NAMESPACES if item["name"] == "people")
+        self.assertEqual(
+            entry["reserved_kinds"], ["person", "relationship-context", "contact-card"]
+        )
+        note = entry["authority"]["note"]
+        self.assertIn("voice-profile", note)
+        for kind in entry["reserved_kinds"]:
+            with self.subTest(kind=kind):
+                self.assertIn(kind, note)
+
+    def test_a_reserved_kind_is_a_declared_kind_and_never_all_of_them(self) -> None:
+        for entry in NAMESPACES:
+            reserved = entry.get("reserved_kinds") or []
+            if not reserved:
+                continue
+            with self.subTest(namespace=entry["name"]):
+                self.assertLessEqual(set(reserved), set(entry["kinds"]))
+                self.assertNotEqual(
+                    set(reserved),
+                    set(entry["kinds"]),
+                    "a namespace whose every kind is reserved is a reserved namespace",
+                )
+
+    def test_the_rendered_row_names_the_reserved_kinds(self) -> None:
+        text = (contracts_check.ROOT / "contracts" / "datastore.md").read_text(
+            encoding="utf-8"
+        )
+        cell = validate_repo.authority_cells(text)["people"]
+        self.assertIn("draft-in-voice", cell)
+        for kind in ("person", "relationship-context", "contact-card"):
+            with self.subTest(kind=kind):
+                self.assertIn(kind, cell)
+
     def test_conversations_is_a_separate_root(self) -> None:
         entry = next(item for item in NAMESPACES if item["name"] == "conversations")
         self.assertTrue(entry["separate_root"])
