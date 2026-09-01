@@ -105,6 +105,34 @@ EFFECT_NEGATION_RE = re.compile(
 )
 
 
+EM_DASH = "\u2014"
+
+
+# A negation governs the clause it sits in, not every clause sharing the
+# sentence: "this skill never publishes -- it hands the draft on" forbids one
+# thing and describes another. The boundaries are the ones a writer turns on: a
+# semicolon, an em dash, `, but `, and ` rather than ` (kept at the head of the
+# clause it opens, which `REJECTED_CLAUSE_RE` then reads as negated).
+NEGATION_CLAUSE_SPLIT_RE = re.compile(
+    rf";|{EM_DASH}|,\s+but\s+|\s+(?=rather\s+than\s)", re.IGNORECASE
+)
+
+
+# Two em dashes are a parenthetical aside inside one clause, not a turn: the
+# negation after the closing dash still governs the words between them. Pairs are
+# matched left to right and masked before the split, so only a dash with no
+# partner ends a clause.
+PAIRED_EM_DASH_RE = re.compile(rf"{EM_DASH}[^{EM_DASH}]*{EM_DASH}")
+
+
+PROTECTED_DASH = "\x01"
+
+
+# `rather than X` names the alternative the skill does not take, so the clause it
+# opens is negated by its own first words.
+REJECTED_CLAUSE_RE = re.compile(r"^\s*rather\s+than\b", re.IGNORECASE)
+
+
 # Scoped to its own clause rather than the whole sentence.
 CLAUSE_NEGATION_RE = re.compile(r"\bread-only\b", re.IGNORECASE)
 
@@ -117,20 +145,46 @@ BACKTICKED_SPAN_RE = re.compile(r"`[^`\n]+`")
 QUOTED_SPAN_RE = re.compile(r"\"[^\"\n]*\"|\u201c[^\u201d\n]*\u201d")
 
 
-# design-os-foundations 4.3: a body keyword and the effects that would cover it.
-CAPABILITY_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("post|publish|upload", ("publish:external",)),
-    ("revoke|unpublish", ("publish:revoke",)),
-    ("send|reply|email|DM|broadcast", ("message:send", "notify:owner")),
-    ("delete|remove|trash", ("delete:external",)),
-    ("schedule|cron job|recurrence", ("schedule:manage",)),
-    ("merge", ("repo:merge",)),
-    ("commit|push|pull request|PR", ("repo:write",)),
-    ("OAuth|token|credential", ("credential:manage",)),
-    ("paid|spend|cost cap", ("spend",)),
-    ("advance.*cursor|checkpoint", ("checkpoint:advance",)),
-    ("install", ("skill:install", "config:write")),
-    ("write memory|durable write|store", ("datastore:write",)),
+# design-os-foundations 4.3: a body keyword, the context the keyword needs, and
+# the effects that would cover it. The keyword is matched against the clause with
+# its backticked and quoted spans removed -- what is left is the skill's own verb
+# -- while the context is matched against the raw clause, because the thing acted
+# on is usually the backticked vocabulary term itself (`task provider`,
+# `identity files`, `owner`). An empty context means the keyword alone fires.
+CAPABILITY_HINTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("post|publish|upload", "", ("publish:external",)),
+    ("revoke|unpublish", "", ("publish:revoke",)),
+    ("send|reply|email|DM|broadcast", "", ("message:send", "notify:owner")),
+    ("delete|remove|trash", "", ("delete:external",)),
+    ("schedule|cron job|recurrence", "", ("schedule:manage",)),
+    ("merge", "", ("repo:merge",)),
+    ("commit|push|pull request|PR", "", ("repo:write",)),
+    ("OAuth|token|credential", "", ("credential:manage",)),
+    ("paid|spend|cost cap", "", ("spend",)),
+    ("advance.*cursor|checkpoint", "", ("checkpoint:advance",)),
+    ("install", "", ("skill:install", "config:write")),
+    ("write memory|durable write|store", "", ("datastore:write",)),
+    # `provider` and not `connector`: this library writes *connector state* into
+    # a namespace, which is a datastore write, while `provider` names the
+    # external system a write actually lands in.
+    ("write|create|update|complete|close", r"\bprovider\b", ("provider:write",)),
+    # No skill declares identity:write -- only identity:propose -- so the row is
+    # narrow on purpose: a change applied to the identity files themselves, not
+    # every sentence that names identity.
+    (
+        "write|rewrite|overwrite|edit|apply|update",
+        r"\bidentity files?\b",
+        ("identity:write",),
+    ),
+    ("update|revise|change", r"\bbeliefs?\b", ("belief:update",)),
+    (
+        "write|save|render|overwrite",
+        r"\blocal (?:output )?path\b|\blocal file\b|\bon disk\b|\bto disk\b",
+        ("fs:write-local",),
+    ),
+    # notify:owner was reachable only as a co-effect of the send/reply row, so a
+    # skill that notifies the owner without sending anything was never flagged.
+    ("notify|alert|ping", r"\bowner\b", ("notify:owner",)),
 )
 
 
@@ -139,13 +193,17 @@ CAPABILITY_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
 # one pattern entry that is a regex rather than a literal is left out.
 EFFECT_VERBS = frozenset(
     word.lower()
-    for keywords, _effects in CAPABILITY_HINTS
+    for keywords, _context, _effects in CAPABILITY_HINTS
     for word in keywords.split("|")
     if not set(word) & set(".*+?[]()\\")
 )
 CAPABILITY_HINT_RULES = tuple(
-    (re.compile(rf"\b(?:{keywords})\b", re.IGNORECASE), effects)
-    for keywords, effects in CAPABILITY_HINTS
+    (
+        re.compile(rf"\b(?:{keywords})\b", re.IGNORECASE),
+        re.compile(context, re.IGNORECASE) if context else None,
+        effects,
+    )
+    for keywords, context, effects in CAPABILITY_HINTS
 )
 
 
@@ -421,6 +479,22 @@ def _is_bare_effect_verb(span: str) -> bool:
     return span.strip("\"\u201c\u201d").strip().strip(".,;:!?").lower() in EFFECT_VERBS
 
 
+def split_negation_clauses(sentence: str) -> list[str]:
+    """One sentence split where a negation stops governing.
+
+    A semicolon, a lone em dash, `, but `, and ` rather than ` each end the
+    clause a negation covers. A *paired* em dash is a parenthetical aside inside
+    one clause, so the pairs are masked before the split and restored after.
+    """
+    masked = PAIRED_EM_DASH_RE.sub(
+        lambda match: match.group(0).replace(EM_DASH, PROTECTED_DASH), sentence
+    )
+    return [
+        part.replace(PROTECTED_DASH, EM_DASH)
+        for part in NEGATION_CLAUSE_SPLIT_RE.split(masked)
+    ]
+
+
 def split_sentences(body: str) -> list[str]:
     """Sentences of a SKILL.md body, with file names and Markdown links kept whole.
 
@@ -556,11 +630,13 @@ def validate_effects(
     """Declared effects against the enum, and the body against CAPABILITY_HINTS.
 
     The keyword scan runs per sentence so one mutating sentence cannot be hidden
-    inside a read-only section. A sentence that negates the effect states a
-    boundary rather than performing it; `read-only` is narrower and covers only
-    the clause it sits in. A sentence naming another skill in backticks delegates,
-    but only for the effects that callee declares for itself -- the delegator's
-    own effect keywords in the same sentence still need declaring.
+    inside a read-only section. A negation states a boundary rather than
+    performing the effect, and governs the clause it sits in: "never publishes --
+    it hands the draft on" forbids one thing and describes another, so the second
+    clause is still scanned. `read-only` is narrower again and covers only the
+    comma-clause it sits in. A sentence naming another skill in backticks
+    delegates, but only for the effects that callee declares for itself -- the
+    delegator's own effect keywords in the same sentence still need declaring.
     """
     declared = _declared_list(spike_os_block(meta).get("effects"))
     for name in declared:
@@ -574,26 +650,31 @@ def validate_effects(
 
     for sentence in split_sentences(skill_body(text)):
         stripped = sentence.strip()
-        if not stripped or EFFECT_NEGATION_RE.search(stripped):
+        if not stripped:
             continue
         lent = delegated_effects(stripped)
         reported: set[tuple[str, ...]] = set()
-        for clause in CLAUSE_SPLIT_RE.split(stripped):
-            if CLAUSE_NEGATION_RE.search(clause):
+        for span in split_negation_clauses(stripped):
+            if EFFECT_NEGATION_RE.search(span) or REJECTED_CLAUSE_RE.match(span):
                 continue
-            scannable = scannable_text(clause)
-            for pattern, implied in CAPABILITY_HINT_RULES:
-                if implied in reported or not pattern.search(scannable):
+            for clause in CLAUSE_SPLIT_RE.split(span):
+                if CLAUSE_NEGATION_RE.search(clause):
                     continue
-                if any(effect in declared or effect in lent for effect in implied):
-                    continue
-                reported.add(implied)
-                snippet = stripped if len(stripped) <= 120 else stripped[:117] + "..."
-                add_error(
-                    errors,
-                    f"{rel}/SKILL.md: sentence implies {' or '.join(implied)}, which "
-                    f"metadata.{METADATA_NS}.effects does not declare: {snippet!r}",
-                )
+                scannable = scannable_text(clause)
+                for pattern, context_pattern, implied in CAPABILITY_HINT_RULES:
+                    if implied in reported or not pattern.search(scannable):
+                        continue
+                    if context_pattern is not None and not context_pattern.search(clause):
+                        continue
+                    if any(effect in declared or effect in lent for effect in implied):
+                        continue
+                    reported.add(implied)
+                    snippet = stripped if len(stripped) <= 120 else stripped[:117] + "..."
+                    add_error(
+                        errors,
+                        f"{rel}/SKILL.md: sentence implies {' or '.join(implied)}, which "
+                        f"metadata.{METADATA_NS}.effects does not declare: {snippet!r}",
+                    )
 
 
 def validate_runtime_binding(
