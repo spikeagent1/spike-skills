@@ -75,9 +75,12 @@ matter on a fresh machine:
   the file and every key in one line. Fill them there, or re-run
   `make start` and answer the questions.
 
-A third case, **UNCONFIRMED**, is a refusal rather than a note: nobody can
-attest the binding on this host, so a skill that depends on it is not installed
-at all. [ONBOARDING.md](ONBOARDING.md) walks the whole first hour, including
+A third case, **UNCONFIRMED**, is usually a refusal rather than a note: nobody
+can attest the binding on this host, so a skill that depends on it is not
+installed at all. Where the unattested term is only a *fallback* — the second
+notification channel, say — it prints as a note instead and nothing is refused;
+that is what `notification fallback \`agent inbox\` is UNCONFIRMED` on a fresh
+machine is. [ONBOARDING.md](ONBOARDING.md) walks the whole first hour, including
 what to read when one of these appears.
 
 ## Installing more skills
