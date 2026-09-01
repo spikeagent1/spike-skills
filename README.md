@@ -1,27 +1,149 @@
 # spike-skills
 
-A personal operating system, as a library of installable skills. The portable
-core — skills, contracts, catalog, tooling — lives here; a runtime is an adapter
-over that core, not a fork of it. [ARCHITECTURE.md](ARCHITECTURE.md) is the
-design; this file is how to work in the repository.
+A personal operating system, as a library of installable skills. Thirty-two
+packages — a day's briefing, a week's meals, a clinical visit to prepare, a post
+to publish — each written once, portable across runtimes, and installed into the
+agent you actually use. [ARCHITECTURE.md](ARCHITECTURE.md) is the design.
 
 Runtime-installed skills, private state, credentials, memories, and raw
 conversation transcripts do not belong here.
 
+## Start here
+
+You need **Python 3.11 or newer** (the version CI pins; older interpreters are
+told so and stop), `git`, and — for the last step only — the
+[Claude Code](https://claude.com/claude-code) CLI.
+
+```sh
+git clone https://github.com/spikeagent1/spike-skills.git
+cd spike-skills
+make start                      # or: python3 tools/bootstrap.py
+```
+
+`make start` is the whole setup, and it asks before it writes:
+
+1. **Probes this host now** — the interpreter, the `claude` CLI, and every
+   provider the adapter names, read against the connectors this machine
+   actually registers. What it finds absent, it names, with the fix for that
+   one thing; the run carries on.
+2. **Asks for your ten local values** — your name, your timezone, where your
+   vault lives, when your quiet hours are. Each question carries a one-line
+   gloss and an example. They are written to
+   `~/.config/spike-os/claude-code.local.yaml`, outside this repository, and
+   never committed. Leave one empty and the run says which and exits nonzero:
+   an unfilled value stays a literal `${OWNER_TZ}` in the file your agent reads.
+3. **Installs `home` and a starter set** — `home`, `owner-context-onboarding`,
+   `briefing`, `daily-task-manager` — into `~/.claude/skills`.
+4. **Verifies with one real invocation**: `claude -p "/home"`. It costs pennies
+   and needs a logged-in session; without the CLI, or with `--no-smoke`, it
+   prints the command for you to run rather than skipping it in silence.
+5. **Tells you what to type.**
+
+Then, in Claude Code:
+
+```
+/home
+```
+
+`home` is the dispatcher. It reads [catalog/index.md](catalog/index.md), names
+exactly one skill, and hands your request over — it never does the work itself.
+Invoked bare, with no request at all, it prints the index: eight domains and the
+skills under them. That is the fastest way to see what you have.
+
+### Your first real skill
+
+```
+/owner-context-onboarding
+```
+
+This is the one to run first: it establishes who you are to the agent — how to
+address you, what it may keep, what it may never write down — and puts that in
+your vault, where every other skill reads it. Then try `/briefing` ("what's
+happening today") and `/daily-task-manager` ("remind me to renew the insurance
+next Tuesday").
+
+### When a run says `degraded:`
+
+The installer prints its notes first, before anything else, and two of them
+matter on a fresh machine:
+
+- **`degraded: <term>`** — a runtime binding this host is *known* to lack or
+  half-have. `task provider` is DEGRADED on a machine with no Todoist
+  connector: `daily-task-manager` still installs, tasks are kept in your vault
+  instead, and the skill says so every time it runs. Nothing is broken.
+- **`unfilled placeholders`** — a value you have not given yet. The note names
+  the file and every key in one line. Fill them there, or re-run
+  `make start` and answer the questions.
+
+A third case, **UNCONFIRMED**, is a refusal rather than a note: nobody can
+attest the binding on this host, so a skill that depends on it is not installed
+at all. [ONBOARDING.md](ONBOARDING.md) walks the whole first hour, including
+what to read when one of these appears.
+
+## Installing more skills
+
+```sh
+python3 tools/install_skill.py --runtime claude-code meal-planner   # one, by name
+python3 tools/install_skill.py --runtime claude-code --all          # every eligible skill
+python3 tools/install_skill.py --runtime claude-code --list         # what is installed
+python3 tools/install_skill.py --runtime claude-code --check        # installed vs. this tree
+python3 tools/install_skill.py --help                               # the full usage doc
+```
+
+The installer renders the portable `SKILL.md` for one runtime: it emits that
+adapter's frontmatter keys, appends the `## Runtime binding` trailer, copies the
+supporting directories and the repository files the skill declares as inputs,
+and writes a `.spike-os.json` stamp — which is what makes a directory ours to
+overwrite and `--check` possible at all. It refuses a skill whose declared
+runtimes exclude the target, a destination holding somebody else's skill, and a
+skill depending on a term the adapter marks UNCONFIRMED. `--dry-run` prints what
+a run would write and writes nothing. `--uninstall` removes stamped installs and
+nothing else.
+
+`--check` reports **drift** — a body edited in place, a stamp older than the
+adapter, a declaration that no longer matches this tree. It is not a health
+check: it says nothing about whether a skill works, only whether what is
+installed is still what this repository says it should be. Re-running the
+install is how drift is resolved.
+
+`make stage-openclaw` stages every eligible skill into `dist/` for
+[OpenClaw](docs/openclaw-handoff.md), the second runtime — a hosted agent on a
+Railway volume rather than a CLI on your Mac. Its handoff note is also the
+record of which bindings were checked against a live deployment, and when.
+
+## Words this repository uses
+
+| Term | What it means here |
+| --- | --- |
+| **runtime** | An agent the library installs into. Two exist: `claude-code` (the CLI on your machine) and `openclaw` (a hosted agent — see [docs/openclaw-handoff.md](docs/openclaw-handoff.md)). |
+| **adapter** | One directory per runtime holding what that runtime can honestly do: `adapters/<runtime>/adapter.yaml` and the `ADAPTER.md` rendered from it into your home directory. Skills name runtime facts only through it. |
+| **vocabulary term** | A backticked neutral name — `owner datastore`, `task provider`, `notification channel` — that a skill uses instead of a product name, and that the adapter binds to something real. The rule is [§R of the contract](contracts/skill-contract.md#r-runtime-vocabulary); the list is [adapters/vocabulary.yaml](adapters/vocabulary.yaml). |
+| **UNCONFIRMED / DEGRADED** | An adapter's two ways of not being sure. UNCONFIRMED is ignorance — nobody has attested this binding, so a skill needing it is refused. DEGRADED is knowledge — it is absent or partial, the skill's own contract already says what it does without it, so it installs and discloses. |
+| **rule ID** | A citation like `D1`, `M3`, `X2`. Every rule lives once, in [contracts/skill-contract.md](contracts/skill-contract.md), under a lettered section — **D**ependencies, **M**utation boundary, **P**rivacy, **S**afety, **F**reshness, **O**utput, e**X**ceptions, pro**V**enance, **R**untime vocabulary. A skill cites the ID rather than restating the rule. |
+| **capability** | An effect a skill declares in its frontmatter (`capabilities: [datastore:write, notify:owner]`), from the closed enum of 21 in [contracts/capabilities.yaml](contracts/capabilities.yaml). Declaration is lint and adapter policy, never a sandbox. |
+| **`activity/`** | The ledger namespace. Every mutating capability appends a record of what it did, with the readback, so a run can be audited after the fact against what was declared. |
+| **namespace** | A place in your vault a skill may read or write — `profile`, `people`, `projects`, `activity`, `autonomy`. Declared per skill, defined in [contracts/datastore.md](contracts/datastore.md). |
+| **gbrain** | The MCP server that indexes the vault on the author's host. It is one of three ordered ways in; Markdown is canonical, so the file itself is always the last, safe fallback. |
+| **stamp** | The `.spike-os.json` written into every installed skill directory: name, version, commit, adapter version, content hash. Without it a directory is not ours and the installer will not touch it. |
+
+Standing permission — "stop asking me every time" — is its own skill,
+`skills/autonomy`, and its own contract under `autonomy/`; the newcomer path
+does not need it.
+
 ## Where things are
 
 ```text
-skills/              31 skill packages, each centred on SKILL.md
+skills/              32 skill packages, each centred on SKILL.md
 contracts/           The rules every skill follows, and the stores they name
 adapters/            One directory per runtime: the vocabulary bindings and the rendered ADAPTER.md
 catalog/             The inventory, the domains, the cohorts, the routing clusters, the generated index
 evals/baseline.json  The committed behavioural + routing baseline
 evals/reports/       Shareable benchmark summaries and the fixture-debt registers
 evals/workspaces/    Local generated runs; gitignored
-docs/                The related-work survey the design is grounded in
+docs/                The related-work survey, the runtime inventory, the OpenClaw handoff
 imports/             Pinned upstream material, unchanged
 schemas/             Validation schemas
-tools/               The validator, the eval runner, the installer, the index builder
+tools/               The bootstrap, the installer, the validator, the eval runner, the index builder
 ```
 
 ## The contract every skill follows
@@ -43,8 +165,8 @@ enforces the set, the order, and the body quality of every one of them.
 Frontmatter is the six agentskills.io keys plus `metadata.spike-os`, which
 declares the semantic version, the runtimes the skill claims, the datastore
 namespaces it reads and writes, and the capabilities it performs. The closed
-effect enum is [contracts/capabilities.yaml](contracts/capabilities.yaml); the
-namespaces are [contracts/datastore.md](contracts/datastore.md); the neutral
+capability enum is [contracts/capabilities.yaml](contracts/capabilities.yaml);
+the namespaces are [contracts/datastore.md](contracts/datastore.md); the neutral
 runtime terms are [adapters/vocabulary.yaml](adapters/vocabulary.yaml).
 
 `catalog/approved.yaml` carries each package's `contract_version`. Version 2 is
@@ -59,71 +181,53 @@ file-level marker is the version of that contract document's own rules, which a
 skill cites as `v1` in its `## Contract` section. A skill at
 `contract_version: 2` follows skill-contract v1; both numbers are correct.
 
-## The gate
+## Contributing
+
+### The gate
 
 ```sh
 make validate     # the unit tests, the repository validator, the citation check
 ```
 
-`make validate` runs `make test` (a compile pass over every tool and test, then
-`python3 -m unittest discover -s tests`), then `tools/validate_repo.py`,
-`tools/check_citations.py`, and `tools/build_index.py --check`. Run it before
-opening or updating a pull request. Without `make`, run those four commands
-directly. `.github/workflows/validate.yml` calls the target itself, twice --
+Run it before opening or updating a pull request. It runs `make test` (a compile
+pass over every tool and test, then `python3 -m unittest discover -s tests`),
+then `tools/validate_repo.py`, `tools/check_citations.py`, and
+`tools/build_index.py --check`. Without `make`, run those four commands
+directly. `.github/workflows/validate.yml` calls the target itself, twice —
 once on a stock Python and once with `jsonschema` installed, since the validator
-takes a different path on each -- so a gate added here is a gate CI runs.
+takes a different path on each — so a gate added here is a gate CI runs.
 
 `tools/validate_repo.py` composes the rule modules under `tools/validators/`:
 frontmatter, structure, catalog, contracts, and evals. It checks the canonical
 sections, the description rules and the launcher listing budget, catalog and
-source parity, provenance artifacts, the declared namespaces and effects against
-the contracts, the runtime binding for every adapter a skill claims, the eval
-fixtures against `schemas/skill-evals.schema.json`, and the committed baseline
-against the tree.
+source parity, provenance artifacts, the declared namespaces and capabilities
+against the contracts, the runtime binding for every adapter a skill claims, the
+eval fixtures against `schemas/skill-evals.schema.json`, and the committed
+baseline against the tree.
 
-What the validator checks about effects is a **keyword scan, not an
-understanding of intent**. `CAPABILITY_HINTS` maps body words -- "publish",
-"send", "delete", "schedule", "commit" -- to the effects that would cover them,
-and reports a skill that uses one without declaring the effect. Some rows also
+What the validator checks about capabilities is a **keyword scan, not an
+understanding of intent**. `CAPABILITY_HINTS` maps body words — "publish",
+"send", "delete", "schedule", "commit" — to the capabilities that would cover
+them, and reports a skill that uses one without declaring it. Some rows also
 require a context word in the same clause, because the verb alone is ambiguous:
 "create" is `provider:write` only beside a `provider`, "notify" is `notify:owner`
 only beside the `owner`. It reads a negation as governing the clause it sits in
-rather than the whole sentence, so "never publishes -- it hands the draft on"
+rather than the whole sentence, so "never publishes — it hands the draft on"
 scans the second clause; it still cannot tell a verb the skill performs from one
 it quotes or routes elsewhere, and it misses any phrasing outside the list. So
-the declaration is **lint, not a boundary**: nothing at run time stops a skill taking an effect it never
-declared. What the declaration does buy is a machine-readable claim -- the
-installer refuses on it, `--check` re-derives the hints from it, and the
-`activity/` ledger is auditable against it after the fact. Emitting a
-`PreToolUse` hook from the declaration is the enforcement path, and it is on the
-roadmap rather than in the repository.
+the declaration is **lint, not a boundary**: nothing at run time stops a skill
+taking a capability it never declared. What the declaration does buy is a
+machine-readable claim — the installer refuses on it, `--check` re-derives the
+hints from it, and the `activity/` ledger is auditable against it after the
+fact. Emitting a `PreToolUse` hook from the declaration is the enforcement path,
+and it is on the roadmap rather than in the repository.
 
 `tools/check_citations.py` verifies that every `skills/<name>/SKILL.md:<line>`
 anchor in `contracts/`, `adapters/`, and `docs/` still resolves to a body
 statement; `--show` prints each anchor beside the line it lands on, which is the
 audit to do after editing a skill.
 
-## Installing a skill into a runtime
-
-```sh
-python3 tools/install_skill.py --runtime claude-code <name>     # or --all
-python3 tools/install_skill.py --runtime claude-code --check    # declared vs actual
-make stage-openclaw                                             # stage every eligible skill into dist/
-```
-
-The installer renders the portable `SKILL.md` for one runtime: it emits that
-adapter's frontmatter keys, appends the `## Runtime binding` trailer, copies the
-supporting directories and the repository files the skill declares as inputs,
-and writes a `.spike-os.json` stamp — which is what makes a directory ours to
-overwrite and `--check` possible at all. It refuses a skill whose declared
-runtimes exclude the target, a destination holding somebody else's skill, and a
-skill depending on a term the adapter marks UNCONFIRMED — a binding nobody can
-attest. A binding the runtime knows to be absent or partial is marked DEGRADED
-instead: the skill's own contract already discloses what it does without it, so
-the skill installs and the run prints a `degraded:` note naming the term.
-`--dry-run` prints what a run would write and writes nothing.
-
-## Evaluation
+### Evaluation
 
 Behavioural and routing evals run the real Claude Code CLI in an isolated
 project, so they cost money and are never run in CI.
@@ -152,7 +256,7 @@ retry costs nothing: re-grade with `python3 tools/run_evals.py grade --run
 run into the baseline, per skill; `--routing-from <run>` merges a routing run
 per file, leaving files the run did not cover alone.
 
-## Review a candidate
+### Reviewing a candidate
 
 Candidate skills enter through Skill Workshop proposals. A candidate may appear
 in `skills/` on `main` for inspection before approval only when it is marked
@@ -171,10 +275,9 @@ The release gate:
 7. Run `make validate`, and `make eval-skill SKILL=<name>` for every skill touched.
 8. Commit one coherent skill change and publish through a pull request.
 
-Start with the [onboarding collection](ONBOARDING.md) when setting up a new owner
-relationship, connector, runtime handoff, or social-agent identity. The
-related-work survey grounding the design is in
-[docs/related-work.md](docs/related-work.md).
+The related-work survey grounding the design is in
+[docs/related-work.md](docs/related-work.md); what each runtime can and cannot
+attest is in [docs/runtime-adapter-inventory.md](docs/runtime-adapter-inventory.md).
 
 The public remote is `spikeagent1/spike-skills`. Public releases exclude
 credentials, private memory, raw conversations, and internal operational
