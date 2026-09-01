@@ -107,7 +107,10 @@ These are the three things a first hour meets, and they mean different things.
 file and every key: `~/.config/spike-os/claude-code.local.yaml: 3 of 10
 unfilled placeholders …`. An unfilled key stays a literal `${OWNER_TZ}` in the
 ADAPTER.md your agent reads, which is how it stays visible. Fill it there and
-re-run the installer, or re-run `make start` and answer the questions.
+re-run the installer, or re-run `make start` and answer the questions. The
+installer exits nonzero while any key is still empty — the skills are installed,
+the host is not configured — and `make start` says that once, in its own words,
+rather than twice.
 
 **`degraded: <term>`** — a binding this runtime is *known* to lack or half-have.
 The skill still installs, because its own contract already states what it does
@@ -140,12 +143,21 @@ authority on what OpenClaw binds today.
 ```sh
 python3 tools/install_skill.py --runtime claude-code --list     # name, version, commit, stamp time
 python3 tools/install_skill.py --runtime claude-code --check    # installed vs. this tree
+python3 tools/install_skill.py --runtime claude-code --update   # bring them up to this tree
 ```
 
-`--check` reports **drift**: a body edited in place, a stamp older than the
-adapter, a declaration that no longer matches this repository. It is not a
-health check — it says nothing about whether a skill works. Re-running the
-install is how drift is resolved.
+`--check` reports **drift**: a body edited in place, a supporting file that no
+longer matches the digest the stamp recorded, a file no install wrote, a stamp
+older than the adapter, a declaration that no longer matches this repository. It
+is not a health check — it says nothing about whether a skill works.
+
+`--update` is what resolves drift when you have edited something and want to
+keep it. It rewrites only the files you have not touched and this repository has
+changed, prints what changed in each from `git log`, and names — never
+overwrites — anything of yours, with the diff and the `--overwrite` line that
+would take the repository's version instead. It exits nonzero on such a refusal
+and carries on to the next skill, and it deletes nothing. Re-installing is still
+the other option, and it replaces the whole directory.
 
 ## The four onboarding skills
 

@@ -72,8 +72,12 @@ matter on a fresh machine:
   connector: `daily-task-manager` still installs, tasks are kept in your vault
   instead, and the skill says so every time it runs. Nothing is broken.
 - **`unfilled placeholders`** — a value you have not given yet. The note names
-  the file and every key in one line. Fill them there, or re-run
-  `make start` and answer the questions.
+  the file and every key in one line, and the run exits **nonzero**: an
+  ADAPTER.md still carrying `${OWNER_TZ}` where your agent reads it is not a
+  configured host. Fill them there, or re-run `make start` and answer the
+  questions. `make start` reports this once, itself, and passes
+  `--allow-unconfigured` to the installer so the same fact is not reported
+  twice; use that flag yourself for a deliberately half-configured install.
 
 A third case, **UNCONFIRMED**, is usually a refusal rather than a note: nobody
 can attest the binding on this host, so a skill that depends on it is not
@@ -90,6 +94,7 @@ python3 tools/install_skill.py --runtime claude-code meal-planner   # one, by na
 python3 tools/install_skill.py --runtime claude-code --all          # every eligible skill
 python3 tools/install_skill.py --runtime claude-code --list         # what is installed
 python3 tools/install_skill.py --runtime claude-code --check        # installed vs. this tree
+python3 tools/install_skill.py --runtime claude-code --update       # bring them up to this tree
 python3 tools/install_skill.py --help                               # the full usage doc
 ```
 
@@ -103,11 +108,23 @@ skill depending on a term the adapter marks UNCONFIRMED. `--dry-run` prints what
 a run would write and writes nothing. `--uninstall` removes stamped installs and
 nothing else.
 
-`--check` reports **drift** — a body edited in place, a stamp older than the
+`--check` reports **drift** — a body edited in place, a supporting file that no
+longer matches its digest, a file no install wrote, a stamp older than the
 adapter, a declaration that no longer matches this tree. It is not a health
 check: it says nothing about whether a skill works, only whether what is
-installed is still what this repository says it should be. Re-running the
-install is how drift is resolved.
+installed is still what this repository says it should be.
+
+`--update` is how drift is resolved without losing anything. Re-installing
+replaces the whole directory; `--update` reads three states of every installed
+file — the digest the stamp recorded, what is on disk now, and what this tree
+renders — and rewrites only the files you have not touched and the repository
+has changed. A file you edited, deleted, or added yourself is named instead,
+with the diff of what would have replaced it and the `--overwrite` line that
+would take it; that refusal exits nonzero and the run carries on to the next
+skill. Each re-rendered skill prints what changed, from `git log` between the
+stamp's commit and HEAD. Nothing is ever deleted. A stamp written before
+per-file digests is refused rather than guessed at, and says which re-install
+upgrades it.
 
 `make stage-openclaw` stages every eligible skill into `dist/` for
 [OpenClaw](docs/openclaw-handoff.md), the second runtime — a hosted agent on a
@@ -127,7 +144,7 @@ record of which bindings were checked against a live deployment, and when.
 | **`activity/`** | The ledger namespace. Every mutating capability appends a record of what it did, with the readback, so a run can be audited after the fact against what was declared. |
 | **namespace** | A place in your vault a skill may read or write — `profile`, `people`, `projects`, `activity`, `autonomy`. Declared per skill, defined in [contracts/datastore.md](contracts/datastore.md). |
 | **gbrain** | The MCP server that indexes the vault on the author's host. It is one of three ordered ways in; Markdown is canonical, so the file itself is always the last, safe fallback. |
-| **stamp** | The `.spike-os.json` written into every installed skill directory: name, version, commit, adapter version, content hash. Without it a directory is not ours and the installer will not touch it. |
+| **stamp** | The `.spike-os.json` written into every installed skill directory: name, version, commit, adapter version, and a sha256 per installed file. Without it a directory is not ours and the installer will not touch it; without the per-file digests `--update` cannot tell your edit from a stale render, and says so. |
 
 Standing permission — "stop asking me every time" — is its own skill,
 `skills/autonomy`, and its own contract under `autonomy/`; the newcomer path
