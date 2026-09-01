@@ -126,6 +126,20 @@ class ProbeTest(unittest.TestCase):
         self.assertEqual(step.status, bootstrap.ABSENT)
         self.assertEqual(step.fix, "")
 
+    def test_a_registry_nobody_could_read_is_said_once_not_glued_into_a_sentence(self) -> None:
+        """"nothing in not read: claude is not on PATH matches this binding" is not English."""
+        with mock.patch.object(bootstrap, "which", return_value=None):
+            servers, source = bootstrap.registry_servers("claude-code")
+        self.assertEqual(servers, ())
+        step = bootstrap.probe_provider(
+            "task provider", "the Todoist MCP server", "DEGRADED - none here",
+            servers, source, "claude-code",
+        )
+        self.assertEqual(step.status, bootstrap.DEGRADED)
+        self.assertNotIn("nothing in no", step.detail)
+        self.assertIn(bootstrap.UNREADABLE_REGISTRY, step.detail)
+        self.assertIn("not on PATH", step.detail)
+
     def test_every_provider_the_shipped_adapters_name_is_probed(self) -> None:
         for runtime in ("claude-code", "openclaw"):
             with self.subTest(runtime=runtime):

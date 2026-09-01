@@ -88,6 +88,9 @@ AGENT_CLI = {"claude-code": "claude", "openclaw": "openclaw"}
 AGENT_LABEL = {"claude-code": "Claude Code", "openclaw": "OpenClaw"}
 
 REGISTRY_LINE_RE = re.compile(r"^([A-Za-z0-9_.-]+)\s*:")
+# A registry nobody could read is not a registry that came back empty, and a
+# provider probe has to say which of the two it met.
+UNREADABLE_REGISTRY = "no connector registry could be read"
 PROVIDER_SUFFIX = "_provider"
 
 # One line of what the value is, and one example of the shape it takes. The
@@ -248,7 +251,7 @@ def registry_servers(runtime: str, home: Path | None = None) -> tuple[tuple[str,
     """
     name = AGENT_CLI.get(runtime, "claude")
     if which(name) is None:
-        return (), f"not read: {name} is not on PATH"
+        return (), f"{UNREADABLE_REGISTRY}: {name} is not on PATH"
     servers: list[str] = []
     sources: list[str] = []
     result = run_command([name, "mcp", "list"])
@@ -279,7 +282,9 @@ def registry_servers(runtime: str, home: Path | None = None) -> tuple[tuple[str,
         if found:
             sources.append(str(config))
     ordered = tuple(dict.fromkeys(servers))
-    return ordered, " and ".join(sources) if sources else f"nothing readable for {name}"
+    if not sources:
+        return ordered, f"{UNREADABLE_REGISTRY}: {name} answered nothing"
+    return ordered, " and ".join(sources)
 
 
 def adapter_state(note: str) -> str:
@@ -334,18 +339,20 @@ def probe_provider(
         return Step(term, OK, detail)
     if str(value or "").strip().lower().startswith("none"):
         return Step(term, ABSENT, f"the adapter binds it to \"{value}\"")
+    unread = source.startswith(UNREADABLE_REGISTRY)
+    where = source if unread else f"nothing in {source} matches this binding"
     if state in ("DEGRADED", "UNCONFIRMED"):
         return Step(
             term,
             DEGRADED,
-            f"nothing in {source} matches this binding; adapter says {state}",
+            f"{where}; adapter says {state}",
             "a skill naming it discloses the fallback its own contract states; "
             "register a connector for it to change that",
         )
     return Step(
         term,
         ABSENT,
-        f"nothing in {source} matches this binding, which carries no note",
+        f"{where}; the binding carries no note",
         f"{yaml} binds this term as available; register the connector, or add a "
         "DEGRADED note there, so no skill claims a provider this host lacks",
     )
