@@ -477,7 +477,15 @@ def report_skill(
             lines = len(planned[rel].data.splitlines())
             print(f"    (deleted from the install; {lines} lines would be restored)")
         else:
-            print_file_diff(rel, path.read_bytes(), planned[rel].data)
+            try:
+                installed = path.read_bytes()
+            except OSError:
+                # Refused because it could not be read, and the line above says
+                # why: reading it again to show a diff would end the skill on the
+                # very error it just reported.
+                print("    (neither diffed nor written)")
+                continue
+            print_file_diff(rel, installed, planned[rel].data)
     if blocked:
         print(
             f"  {len(blocked)} file(s) skipped -- what is installed is yours. To take "
@@ -595,7 +603,7 @@ def update_one(
         if rel in write:
             write.remove(rel)
         if rel in planned:
-            blocked[rel] = f"{UNREADABLE} ({problem}); left alone"
+            blocked[rel] = f"{UNREADABLE} ({problem})"
         else:
             notes.append(f"{name}: {rel} {UNREADABLE} ({problem}); left alone")
     for rel in sorted(set(recorded) - set(planned)):

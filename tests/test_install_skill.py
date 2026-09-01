@@ -1949,6 +1949,10 @@ class InstallSkillTest(unittest.TestCase):
         self.assertIn("references/detail.md", out)
         self.assertIn("could not be read", out)
         self.assertIn("twice", self._installed("fixture-notes"))
+        # Named per file and survived per file: the diff must not read it either,
+        # or the skill ends on the fallback guard with the rest of it unlooked at.
+        self.assertNotIn("this skill was left as it is", out)
+        self.assertIn("neither diffed nor written", out)
 
     def test_update_refuses_a_file_it_cannot_write_and_stamps_only_what_landed(
         self,
