@@ -30,6 +30,14 @@ discloses that the object is mirror-only" -- so such a skill installs, and the
 run prints a `degraded:` note naming the term. `--check` reports it the same
 way: a note, never drift.
 
+One more nonzero exit is not a refusal to install but a refusal to call the
+host configured: a run whose rendered ADAPTER.md still carries a `${NAME}`
+literal has left the file every installed skill resolves its terms against
+half-written. The skills are installed, the note names the local file and the
+keys, and the exit code says the setup is unfinished. `--allow-unconfigured` is
+the explicit opt-out; `tools/bootstrap.py` passes it because it asks for those
+values itself and fails on its own before it ever calls this.
+
 Usage:
   python3 tools/install_skill.py --runtime {claude-code,openclaw} [options] [NAME...]
     --all                 every skill the runtime carries
@@ -39,6 +47,7 @@ Usage:
     --dry-run             print what an install would write, and write nothing
     --dest DIR            override the runtime's default destination
     --local-overrides P   override the adapter's local_overrides_file
+    --allow-unconfigured  install although the render leaves a ${NAME} literal
 """
 
 from __future__ import annotations

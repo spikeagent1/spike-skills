@@ -327,6 +327,26 @@ class RunTest(unittest.TestCase):
             code, out = self._run("--runtime", "claude-code", installer=lambda argv: 1)
         self.assertEqual(code, bootstrap.EXIT_UNCONFIGURED, out)
 
+    def test_the_installer_is_told_not_to_re_report_the_unfilled_values(self) -> None:
+        """One fact, one failure line.
+
+        `tools/install_skill.py` now exits nonzero when the render leaves a
+        `${NAME}` literal. This run asks for those values itself and fails on
+        its own when one is still empty, so it passes the opt-out: a bootstrap
+        that ends unconfigured says so once, under `local values`, rather than
+        twice with a second line blaming the installer.
+        """
+        installer = (
+            lambda argv: 0 if "--allow-unconfigured" in argv else 1
+        )
+        with mock.patch.object(bootstrap, "which", return_value="/bin/claude"), \
+             mock.patch.object(bootstrap, "run_command", return_value=Result(0, "ok\n")):
+            code, out = self._run("--runtime", "claude-code", answers="", installer=installer)
+
+        self.assertEqual(code, bootstrap.EXIT_UNCONFIGURED, out)
+        self.assertIn("still empty", out)
+        self.assertNotIn("tools/install_skill.py exited", out)
+
     def test_the_run_writes_only_where_it_was_told_to(self) -> None:
         with mock.patch.object(bootstrap, "which", return_value="/bin/claude"), \
              mock.patch.object(bootstrap, "run_command", return_value=Result(0, "ok\n")):

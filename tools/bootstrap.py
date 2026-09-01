@@ -571,7 +571,11 @@ def main(
         report(problems[-1], out)
 
     out.write(f"\n3/5  Installing {', '.join(STARTER_SKILLS)}\n")
-    install_argv = ["--runtime", runtime]
+    # The installer exits nonzero on a render that leaves a `${NAME}` literal.
+    # Step 2 above asks for exactly those values and has already failed on any
+    # still empty, so this run owns that message: the opt-out keeps one fact
+    # from being reported twice, once as `local values` and once as `install`.
+    install_argv = ["--runtime", runtime, "--allow-unconfigured"]
     if args.dest:
         install_argv += ["--dest", str(args.dest)]
     if args.local_overrides:

@@ -247,9 +247,14 @@ class CheckStagingTest(unittest.TestCase):
     # -- helpers -----------------------------------------------------------
 
     def _install(self, *names: str) -> None:
+        # `--allow-unconfigured`: a staging render leaves `${DEPLOY_REPO}` for the
+        # deploy tree to fill, and an unfilled placeholder is a nonzero exit. What
+        # this file checks is the staged tree, so the flag says which exit code
+        # these tests are asserting about.
         argv = [
             "--runtime",
             "openclaw",
+            "--allow-unconfigured",
             "--dest",
             str(self.root / "dist" / "openclaw" / "workspace" / "skills"),
             *names,

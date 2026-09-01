@@ -441,9 +441,26 @@ class InstallSkillTest(unittest.TestCase):
     def _frontmatter(self, name: str) -> dict:
         return validate_repo.parse_frontmatter(self._installed(name)) or {}
 
+    def _configure(self, runtime: str = "claude-code") -> Path:
+        """Fill every placeholder this runtime's adapter names.
+
+        An install whose render would leave a `${NAME}` literal exits nonzero,
+        so a test about anything else configures the host once, here, rather
+        than asserting an exit code that is about the local file.
+        """
+        path = self.home / ".config" / "spike-os" / f"{runtime}.local.yaml"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        names = install_skill.placeholder_names(runtime)
+        path.write_text(
+            "\n".join(f"{name}: 'fixture-{name.lower()}'" for name in names) + "\n",
+            encoding="utf-8",
+        )
+        return path
+
     # -- bundled repository inputs -------------------------------------
 
     def test_an_undeclared_repo_link_is_reported_rather_than_left_dangling(self) -> None:
+        self._configure()
         # Task 25 item 28: only the Dependencies line's files are bundled, so a
         # body link to any other repository file would not resolve once installed.
         self._write("catalog/approved.yaml", "skills: []\n")
@@ -461,6 +478,7 @@ class InstallSkillTest(unittest.TestCase):
         self.assertIn("not declared on the Dependencies line", out)
 
     def test_the_contract_link_every_skill_carries_is_not_reported(self) -> None:
+        self._configure()
         self._write("contracts/skill-contract.md", "# Contract\n")
         self._write(
             "skills/fixture-notes/SKILL.md",
@@ -478,6 +496,7 @@ class InstallSkillTest(unittest.TestCase):
         self.assertNotIn("not declared on the Dependencies line", out)
 
     def test_a_declared_input_is_rewritten_and_not_reported(self) -> None:
+        self._configure()
         self._write("catalog/index.md", "# Index\n")
         self._write(
             "skills/fixture-notes/SKILL.md",
@@ -498,6 +517,7 @@ class InstallSkillTest(unittest.TestCase):
     # -- copied directories --------------------------------------------
 
     def test_a_templates_directory_is_installed_rather_than_skipped(self) -> None:
+        self._configure()
         # Task 25 item 31: `templates/` is loaded content a skill links, so it
         # travels with the install like references/ and scripts/.
         self._write("skills/fixture-notes/templates/entry.yaml", "name: example\n")
@@ -526,6 +546,7 @@ class InstallSkillTest(unittest.TestCase):
     # -- stamp ---------------------------------------------------------
 
     def test_install_writes_a_stamp_with_the_declared_fields(self) -> None:
+        self._configure()
         code, _ = self._run("--runtime", "claude-code", "fixture-notes")
         self.assertEqual(code, 0)
         stamp = self._stamp("fixture-notes")
@@ -566,6 +587,7 @@ class InstallSkillTest(unittest.TestCase):
         )
 
     def test_reinstalling_over_its_own_stamp_is_allowed_and_idempotent(self) -> None:
+        self._configure()
         self._run("--runtime", "claude-code", "fixture-notes")
         first = self._installed("fixture-notes")
         code, _ = self._run("--runtime", "claude-code", "fixture-notes")
@@ -611,6 +633,7 @@ class InstallSkillTest(unittest.TestCase):
         only by naming it. `never_autonomous` is the tier that actually means
         "no standing authority", and it is the one that disables invocation.
         """
+        self._configure()
         code, out = self._run(
             "--runtime",
             "claude-code",
@@ -629,6 +652,7 @@ class InstallSkillTest(unittest.TestCase):
 
     def test_an_effect_outside_the_enum_is_scored_at_the_strictest_tier(self) -> None:
         """An unknown effect is scored pessimistically, as `derived_hints` does."""
+        self._configure()
         self._write(
             "skills/fixture-unknown/SKILL.md",
             self._skill_md(
@@ -696,6 +720,7 @@ class InstallSkillTest(unittest.TestCase):
     # -- openclaw render -----------------------------------------------
 
     def test_openclaw_render_declares_requires_and_omits_when_to_use(self) -> None:
+        self._configure("openclaw")
         code, _ = self._run("--runtime", "openclaw", "fixture-openclaw-only")
         self.assertEqual(code, 0)
         staged = (
@@ -891,6 +916,51 @@ class InstallSkillTest(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertIn(key, placeholder[0])
 
+    def test_a_render_that_leaves_a_placeholder_literal_exits_nonzero(self) -> None:
+        """An install nobody configured is not an install that worked.
+
+        The leading note has always named the file and the keys; the exit code
+        said 0, so a caller reading the code rather than the output -- a script,
+        a CI leg, a newcomer watching for a failure -- was told a render still
+        carrying `${VAULT_ROOT}` had succeeded.
+        """
+        code, out = self._run("--runtime", "claude-code", "fixture-notes")
+
+        self.assertEqual(code, 1, out)
+        refusals = [line for line in out.splitlines() if line.startswith("refused: ")]
+        self.assertEqual(len(refusals), 1, out)
+        self.assertIn("unfilled placeholder", refusals[0])
+        self.assertIn("claude-code.local.yaml", refusals[0])
+        self.assertIn("--allow-unconfigured", refusals[0])
+        # The refusal is about the host, not about the skill: what rendered
+        # cleanly is still installed.
+        self.assertTrue((self.dest / "fixture-notes" / "SKILL.md").is_file())
+
+    def test_a_configured_host_installs_and_exits_zero(self) -> None:
+        self._configure()
+        code, out = self._run("--runtime", "claude-code", "fixture-notes")
+
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("unfilled placeholder", out)
+
+    def test_allow_unconfigured_installs_the_same_run_and_exits_zero(self) -> None:
+        """The opt-out is explicit, and it says so in the note it leaves behind."""
+        code, out = self._run(
+            "--runtime", "claude-code", "--allow-unconfigured", "fixture-notes"
+        )
+
+        self.assertEqual(code, 0, out)
+        self.assertIn("unfilled placeholders", out)
+        rendered = (self.home / ".claude" / "spike-os" / "ADAPTER.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("${VAULT_ROOT}", rendered)
+
+    def test_a_dry_run_reaches_the_same_verdict_as_the_run_it_previews(self) -> None:
+        code, out = self._run("--runtime", "claude-code", "--dry-run", "fixture-notes")
+        self.assertEqual(code, 1, out)
+        self.assertIn("unfilled placeholder", out)
+
     def test_a_note_raised_after_the_write_still_prints(self) -> None:
         """The lead block prints what is known before writing; the rest follows."""
         self._write("catalog/approved.yaml", "packages: []\n")
@@ -953,6 +1023,7 @@ class InstallSkillTest(unittest.TestCase):
         self.assertNotIn("git -C", out)
 
     def test_a_real_run_and_a_dry_run_print_the_same_identity_refusal(self) -> None:
+        self._configure()
         original = "# Owner\n\n<!-- spike-os:begin -->\n\n- keep this line\n"
         self._claude_md(original)
         _, dry = self._run("--runtime", "claude-code", "--dry-run", "fixture-notes")
@@ -994,6 +1065,7 @@ class InstallSkillTest(unittest.TestCase):
         self.assertEqual(path.read_text(encoding="utf-8"), original)
 
     def test_a_stray_import_line_outside_the_block_is_collapsed_into_one(self) -> None:
+        self._configure()
         path = self._claude_md(
             "# Owner\n@~/.claude/spike-os/ADAPTER.md\n\n- keep this line\n"
         )
@@ -1009,6 +1081,7 @@ class InstallSkillTest(unittest.TestCase):
         self.assertIn("# Owner", text)
 
     def test_a_stray_import_line_after_the_block_is_removed_too(self) -> None:
+        self._configure()
         self._claude_md(
             "# Owner\n"
             "<!-- spike-os:begin -->\n@~/.claude/spike-os/ADAPTER.md\n<!-- spike-os:end -->\n"
@@ -1077,6 +1150,7 @@ class InstallSkillTest(unittest.TestCase):
     def test_the_provider_refusal_is_skipped_for_a_runtime_that_confirms_the_term(
         self,
     ) -> None:
+        self._configure("openclaw")
         code, _ = self._run("--runtime", "openclaw", "fixture-tasks")
         self.assertEqual(code, 0)
 
@@ -1084,6 +1158,7 @@ class InstallSkillTest(unittest.TestCase):
 
     def test_a_resolved_adapter_in_a_git_work_tree_is_called_out(self) -> None:
         """The render is the one file that holds the owner's actual values."""
+        self._configure()
         watched = self.home / ".claude"
         watched.mkdir(parents=True, exist_ok=True)
         subprocess.run(["git", "init", "-q", str(watched)], check=True)
@@ -1095,6 +1170,7 @@ class InstallSkillTest(unittest.TestCase):
         self.assertIn("personal values", out)
 
     def test_no_such_note_where_nothing_is_watching(self) -> None:
+        self._configure()
         code, out = self._run("--runtime", "claude-code", "fixture-notes")
         self.assertEqual(code, 0, out)
         self.assertNotIn("git work tree", out)
@@ -1109,6 +1185,7 @@ class InstallSkillTest(unittest.TestCase):
         discloses that the object is mirror-only. That is a disclosed fallback,
         so the skill installs; only an UNCONFIRMED binding is a refusal.
         """
+        self._configure()
         self._write_adapters(task_provider_marker="DEGRADED")
         code, out = self._run("--runtime", "claude-code", "fixture-tasks")
 
@@ -1138,6 +1215,7 @@ class InstallSkillTest(unittest.TestCase):
 
     def test_the_bundled_index_marks_what_this_destination_carries(self) -> None:
         """A launcher must never route to a skill that is not installed here."""
+        self._configure()
         code, out = self._run(
             "--runtime", "claude-code", "fixture-launcher", "fixture-notes"
         )
@@ -1292,7 +1370,12 @@ class InstallSkillTest(unittest.TestCase):
         self.assertTrue((foreign / "SKILL.md").is_file())
 
     def test_dry_run_shows_the_rendered_frontmatter_and_writes_nothing(self) -> None:
-        code, out = self._run("--runtime", "claude-code", "--dry-run", "fixture-notes")
+        # `--allow-unconfigured` rather than a filled local file: this test is
+        # about the run writing nothing, and the file it would create is one of
+        # the things it must not write.
+        code, out = self._run(
+            "--runtime", "claude-code", "--dry-run", "--allow-unconfigured", "fixture-notes"
+        )
         self.assertEqual(code, 0)
         self.assertIn("when_to_use:", out)
         self.assertIn(str(self.dest / "fixture-notes" / "SKILL.md"), out)
@@ -1307,6 +1390,7 @@ class InstallSkillTest(unittest.TestCase):
         """`examples/`, `evals/` and `routing-eval.jsonl` are excluded by name;
         anything else the installer does not carry is named rather than dropped
         in silence."""
+        self._configure()
         self._write("skills/fixture-launcher/notes/scratch.md", "scratch\n")
         code, out = self._run("--runtime", "claude-code", "fixture-launcher")
         self.assertEqual(code, 0)

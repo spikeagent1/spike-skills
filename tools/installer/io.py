@@ -416,8 +416,17 @@ def install_adapter(
     overrides_path: Path,
     dry_run: bool,
     report: Report,
+    require_configured: bool = True,
 ) -> list[Path]:
-    """Render ADAPTER.md and adapter.resolved.yaml, and bind them to the identity file."""
+    """Render ADAPTER.md and adapter.resolved.yaml, and bind them to the identity file.
+
+    `require_configured` is the exit code the render earns: a run that leaves a
+    `${NAME}` literal in the file every installed skill reads has not configured
+    this host, and says so with a nonzero exit rather than a note under a
+    successful one. `--allow-unconfigured` turns it off for a caller that means
+    it -- `tools/bootstrap.py`, which asks for the values itself and fails on
+    its own before it ever gets here.
+    """
     names = placeholder_names(runtime)
     values = read_local_overrides(overrides_path)
     written: list[Path] = []
@@ -446,6 +455,16 @@ def install_adapter(
         adapter_md.write_text(rendered, encoding="utf-8")
         resolved.write_text(rendered_yaml, encoding="utf-8")
     written.extend([adapter_md, resolved])
+
+    if unfilled and require_configured:
+        report.refused.append(
+            f"{display_path(str(overrides_path))}: {len(unfilled)} of {len(names)} "
+            f"unfilled placeholders, so {display_path(str(adapter_md))} -- the file "
+            "every installed skill resolves its runtime terms against -- still "
+            "carries them as literals; the note above names the keys. Fill them and "
+            "re-run, run python3 tools/bootstrap.py, or pass --allow-unconfigured to "
+            "install into an unconfigured host on purpose"
+        )
 
     if inside_git_work_tree(adapter_md.parent) and not git_ignored(resolved):
         # The repository's own adapter carries only ${PLACEHOLDER}s; this render

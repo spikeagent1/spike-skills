@@ -165,7 +165,8 @@ def do_install(context: Context, names: Sequence[str], args: argparse.Namespace)
     report.notes.extend(fallback_warnings(context.adapter, context.vocabulary))
     if renders:
         written = install_adapter(
-            context.runtime, context.adapter, overrides, args.dry_run, report
+            context.runtime, context.adapter, overrides, args.dry_run, report,
+            require_configured=not args.allow_unconfigured,
         )
     else:
         # The adapter (and the identity-file line that imports it) exists to serve
@@ -424,6 +425,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--list", action="store_true", dest="list_", help="read the stamps")
     parser.add_argument("--dry-run", action="store_true", help="print, write nothing")
     parser.add_argument("--local-overrides", help="override the adapter's local_overrides_file")
+    parser.add_argument(
+        "--allow-unconfigured",
+        action="store_true",
+        help="install even though the render leaves a ${NAME} literal",
+    )
     parser.add_argument("names", nargs="*", metavar="NAME")
     return parser.parse_args(list(argv))
 
