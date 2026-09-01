@@ -340,6 +340,25 @@ class ObjectConventionTest(unittest.TestCase):
             with self.subTest(obj=obj):
                 self.assertIsNone(autonomy_check.parse_object(obj))
 
+    def test_a_percent_encoded_separator_is_no_object_at_all(self) -> None:
+        """`%2f` is a `/` wearing a costume: the same traversal class as I1.
+
+        Nothing in the contract percent-decodes an id path, but a `tasks/*`
+        contract must not cover `tasks/..%2f../autonomy/x` on the strength of
+        a decoder someone adds later. The refusal names the convention.
+        """
+        for obj in (
+            "tasks/..%2f../autonomy/x",
+            "tasks/%2Fautonomy/x",
+            "%2fautonomy/x",
+            "tasks/a%2Fb",
+        ):
+            with self.subTest(obj=obj):
+                self.assertIsNone(autonomy_check.parse_object(obj))
+                decision = self.refuse(obj)
+                self.assertIsNone(decision.contract_id)
+                self.assertIn("<namespace>", decision.reason)
+
     def test_the_canonical_autonomy_write_is_still_the_named_refusal(self) -> None:
         """A parsing object in `autonomy/` is refused for the ring, not the shape."""
         decision = self.refuse("autonomy/add-tasks-2026-09")

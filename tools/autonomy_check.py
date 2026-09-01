@@ -223,7 +223,8 @@ def parse_object(obj: object, namespaces: Iterable[str] | None = None,
 
     `contracts/datastore.md`'s `object_form`: a declared namespace, alone or
     followed by `/` and the store's own id path. No leading `/` or `./`, no `.`
-    or `..` segment, no empty segment, no backslash, no whitespace. The parse is
+    or `..` segment, no empty segment, no backslash, no whitespace, no
+    percent-encoded separator (`%2f`). The parse is
     total and never repairs: a string outside the form names nothing, which is
     what keeps the `autonomy/` exclusion out of the caller's spelling.
     """
@@ -232,6 +233,10 @@ def parse_object(obj: object, namespaces: Iterable[str] | None = None,
     if obj != obj.strip() or any(character.isspace() for character in obj):
         return None
     if "\\" in obj:
+        return None
+    if "%2f" in obj.lower():
+        # A percent-encoded separator is a `/` in costume -- the same traversal
+        # class review I1 named -- and no id path here is ever percent-decoded.
         return None
     segments = obj.split("/")
     if any(segment in ("", ".", "..") for segment in segments):
