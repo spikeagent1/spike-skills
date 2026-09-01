@@ -42,7 +42,7 @@ Keeps the owner's standing permissions: one `autonomy contract` per record, each
 | The mode — the view, a new contract, an ending, or an answer to a suggestion | yes | classify it from the owner's own verb; where a new contract and an ending are both readable, fail closed to the view and name the two readings that were open (X1) |
 | The capability, by its name in [contracts/capabilities.yaml](../../contracts/capabilities.yaml) | yes, to write one | resolve it from the owner's words where exactly one effect fits; where two fit, render the preview against the narrower one and name the other beside it (X3) |
 | The skill pattern — one skill name, a `family/*`, or `*` | yes, to write one | carry the strictest reading the request supports, usually the one skill the owner named, and mark it assumed rather than widening it (X3) |
-| The object pattern — one object as the acting skill names it, a `prefix/*`, or `*` | yes, to write one | the same: the narrowest reading the request supports, marked as assumed, never widened to reach what the owner did not say |
+| The object pattern — one object as the acting skill names it, written as a namespace this store declares and then that store's own id path, a `prefix/*` of one, or `*` | yes, to write one | the same: the narrowest reading the request supports, marked as assumed, never widened to reach what the owner did not say |
 | The date the contract lapses | yes, to write one | render the preview with that field as a marked slot and stop there; an endless permission is not written on an assumption (X1) |
 | The session — an interactive `owner` turn | yes, to write one | refuse the write in one line, and show the record it would have been (M5) |
 | The owner's authorization for the exact record previewed | yes, to write one | stop at **previewed** (M2, X4) |
@@ -59,25 +59,28 @@ Keeps the owner's standing permissions: one `autonomy contract` per record, each
 5. **Preview the exact record and take authorization for that record** (M2). The preview is shown every time, including where the owner's own sentence already names the whole contract, because the patterns are what the owner is actually approving and they are only checkable once written down. Read back what was written and compare it against the preview before reporting anything as standing (M4).
 6. **Append one `activity` record per mutating effect** — operation key, target, activity state, readback, rollback handle (M7). A contract that was written and a contract that was ended are both effects and both leave a record; the ledger append itself needs no further record.
 7. **Ending a contract supersedes it, never a delete.** The record keeps its content and gains `status: superseded`; where the owner is narrowing rather than ending, the narrower contract is the successor and the two are written together; where the owner is ending it outright there is no successor, and `superseded-by` names the `activity` record of the turn that ended it. What was permitted, and when, stays readable afterwards — that history is the point of superseding.
-8. **The view reads live records, never a summary of them.** For each contract: what it covers in one line, the three fields the coverage is actually decided by, when it lapses, when it was last used — read from the `activity` records that cite its id — and the one line that ends it. A lapsed contract is shown as lapsed rather than left out, and a superseded one is shown only where the owner asked for the history. Where nothing stands at all, the view says so and then says what a contract is made of — the skill, the capability, the objects it may touch, and when it lapses — with one sentence the owner could say to write one; "no contracts" on its own leaves the owner exactly where they started.
+8. **The view reads live records, never a summary of them.** For each contract: its id, what it covers in one line, the three fields the coverage is actually decided by, when it lapses, when it was last used — read from the `activity` records that cite its id — and the one line that ends it, which quotes that id. A lapsed contract is shown as lapsed rather than left out, and a superseded one is shown only where the owner asked for the history. Where nothing stands at all, the view says so and then says what a contract is made of — the skill, the capability, the objects it may touch, and when it lapses — with one sentence the owner could say to write one; "no contracts" on its own leaves the owner exactly where they started.
 9. **Suggest, and stop there.** Where the `activity log` carries five or more approvals of the same shape — same capability, same skill, same object — inside the last thirty days, say so: the count, the shape in one line, and the sentence the owner would say to write the contract, quoted in full and ready to repeat rather than described as a list of things to include. A suggestion is those lines and nothing else: no record block is rendered, no field is filled in ahead of the owner, and nothing is stamped **PREVIEWED** — a preview nobody asked for is one word away from a permission nobody wrote. The state is **INSPECTED**, and a suggestion the owner passes over is not raised a second time in the same turn (M5).
 
 ### The contract record
 
-One block per contract, rendered whether or not anything is written. The first five lines are the record's own fields, spelled as [contracts/datastore.md](../../contracts/datastore.md) spells them; the last three are this skill's rendering of it, and are not stored. Every field nobody supplied reads as a marked slot naming what is missing.
+One block per contract, rendered whether or not anything is written. The first six lines are the record's own fields, spelled as [contracts/datastore.md](../../contracts/datastore.md) spells them; the last three are this skill's rendering of it, and are not stored. Every field nobody supplied reads as a marked slot naming what is missing.
 
 ```
+id             : <the record id, which is the name the owner ends it by | slot: minted on the write>
 capability     : <one effect name, contract_eligible true>
 skill-pattern  : <one skill | family/* | *>
 object-pattern : <one object | prefix/* | *>
-granted-at     : <the local date of this owner turn>
-expires        : <the date it stops covering anything | slot: no end named yet>
+granted-at     : <this owner turn, with its offset — an instant with none is read as UTC>
+expires        : <when it stops covering anything, same rule for the offset | slot: no end named yet>
 covers         : <what this authorizes, in the owner's own words, one line>
 outside it     : <the nearest neighbouring action it does not cover, one line>
 state          : <one name from the state vocabulary below>
 ```
 
-`outside it` is not decoration: a permission is only as clear as its edge, and an owner who cannot see the edge cannot judge the middle. The two patterns are matched by one grammar and no other — an exact string, a `prefix/*`, or `*`, never a regular expression — and a pattern that is neither form covers nothing at all rather than being read generously (X3).
+The `id` is in the preview because it is what the owner says to end the contract later, and a permission nobody can name is one nobody can take back (M2). Both instants carry an offset or are read as UTC, which is the difference between a permission that lapses this evening and one that lapses tomorrow morning.
+
+`outside it` is not decoration: a permission is only as clear as its edge, and an owner who cannot see the edge cannot judge the middle. The two patterns are matched by one grammar and no other — an exact string, a `prefix/*`, or `*`, never a regular expression — and a pattern that is neither form covers nothing at all rather than being read generously (X3). The object each is matched against has one form too, [contracts/datastore.md](../../contracts/datastore.md)'s: a namespace it declares, then that store's own id path. A pattern written against anything else — a display name, a folder the store does not hold — covers nothing, however sensible it reads.
 
 ## Output contract
 
@@ -90,16 +93,17 @@ State vocabulary, from `contracts/datastore.yaml` and extended by nothing here: 
 > "stop asking me every time you add something to my list"
 
 ```
+id             : slot: minted on the write — I will quote it back, and it is what ends this
 capability     : datastore:write
 skill-pattern  : daily-task-manager
-object-pattern : lists/*
-granted-at     : <today, this owner turn>
+object-pattern : tasks/*
+granted-at     : <today, this owner turn, in your zone>
 expires        : slot: no end named yet — say a date, or "three months"
-covers         : adding an item to one of my lists without stopping to ask first
-outside it     : ending or clearing an item, and anything outside my lists
+covers         : adding an item to my task list without stopping to ask first
+outside it     : completing or removing one, and anything the task skill does not hold
 state          : PREVIEWED
 ```
-> Say the date it should lapse and I will write exactly this record, then read it back to you.
+> Say the date it should lapse and I will write exactly this record, then read it back to you with the id you would use to end it.
 
 > "show my autonomy contracts" — with none written yet
 
