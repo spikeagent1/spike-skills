@@ -382,8 +382,9 @@ def write_planned(target: Path, planned: dict[str, Planned],
                   only: Sequence[str] | None = None) -> list[Path]:
     """Lay down the planned files (or just `only` of them) and return their paths."""
     written: list[Path] = []
+    wanted = None if only is None else set(only)
     for rel, item in planned.items():
-        if only is not None and rel not in only:
+        if wanted is not None and rel not in wanted:
             continue
         path = target / rel
         path.parent.mkdir(parents=True, exist_ok=True)

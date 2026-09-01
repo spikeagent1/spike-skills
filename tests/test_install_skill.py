@@ -1739,6 +1739,52 @@ class InstallSkillTest(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertIn("changes unknown", out)
 
+    def test_update_never_writes_through_a_symlink_even_when_told_to(self) -> None:
+        """The installer does not follow a link out of the destination, on any flag."""
+        self._install_launcher()
+        detail = self.dest / "fixture-launcher" / "references" / "detail.md"
+        elsewhere = Path(self.tmp.name) / "outside.md"
+        elsewhere.write_text("not ours\n", encoding="utf-8")
+        detail.unlink()
+        detail.symlink_to(elsewhere)
+        self._repo_detail("a second edition\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update", "--overwrite")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("symlink", out)
+        self.assertEqual(elsewhere.read_text(encoding="utf-8"), "not ours\n")
+
+    def test_update_refuses_an_install_another_adapter_wrote(self) -> None:
+        """An update is not a conversion: a runtime's install stays that runtime's."""
+        self._install_launcher()
+        stamp_file = self.dest / "fixture-launcher" / ".spike-os.json"
+        stamp = json.loads(stamp_file.read_text(encoding="utf-8"))
+        stamp["adapter"] = "openclaw"
+        stamp_file.write_text(json.dumps(stamp, indent=2, sort_keys=True), encoding="utf-8")
+        self._repo_detail("a second edition\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("openclaw", out)
+        self.assertEqual(
+            (self.dest / "fixture-launcher" / "references" / "detail.md").read_text(
+                encoding="utf-8"
+            ),
+            "detail\n",
+        )
+
+    def test_update_says_the_adapter_file_itself_is_not_refreshed(self) -> None:
+        """`--update` re-renders skills; the ADAPTER.md they read is the install's job."""
+        self._install_launcher()
+        self._write_adapters(claude_code_version=2)
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 0, out)
+        self.assertIn("adapter_version 1", out)
+        self.assertIn("re-run the install", out)
+
     def test_overwrite_without_update_is_a_usage_error(self) -> None:
         code, out = self._run("--runtime", "claude-code", "--overwrite", "fixture-notes")
         self.assertEqual(code, 2, out)

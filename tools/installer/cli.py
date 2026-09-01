@@ -406,6 +406,24 @@ def update_one(
         )
         finish_skill()
         return
+    installed_by = str(stamp.get("adapter") or "")
+    if installed_by and installed_by != context.runtime:
+        refusals.append(
+            f"{name}: {directory} was installed by the {installed_by} adapter, not "
+            f"{context.runtime}; --update brings an install up to date, it never "
+            "converts one between runtimes"
+        )
+        finish_skill()
+        return
+    if stamp.get("adapter_version") != context.adapter.get("version"):
+        # The trailer in every re-rendered body will name the new version; the
+        # ADAPTER.md it points at is delivered by an install, not by this.
+        notes.append(
+            f"{name}: stamp adapter_version {stamp.get('adapter_version')} but "
+            f"adapters/{context.runtime}/adapter.yaml is "
+            f"v{context.adapter.get('version')}; --update re-renders skills only, so "
+            "re-run the install to refresh the rendered ADAPTER.md they read"
+        )
     try:
         meta, body, _ = read_skill(name)
     except InstallError as exc:
@@ -473,6 +491,11 @@ def update_one(
         for rel in blocked:
             notes.append(f"{name}: {rel} {blocked[rel]}; --overwrite replaced it")
         blocked = {}
+    # Last, and after `--overwrite`: a link is never written through, whatever
+    # the flags say and whatever it points at.
+    for rel in [rel for rel in write if (directory / rel).is_symlink()]:
+        write.remove(rel)
+        blocked[rel] = "a symlink in the install; never written through"
     for note in notes:
         print(f"  note: {note}")
     for rel, reason in blocked.items():
