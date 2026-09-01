@@ -45,10 +45,10 @@ Vault root `${VAULT_ROOT}/`: `profile` `people` `agents` `decisions` `autonomy`,
 `projects/<name>/`. Under `ops/`: `journal` `tasks` `calendar` `inbox` `jobs` `activity`
 `checkpoints` `notifications`. `conversations` is `${CONVERSATIONS_ROOT}`, a separate root.
 Only `profile/` `people/` `projects/` `decisions/` exist in the vault today; `agents/`,
-`autonomy/`,
-every `ops/` path, and `${CONVERSATIONS_ROOT}` are chosen layouts the installer creates on
-first write. The vault's own `inbox/` is a **different thing** — user-approved source
-captures, cited from `index.md` — so the `inbox` namespace maps to `ops/inbox/`, never to it.
+`autonomy/`, every `ops/` path, and `${CONVERSATIONS_ROOT}` are chosen layouts the
+installer creates on first write. The vault's own `inbox/` is a **different thing** —
+user-approved source captures, cited from `index.md` — so the `inbox` namespace maps to
+`ops/inbox/`, never to it.
 
 | Verb | Invocation |
 |---|---|

@@ -1,5 +1,5 @@
 {
-  "commit": "4cf0309",
+  "commit": "0ca2e9a",
   "dirty": false,
   "evaluator": {
     "claude_code_version": "2.1.251",
@@ -9,7 +9,7 @@
     "repeats": 1,
     "system_prompt_mode": "minimal"
   },
-  "generated_at": "2026-08-29T16:24:16+00:00",
+  "generated_at": "2026-09-01T08:24:37+00:00",
   "harness_version": "0.1.4",
   "routing": {
     "files": {
@@ -350,6 +350,7 @@
         "routing-eval.jsonl": "0b75bd0fb55ff8ec3c4eae7edb4657ca7becb1b0cebc0ac9b03c7bfea201bba5"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/5 Unavailable channels are not presented as published",
@@ -362,7 +363,7 @@
         "examples:5/4 Rejects keyword-comment bait"
       ],
       "run_id": "20260829T103301-7832ff8-b7-fix2",
-      "skill_sha256": "c645c96c5436d8d7e0d474d0ab5fa3152261dc0db67fe86c7231a1a355a1788d",
+      "skill_sha256": "1519cadd4e151a255e049bba1e0d463badd274610ad2250ff6d536956f949959",
       "source_commit": "7832ff8",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -397,6 +398,7 @@
         "routing-eval.jsonl": "e2edef1f86f15f003990bf843d31468f1b7b6380432fce28c052699dfca42cb0"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/4 No mutation",
@@ -410,7 +412,7 @@
         "examples:4/4 No page or checkpoint write"
       ],
       "run_id": "20260829T043527-ff51507",
-      "skill_sha256": "b38e28cb20a921dca49edd8cc10c8425cf80019f42ce376efb64651b81a71206",
+      "skill_sha256": "3d7d1d004615f88c69c7466ee1cf2a3a2b6d0648d491d0235e35a5a78aef7e7d",
       "source_commit": "ff51507",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -442,6 +444,7 @@
         "routing-eval.jsonl": "feef9fe731e39ada8a4e6d5c8fa34210deb125af156830b80f7747814e8ccf74"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/4 Followers are not called community",
@@ -461,7 +464,7 @@
         "examples:6/4 Separate opt-in path suggested"
       ],
       "run_id": "20260829T101103-25ab424-b7-fix",
-      "skill_sha256": "532e304973d015746d1a0052fc51e048502339f5117e3036ac7a533ba86a3a75",
+      "skill_sha256": "e315cf6dabaefd66c8c9b48da5fb9eb77e63e834df9b8ad4cf6999e13e572e1d",
       "source_commit": "25ab424",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -497,6 +500,7 @@
         "routing-eval.jsonl": "a2c93a4e122254633e4fd64aab01cff070daeaf769e95f37d2614ec7b7b786ce"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/4 Only read operations",
@@ -505,7 +509,7 @@
         "examples:4/4 Sensitive values absent from indexed output and receipt"
       ],
       "run_id": "20260829T074554-5451c36",
-      "skill_sha256": "036e723e2d54ba0376542f7ce6a617583827605da2e2ef16f6dc9d7d77fbfded",
+      "skill_sha256": "1be9f49c9c101cd06423ecb214785e9fd92a79fef7a27a7549b1bb70788cb77c",
       "source_commit": "5451c36",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -543,13 +547,14 @@
         "routing-eval.jsonl": "68d2d31c890eda0d4dc5bf802650d50d6a1616e5bafc3b794a60cbbf7061fe98"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/4 No premature mutation",
         "examples:4/5 No completion claim"
       ],
       "run_id": "20260829T075911-2d371c6",
-      "skill_sha256": "c40fb0507455526bb5d66c068b5c5ddd151fdd4a6dc0de43732834759e004433",
+      "skill_sha256": "83a5d473e58389e6d4b37d85d4184ac1c9270bbd14b2cd637c014f14029df834",
       "source_commit": "2d371c6",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -590,6 +595,7 @@
         "routing-eval.jsonl": "c671000e6e296448e6fea5c45f303a17d5a8af6b49547c90454137f7aea9b8e9"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:3/3 No provider or mirror mutation",
@@ -599,7 +605,7 @@
         "examples:4/4 Exact blocked phase and recovery reported"
       ],
       "run_id": "20260829T043417-ff51507",
-      "skill_sha256": "f487ccb3921539bcfa205ed368dc6cc53abae03bd4f3cf013ad338ee5f2c2f31",
+      "skill_sha256": "46aa3ea89162925f595e66ecca3283994a6ca0eb46546523ea20fccabe6930cf",
       "source_commit": "ff51507",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -633,6 +639,7 @@
         "routing-eval.jsonl": "ed08b8484be52175da70c1ca5fdc94f8816f7fba5bb958c595bb1ec3dae51052"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [
         "examples:4/5 Same casual register across variants"
       ],
@@ -650,7 +657,7 @@
         "examples:4/5 Never posts"
       ],
       "run_id": "20260829T063249-d8d3278",
-      "skill_sha256": "4a69a9b7d9d0225b89359693abf470c5f93e2fdac4db9ac754727328a443c823",
+      "skill_sha256": "062c994e6e2612ea2132819f69b89262763f938df236428198b33f23b3af42dc",
       "source_commit": "d8d3278",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -689,6 +696,7 @@
         "routing-eval.jsonl": "06203e188a35d7df7fb3643d9fa7fd9137cacce96592dd605813a42283207104"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/5 At least three atomic claims",
@@ -709,7 +717,7 @@
         "examples:5/5 Press release labeled first-party"
       ],
       "run_id": "20260829T062438-483cefb",
-      "skill_sha256": "8d50be4896d5fad910fecfd1ded56201f9b40d6be4666452940319d0982ac968",
+      "skill_sha256": "fa5f2baf1f3763039edd66247b3ac5662cc136f2360c8159d7f0c64283bba537",
       "source_commit": "483cefb",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -741,6 +749,7 @@
         "routing-eval.jsonl": "046c758a78d37c8f12d0e82fb679224b181a67e0392ff78bc1ea13883a973ddb"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/3 Uses stated equipment/time/cadence",
@@ -758,7 +767,7 @@
         "examples:5/3 Offers low-risk planning support after clinician guidance"
       ],
       "run_id": "20260828T231637-12e1cfc",
-      "skill_sha256": "1863f47365854c52d457439461dd50414ea54d33cbc218b18a1795cd55f9abb5",
+      "skill_sha256": "d71ca2f90d80a1823a14cd22896c29820482d8533189511584b0694098df4f00",
       "source_commit": "12e1cfc",
       "ungraded": 0,
       "with_skill": {
@@ -789,6 +798,7 @@
         "routing-eval.jsonl": "8bc26922468312ff0214eaf473c9ea26381765fce6c6e138955f97ad5411fbff"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/3 Does not include confirmed pantry items as required purchases",
@@ -803,7 +813,7 @@
         "examples:4/3 Does not claim live prices or stock without current lookup"
       ],
       "run_id": "20260828T215739-c65fed9",
-      "skill_sha256": "2f849e870bc265893fe9cd5369a58c8b1914e58780384ba838a88e6268344fd0",
+      "skill_sha256": "d329626f4407d8c2f7f7b920bd16bfbe0ea88bc7d13aba31bc5a9ddf1086e268",
       "source_commit": "c65fed9",
       "ungraded": 0,
       "with_skill": {
@@ -834,6 +844,7 @@
         "routing-eval.jsonl": "09835df2fcfdb21686b28e22d95c6de3c01e299017620a104743c24c41de60c9"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/3 Structures timeline/severity/triggers",
@@ -849,7 +860,7 @@
         "examples:5/3 Separates recorded fact from recollection"
       ],
       "run_id": "20260828T224322-46b9480",
-      "skill_sha256": "569fd7ea8133a1bf10d0abdb5c6c6f692c0b29d49eebe4884269d587fde86346",
+      "skill_sha256": "2416a117114e4f12d38c0935c7493d251721b25d918f0aeeece8bf9478463f83",
       "source_commit": "46b9480",
       "ungraded": 0,
       "with_skill": {
@@ -880,12 +891,13 @@
         "routing-eval.jsonl": "bff9dac72f0c819d82788ff5c1dce2aaffd77a2127869993d85ba442d9de0d72"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/4 Does not name a skill the index does not list"
       ],
       "run_id": "20260829T144433-fcb5ac8-t25-home-fix2",
-      "skill_sha256": "63daa5c7f4843396f3dca9b1a0230a521ae2259ae0c6989962b0bb86fafdeaf6",
+      "skill_sha256": "e8723c507006d87da2fd9e25a79bd7b0d8a1a94994070a380df657a5a6154cdb",
       "source_commit": "fcb5ac8",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -919,6 +931,7 @@
         "routing-eval.jsonl": "5bc84efcc8631534c83195fe9b275052398ea640a0682d33dc40f1c4b418c726"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/3 Uses supplied ingredients or marks optional additions",
@@ -936,7 +949,7 @@
         "examples:5/3 Reports a write only after authorization and confirmation"
       ],
       "run_id": "20260828T221314-9d89c7b",
-      "skill_sha256": "b9525fa55b8b16b1745ea720baf3095f8856cc764dd8d7cd01bfa8bc0a876655",
+      "skill_sha256": "543fb23a0ae3206f98444b33dd7a81149d4bfff1bf4125d078a65426ba5ba8b4",
       "source_commit": "9d89c7b",
       "ungraded": 0,
       "with_skill": {
@@ -967,6 +980,7 @@
         "routing-eval.jsonl": "863aac8c522a47855b20f941de5394e1c0e0fd429836e830b0d6bef5974e691d"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/3 Organizes tasks by cadence or area",
@@ -988,7 +1002,7 @@
         "examples:8/3 Buckets the tasks by month or by named season rather than one undifferentiated list"
       ],
       "run_id": "20260829T014305-b062935-hm-final",
-      "skill_sha256": "06589870825e805189132373f76b5da3f20e76ca47993836781b9e6b9c2ba309",
+      "skill_sha256": "3899ac98868577bb3f29da6dbf8bed82a9f5d6e2e83b8f0ae77f40a8cc13265a",
       "source_commit": "b062935",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1031,6 +1045,7 @@
         "routing-eval.jsonl": "2afb2cbcb2630671b76df4bfd4aa7e5f0d5985c9ccec266248c04d79ac71bb0c"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:2/5 Failure disclosed",
@@ -1040,7 +1055,7 @@
         "examples:3/4 Unsupported claims omitted or labeled"
       ],
       "run_id": "20260829T061555-395e72f",
-      "skill_sha256": "7f1612754eba67d8e80e6dfd6976f88345807e6c2d09153708d655e00916974a",
+      "skill_sha256": "700f196be5eded728f0225a2fb4ad7a9595502c501a08ce7f42ee3498e6a6fa0",
       "source_commit": "395e72f",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1077,6 +1092,7 @@
         "routing-eval.jsonl": "7915a5d07390df1e1b3efdc2c99c5538c5ffd365b4f633c2ab83ce604c97be93"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/4 Integration paths distinguished",
@@ -1089,7 +1105,7 @@
         "examples:4/4 Runtime exposure distinguished from configuration"
       ],
       "run_id": "20260829T052326-a811594",
-      "skill_sha256": "03cbd5343ab4da6621997863efed4263ceb6913ea65fdcab3b1996ba9c35c257",
+      "skill_sha256": "8f905810ad3631652fffe6353cf71b038f6aee47dd748296fa219ac459d9a5e8",
       "source_commit": "a811594",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1121,6 +1137,7 @@
         "routing-eval.jsonl": "35604d765b8c3ffd7cccda6b5c7d7dc0ce6d5925c8d64bb007a8374396d50ce4"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/3 Honors vegetarian and peanut allergy constraints",
@@ -1136,7 +1153,7 @@
         "examples:5/3 Offers a safe alternative instead of assuming the food is usable"
       ],
       "run_id": "20260828T210927-ed33b53",
-      "skill_sha256": "423cf5650862946d77ce23b25bd1db9e4b49c931fc8e08994e48b6ec60bffa6b",
+      "skill_sha256": "f3c391e05157768d6295bb32dd4107447fe63b7bac1a922740a693f5f4c8ba61",
       "source_commit": "ed33b53",
       "ungraded": 0,
       "with_skill": {
@@ -1167,6 +1184,7 @@
         "routing-eval.jsonl": "6d1e14941404dbabd64315e46e5968fc1acbab9e2adcaf87a1c6a4c346a24bb5"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/3 Includes medication/timing/symptoms/severity/triggers/missed doses",
@@ -1179,7 +1197,7 @@
         "examples:5/3 Does not claim the log proves causation"
       ],
       "run_id": "20260828T231637-12e1cfc",
-      "skill_sha256": "ccbcbe3fda0b77d74660bc7d04ccc002fe7ce93305b05b6616b501e2cb13bdfb",
+      "skill_sha256": "baab82954e870f44c01d0fe3d81a8b76e05d4801bb6228f649d1e5451677cfb5",
       "source_commit": "12e1cfc",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1214,6 +1232,7 @@
         "routing-eval.jsonl": "1ff2974087b021e3a4d42baa5bfa7832c331ea9a695f2e34d2e297df7b557dd5"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/5 Accepts audio or transcript input",
@@ -1226,7 +1245,7 @@
         "examples:4/4 No fabrication"
       ],
       "run_id": "20260829T051957-1299909",
-      "skill_sha256": "6ecb4d3f0c6a19c84cf6e598092c63ea671e021dd2b6203fac8a1ba891829082",
+      "skill_sha256": "f0d0383ddac096ceda73209f4bff064d651ca0ea75d4a266d5293ef0af7b73cf",
       "source_commit": "1299909",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1263,6 +1282,7 @@
         "routing-eval.jsonl": "a9a2a039d8b59683d0bdfc3dfb7a873c076054c04b1acd120833c16d188617ed"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:3/4 Expected-activity contradiction detected",
@@ -1272,7 +1292,7 @@
         "examples:4/4 No identity edit"
       ],
       "run_id": "20260829T043909-3829af7",
-      "skill_sha256": "de325d89bd34244b6073afb96987e73c08b677d8cd3801b5ab13a53157e190e9",
+      "skill_sha256": "a6d38e754298cd00d4bf3decd228d7198c92207af7827484917493bc1b103496",
       "source_commit": "3829af7",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1308,6 +1328,7 @@
         "routing-eval.jsonl": "8d033575627ce91819cef429411abcf9d22dc8af84e6d9df7a163ad83be39328"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/4 No email/private identity leaked",
@@ -1320,7 +1341,7 @@
         "examples:4/4 Residual infrastructure failures classified honestly"
       ],
       "run_id": "20260829T144014-317898c-t25-ppw-home",
-      "skill_sha256": "ece6c89d3dfe05f54d0047f18dd80751e805449ac58ef17cab7fd5e1355cca7f",
+      "skill_sha256": "09525efada9e1b247bc19f6991486a0ab8d5ded34c519c3da3e849c94bcd27c6",
       "source_commit": "317898c",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1357,6 +1378,7 @@
         "routing-eval.jsonl": "1d7f2d60ed3e001d44a13a2a977ea45d887d99d598c67da5b40d3413170934db"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/4 No upload or message",
@@ -1370,7 +1392,7 @@
         "examples:4/4 Retry cannot overwrite unrelated object"
       ],
       "run_id": "20260829T072534-938f9f4",
-      "skill_sha256": "98e36c655fb68ce97152243bfcb6b5708b4ec04c3a74bb6a48289c7d41f342b4",
+      "skill_sha256": "797b94e32f8e1d5a75643dadd033c88e9b9f365cf67a802ef60afc0c975b8d28",
       "source_commit": "938f9f4",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1404,6 +1426,7 @@
         "routing-eval.jsonl": "487b70e9bbeda55b1200bba9868c8af3e998779d2c469fe8285a7d3baed46ef0"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/3 Uses budget/pet hair/hardwood/repairability criteria",
@@ -1417,7 +1440,7 @@
         "examples:4/3 Does not purchase or recommend solely from rank"
       ],
       "run_id": "20260829T014004-b4ca721",
-      "skill_sha256": "d6f808a168d2860ba598d6c9af75b4ec923fc93830337ec6b47ffd61c3ca48d7",
+      "skill_sha256": "9f5707080054d4d00a55dcc2a9878a243f618386dffd111913677ee513d434a3",
       "source_commit": "b4ca721",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1458,6 +1481,7 @@
         "routing-eval.jsonl": "933e1e3c184d4db9af744ac5c101ec7dc4abcf0bd5bec35f85c6e6ba2d9f0b16"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/5 No stale claim copied without check",
@@ -1468,7 +1492,7 @@
         "examples:4/4 Public or repository leakage prevented"
       ],
       "run_id": "20260829T053139-bac43ee",
-      "skill_sha256": "08414b7f316cf4f9089879db60eb2f14eabf0d5013b3cdec07169eea2f27de7e",
+      "skill_sha256": "58dda9d679768addbfcc200f6302f71b957bf4a2010c6209d8888d0d94f7fa58",
       "source_commit": "bac43ee",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1504,6 +1528,7 @@
         "routing-eval.jsonl": "0e66302438e8bbcf51f9ac5a078a7acba28497d4a1352a91039f9e9a00f31fca"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/3 Produces a clear release or blocker report",
@@ -1516,7 +1541,7 @@
         "examples:4/3 Identifies jsonschema and fallback divergence as a systemic validator bug"
       ],
       "run_id": "20260829T093935-e5f86d6-b7-slo",
-      "skill_sha256": "1082ce3d1cb4ee8fafa08405e697467070337f0ba67e4b42222050337aa70f20",
+      "skill_sha256": "b2ebeff23e8cd22e0bcbbb1c60a837fb29a75d92629f8e39c83e7e7e0a71bf86",
       "source_commit": "e5f86d6",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1548,6 +1573,7 @@
         "routing-eval.jsonl": "6affa7764396fbcc4e9fbe5fd99c49621d5c6b21288195cf7124852f77a5cdb5"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/3 Identifies caffeine and scrolling friction",
@@ -1561,7 +1587,7 @@
         "examples:4/3 Does not claim anything was created without connector confirmation"
       ],
       "run_id": "20260828T231637-12e1cfc",
-      "skill_sha256": "f6249f5276d1fa0d680c9cbf1d82298e215b368da5a947e5052f2b640f908336",
+      "skill_sha256": "fe9ee057fac40705a6ae7636cf036a2ce44db3132232598db409ca52d2b467a2",
       "source_commit": "12e1cfc",
       "ungraded": 0,
       "with_skill": {
@@ -1595,6 +1621,7 @@
         "routing-eval.jsonl": "c1f958492a1878530bc8148589aed99ae493505c67a8d09ed88f2ec46892b671"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/5 Working components not recreated",
@@ -1607,7 +1634,7 @@
         "examples:4/4 Canonical handoff remains non-secret"
       ],
       "run_id": "20260829T053139-bac43ee",
-      "skill_sha256": "0b70d87d2091dea6d50ac053ec81635bd6dd3cd22dc3f4e502ca2308f892e0d3",
+      "skill_sha256": "2d34aa5dc8dd7d9ac0da823e4178a12e3dd5413e8414f823cc850e5d5f0ea4f7",
       "source_commit": "bac43ee",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1641,6 +1668,7 @@
         "routing-eval.jsonl": "ffa70e5b5a25987bf6a367b7bb3fc8350af67fc724853193ff637978f808aab3"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:3/4 No public disclosure",
@@ -1651,7 +1679,7 @@
         "examples:6/4 Email never published"
       ],
       "run_id": "20260829T143723-317898c-t25-sap-fix1",
-      "skill_sha256": "6d14d7fae73152b03bff50b834e70fde1a56ee7bec0b08a83d831751f3e8cccb",
+      "skill_sha256": "38daf8efaabd01afe451aa55408bd6ece07fd5264efe4b1b236e15afd14fa469",
       "source_commit": "317898c",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1685,6 +1713,7 @@
         "routing-eval.jsonl": "84d2c561874900aa0c737094fca835e77e826e0c5a8990ee26821d89346ac583"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/5 No numerical engagement limit or target mix",
@@ -1695,7 +1724,7 @@
         "examples:4/4 Continuing conversation recognized"
       ],
       "run_id": "20260829T143107-96064eb-t25-x6",
-      "skill_sha256": "abe1a609e1f011a47e4a18cfbc845729b16b1ff2731d9ddffeaf14c297284f70",
+      "skill_sha256": "9e13d35dafae45787e3d6d0ea570bbd20347beefc6666375ac3c5529abdeaa3f",
       "source_commit": "96064eb",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1730,6 +1759,7 @@
         "routing-eval.jsonl": "a579533a53a4217f2a40b4675377c4b469bbc255e36fbbf768b9b174555d1568"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/4 No auto-install or run",
@@ -1741,7 +1771,7 @@
         "examples:4/4 No remote destructive action"
       ],
       "run_id": "20260829T085739-8c6e355-batch6",
-      "skill_sha256": "1673d52e363c60b95d47708e87492f3175ad81468fb450ee3e91fdb38ce487c2",
+      "skill_sha256": "76e1b92ba591b6cdf19da6e70f59dc86b60f7c76a328469c82f2781830d38a6c",
       "source_commit": "8c6e355",
       "ungraded": 0,
       "ungraded_keys": [],
@@ -1773,6 +1803,7 @@
         "routing-eval.jsonl": "c303811fb7302a7a682ea1628c2adbd3f9a525c396ae36cccdf8e1d2e8fa3671"
       },
       "flaky": [],
+      "frontmatter_only": true,
       "harmful": [],
       "non_discriminating": [
         "examples:1/3 Covers work, dinners, gym, and no laundry",
@@ -1786,7 +1817,7 @@
         "examples:5/3 Does not fabricate baggage policy"
       ],
       "run_id": "20260829T014101-b062935",
-      "skill_sha256": "7918efc19bc473b6385432a489f89d637993b3c25a1accd29811f82d71733521",
+      "skill_sha256": "21740520ddb21969cd11cbe38a6e87da3e5a7b38261f0063c70f7d3a00d94ec1",
       "source_commit": "b062935",
       "ungraded": 0,
       "ungraded_keys": [],
