@@ -28,8 +28,10 @@ test:
 # tree: zero runtime-specific hits, every backticked vocabulary term resolved,
 # and metadata.openclaw.requires.* consistent with each Dependencies line. The
 # installer's own exit code is not fatal here -- it is 1 whenever it refuses a
-# skill (an UNCONFIRMED adapter term), which is the tool reporting correctly,
-# not a staging failure; check_staging.py is what decides this target's exit.
+# skill (an UNCONFIRMED adapter term) and whenever the render leaves a ${NAME}
+# literal, which a staging render does on purpose: ${DEPLOY_REPO} and the rest
+# belong to the deploy tree, not to this machine. Both are the tool reporting
+# correctly, not a staging failure; check_staging.py decides this target's exit.
 stage-openclaw:
 	-python3 tools/install_skill.py --runtime openclaw --all --dest dist/openclaw/workspace/skills
 	python3 tools/check_staging.py --runtime openclaw --dest dist/openclaw/workspace
