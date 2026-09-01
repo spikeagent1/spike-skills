@@ -28,6 +28,16 @@ from .frontmatter import (
 DATASTORE_CONTRACT = "contracts/datastore.yaml"
 
 
+# The rendered half of the same contract: the `## Namespaces` table's Authority
+# column states in prose what `authority.writers` states as data.
+DATASTORE_VIEW = "contracts/datastore.md"
+
+
+# `authority.writers` is either a list of skill names or this sentinel followed
+# by the effect whose holders are the authority.
+HOLDERS_OF = "holders-of:"
+
+
 # The two namespaces contracts/datastore.yaml binds to an effect rather than to a
 # skill's own subject matter.
 EFFECTS_LEDGER_NS = "effects"
@@ -618,6 +628,153 @@ def validate_effect_ledgers(
             f"writes_to does not name {NOTIFICATIONS_NS!r}, the namespace "
             f"{DATASTORE_CONTRACT} gives its holders",
         )
+
+
+def namespace_authority(datastore: dict[str, Any]) -> dict[str, Any]:
+    """Namespace name -> its declared `authority.writers` value, unvalidated.
+
+    A list of skill names, the `holders-of:<effect>` sentinel, or None when the
+    namespace declares neither -- `validate_namespace_authority` is what reports
+    the last case.
+    """
+    declared: dict[str, Any] = {}
+    for entry in datastore.get("namespaces") or []:
+        name = str(entry.get("name") or "")
+        if not name:
+            continue
+        authority = entry.get("authority")
+        declared[name] = (
+            authority.get("writers") if isinstance(authority, dict) else None
+        )
+    return declared
+
+
+def authority_summary(authority: Any) -> str:
+    """One namespace's `authority.writers` as a line a reader can read.
+
+    The generated index prints this; the structured value is what rules read.
+    """
+    writers = authority.get("writers") if isinstance(authority, dict) else authority
+    if isinstance(writers, str) and writers.startswith(HOLDERS_OF):
+        return f"holders of {writers[len(HOLDERS_OF):]}"
+    if isinstance(writers, list):
+        return ", ".join(str(item) for item in writers) if writers else "none yet"
+    return str(writers or "")
+
+
+def validate_namespace_authority(
+    datastore: dict[str, Any],
+    declarations: dict[str, dict[str, list[str]]],
+    errors: list[str],
+) -> None:
+    """`writes_to` against the namespace's authority, and the authority back.
+
+    Both directions, because either alone drifts: a skill can declare a write
+    the contract never authorized, and the contract can name an authority that
+    no longer declares the namespace -- which is how the `agents/` row came to
+    name a set that had been wrong for three releases.
+    """
+    for name, writers in sorted(namespace_authority(datastore).items()):
+        if isinstance(writers, str):
+            if not writers.startswith(HOLDERS_OF):
+                add_error(
+                    errors,
+                    f"{DATASTORE_CONTRACT}: namespace {name!r} has authority.writers "
+                    f"{writers!r}; expected a list of skills or "
+                    f"{HOLDERS_OF}<effect>",
+                )
+                continue
+            effect = writers[len(HOLDERS_OF) :]
+            for skill in sorted(declarations):
+                block = declarations[skill]
+                if name in block["writes_to"] and effect not in block["effects"]:
+                    add_error(
+                        errors,
+                        f"skills/{skill}/SKILL.md: metadata.{METADATA_NS}.writes_to "
+                        f"names {name!r}, whose {DATASTORE_CONTRACT} authority is "
+                        f"every holder of {effect!r}, which "
+                        f"metadata.{METADATA_NS}.effects does not declare",
+                    )
+            continue
+
+        if not isinstance(writers, list):
+            add_error(
+                errors,
+                f"{DATASTORE_CONTRACT}: namespace {name!r} declares no "
+                f"authority.writers list or {HOLDERS_OF}<effect> sentinel",
+            )
+            continue
+
+        named = [str(item) for item in writers]
+        for writer in named:
+            if writer not in declarations:
+                add_error(
+                    errors,
+                    f"{DATASTORE_CONTRACT}: namespace {name!r} names authority "
+                    f"{writer!r}, which is not a skill in this library",
+                )
+            elif name not in declarations[writer]["writes_to"]:
+                add_error(
+                    errors,
+                    f"{DATASTORE_CONTRACT}: namespace {name!r} names authority "
+                    f"{writer!r}, whose metadata.{METADATA_NS}.writes_to does not "
+                    f"name it",
+                )
+        for skill in sorted(declarations):
+            if name in declarations[skill]["writes_to"] and skill not in named:
+                add_error(
+                    errors,
+                    f"skills/{skill}/SKILL.md: metadata.{METADATA_NS}.writes_to "
+                    f"names {name!r}, whose {DATASTORE_CONTRACT} authority is "
+                    f"{', '.join(named) if named else 'no skill yet'}",
+                )
+
+
+def authority_cells(text: str) -> dict[str, str]:
+    """Namespace name -> the Authority cell of its `## Namespaces` table row."""
+    cells: dict[str, str] = {}
+    column: int | None = None
+    for line in text.splitlines():
+        if not line.startswith("|"):
+            continue
+        row = [part.strip() for part in line.strip().strip("|").split("|")]
+        if column is None:
+            if "Authority" in row:
+                column = row.index("Authority")
+            continue
+        if len(row) <= column or set(row[0]) <= set("- "):
+            continue
+        name = row[0].strip("`").rstrip("/")
+        if name:
+            cells[name] = row[column]
+    return cells
+
+
+def validate_authority_view(datastore: dict[str, Any], errors: list[str]) -> None:
+    """Every writer the YAML names is named in the rendered `.md` row too."""
+    path = context.ROOT / DATASTORE_VIEW
+    if not path.is_file():
+        add_error(errors, f"{DATASTORE_VIEW}: missing rendered view of the namespaces")
+        return
+    cells = authority_cells(path.read_text(encoding="utf-8"))
+    for name, writers in sorted(namespace_authority(datastore).items()):
+        cell = cells.get(name)
+        if cell is None:
+            add_error(errors, f"{DATASTORE_VIEW}: no namespace row for {name!r}")
+            continue
+        if isinstance(writers, str) and writers.startswith(HOLDERS_OF):
+            expected = [writers[len(HOLDERS_OF) :]]
+        elif isinstance(writers, list):
+            expected = [str(item) for item in writers]
+        else:
+            continue  # validate_namespace_authority reports the malformed value.
+        for token in expected:
+            if token not in cell:
+                add_error(
+                    errors,
+                    f"{DATASTORE_VIEW}: the {name!r} Authority cell does not name "
+                    f"{token!r}, which {DATASTORE_CONTRACT} gives it: {cell!r}",
+                )
 
 
 def validate_effects(

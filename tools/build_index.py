@@ -161,7 +161,7 @@ def collect_index_data() -> dict[str, Any]:
             "name": str(entry.get("name", "")),
             "status": str(entry.get("status", "")),
             "system_of_record": str(entry.get("system_of_record", "")),
-            "authority": str(entry.get("authority", "")),
+            "authority": validate_repo.authority_summary(entry.get("authority")),
         }
         for entry in (datastore.get("namespaces") or [])
         if entry.get("status") == "reserved"

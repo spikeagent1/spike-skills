@@ -3682,11 +3682,21 @@ class EndToEndRunTest(unittest.TestCase):
         repo = Path(__file__).resolve().parents[1]
         for rel in [
             *sorted(path.relative_to(repo).as_posix() for path in repo.glob("contracts/*.yaml")),
+            # The rendered view of the datastore's authority axis; the validator
+            # holds it and the YAML to each other.
+            "contracts/datastore.md",
             "adapters/vocabulary.yaml",
             "adapters/adapter.schema.json",
             *sorted(path.relative_to(repo).as_posix() for path in repo.glob("adapters/*/adapter.yaml")),
         ]:
-            self._write(rel, (repo / rel).read_text(encoding="utf-8"))
+            text = (repo / rel).read_text(encoding="utf-8")
+            if rel == "contracts/datastore.yaml":
+                # This fixture library holds one skill, so no real skill can be
+                # a named authority in it; the `holders-of:` sentinels stay.
+                text = re.sub(
+                    r"^      writers: \[[^\]]*\]$", "      writers: []", text, flags=re.M
+                )
+            self._write(rel, text)
         self._write(
             "contracts/skill-contract.md",
             "# Skill contract v1\n<!-- contract-version: 1 -->\n\n"

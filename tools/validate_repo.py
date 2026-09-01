@@ -55,20 +55,22 @@ from tools.validators.catalog import (
     validate_provenance_artifacts, validate_source_catalog
 )
 from tools.validators.contracts import (
-    ADAPTERS_DIR, ADAPTER_REQUIRED_KEYS, ADAPTER_SCHEMA, BACKTICKED_RE, CAPABILITIES_CONTRACT,
-    CAPABILITY_HINTS, CAPABILITY_HINT_RULES, CLAUSE_NEGATION_RE, CLAUSE_SPLIT_RE, Contracts,
-    EM_DASH, NEGATION_CLAUSE_SPLIT_RE, PAIRED_EM_DASH_RE, PROTECTED_DASH, REJECTED_CLAUSE_RE,
-    split_negation_clauses,
-    DATASTORE_CONTRACT, EFFECTS_LEDGER_NS, EFFECT_NEGATION_RE, NAMESPACE_BOUNDARY,
-    BACKTICKED_SPAN_RE, EFFECT_VERBS, QUOTED_SPAN_RE, scannable_text, NOTIFICATIONS_NS, NOTIFY_EFFECT, PROTECTED_DOT, PROTECTED_SPAN_RE,
+    ADAPTERS_DIR, ADAPTER_REQUIRED_KEYS, ADAPTER_SCHEMA, BACKTICKED_RE, BACKTICKED_SPAN_RE,
+    CAPABILITIES_CONTRACT, CAPABILITY_HINTS, CAPABILITY_HINT_RULES, CLAUSE_NEGATION_RE,
+    CLAUSE_SPLIT_RE, Contracts, DATASTORE_CONTRACT, DATASTORE_VIEW, EFFECTS_LEDGER_NS,
+    EFFECT_NEGATION_RE, EFFECT_VERBS, EM_DASH, HOLDERS_OF, NAMESPACE_BOUNDARY,
+    NEGATION_CLAUSE_SPLIT_RE, NOTIFICATIONS_NS, NOTIFY_EFFECT, PAIRED_EM_DASH_RE,
+    PROTECTED_DASH, PROTECTED_DOT, PROTECTED_SPAN_RE, QUOTED_SPAN_RE, REJECTED_CLAUSE_RE,
     RUNTIME_SPECIFIC_EXCLUSIONS, RUNTIME_SPECIFIC_RE, RUNTIME_SPECIFIC_TOKENS,
     SENTENCE_SPLIT_RE, SKILL_NAME_RE, VOCABULARY_CONTRACT, Vocabulary, _is_delegation,
-    _load_contract, capability_entries, contracts_check_module, declared_effects,
-    delegated_effects, derived_hints, effect_enum, load_adapters, load_capabilities,
-    load_contracts, load_datastore_contract, load_vocabulary, namespace_statuses,
-    personal_value_hits, runtime_specific_hits, split_sentences, validate_adapter_files,
-    validate_effect_ledgers,
-    validate_effects, validate_namespaces, validate_runtime_binding, vocabulary_view
+    _load_contract, authority_cells, authority_summary, capability_entries,
+    contracts_check_module, declared_effects, delegated_effects, derived_hints, effect_enum,
+    load_adapters, load_capabilities, load_contracts, load_datastore_contract,
+    load_vocabulary, namespace_authority, namespace_statuses, personal_value_hits,
+    runtime_specific_hits, scannable_text, split_negation_clauses, split_sentences,
+    validate_adapter_files, validate_authority_view, validate_effect_ledgers,
+    validate_effects, validate_namespace_authority, validate_namespaces,
+    validate_runtime_binding, vocabulary_view
 )
 from tools.validators.evals import (
     NON_INFORMATIVE_ASSERTIONS, ROUTING_OPTIONAL_KEYS, ROUTING_REQUIRED_KEYS, eval_case_count,
@@ -132,8 +134,12 @@ def validate_skill(
     sources: dict[str, dict[str, str]] | None = None,
     skill_names: set[str] | None = None,
     contracts: Contracts | None = None,
-) -> tuple[str, dict[str, str]]:
-    """Validate one skill; returns its contract version and its section bodies.
+) -> tuple[str, dict[str, str], dict[str, list[str]]]:
+    """Validate one skill; returns its contract version, section bodies, and declarations.
+
+    The declarations are the `writes_to` and `effects` lists this run already
+    parsed, handed back so the namespace-authority rule can score every skill
+    against the contract without re-reading a single SKILL.md.
 
     `contract_version` comes from catalog/approved.yaml and defaults to the only
     version the validator knows. It stays a field so a future contract bump has
@@ -147,15 +153,21 @@ def validate_skill(
     validate_skill_config(skill_dir, errors)
 
     skill_md = skill_dir / "SKILL.md"
+    no_declarations: dict[str, list[str]] = {"writes_to": [], "effects": []}
     if not skill_md.exists():
         add_error(errors, f"{rel}: missing SKILL.md")
-        return SUPPORTED_CONTRACT_VERSION, {}
+        return SUPPORTED_CONTRACT_VERSION, {}, no_declarations
 
     text = skill_md.read_text(encoding="utf-8")
     meta = parse_frontmatter(text)
     if meta is None:
         add_error(errors, f"{rel}/SKILL.md: missing or invalid frontmatter")
-        return SUPPORTED_CONTRACT_VERSION, {}
+        return SUPPORTED_CONTRACT_VERSION, {}, no_declarations
+
+    declarations = {
+        "writes_to": _declared_list(spike_os_block(meta).get("writes_to")),
+        "effects": _declared_list(spike_os_block(meta).get("effects")),
+    }
 
     entry = inventory.get(skill_dir.name)
     contract_version = (
@@ -261,7 +273,7 @@ def validate_skill(
             )
     for path in files:
         validate_eval_file(skill_dir.name, path, schema, errors, skill_names)
-    return contract_version, section_bodies
+    return contract_version, section_bodies, declarations
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -288,8 +300,9 @@ def main(argv: list[str] | None = None) -> int:
     skill_names = {path.name for path in skill_dirs}
 
     canonical_bodies: dict[str, dict[str, str]] = {}
+    declarations: dict[str, dict[str, list[str]]] = {}
     for skill_dir in skill_dirs:
-        _contract_version, section_bodies = validate_skill(
+        _contract_version, section_bodies, declared = validate_skill(
             skill_dir,
             inventory,
             released,
@@ -301,6 +314,7 @@ def main(argv: list[str] | None = None) -> int:
             contracts,
         )
         canonical_bodies[skill_dir.name] = section_bodies
+        declarations[skill_dir.name] = declared
 
     for name in sorted(set(inventory) - skill_names):
         add_error(errors, f"catalog/approved.yaml: {name} has no skills/{name} directory")
@@ -315,6 +329,9 @@ def main(argv: list[str] | None = None) -> int:
     validate_cross_file_duplicates(canonical_bodies, errors)
     validate_cohort_parity(inventory, cohorts, errors)
     validate_cluster_routing(clusters, canonical_bodies, errors)
+    if contracts.datastore:
+        validate_namespace_authority(contracts.datastore, declarations, errors)
+        validate_authority_view(contracts.datastore, errors)
     validate_adapter_files(contracts, errors)
     validate_listing_budget(inventory, errors, context.warnings)
     validate_catalog_index(errors)

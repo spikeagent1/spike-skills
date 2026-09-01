@@ -25,6 +25,9 @@ CONTRACT_SOURCES = tuple(
         path.relative_to(REPO).as_posix()
         for path in [
             *REPO.glob("contracts/*.yaml"),
+            # The rendered view of the datastore's authority axis; the validator
+            # holds the two files to each other.
+            REPO / "contracts/datastore.md",
             REPO / "adapters/vocabulary.yaml",
             REPO / "adapters/adapter.schema.json",
             *REPO.glob("adapters/*/adapter.yaml"),
@@ -87,9 +90,55 @@ class ValidateRepoTest(unittest.TestCase):
         self._write_json(f"skills/{name}/examples/evals.json", self._evals(name))
 
     def _copy_contracts(self) -> None:
-        """Copy the committed contracts/ and adapters/ files into the fixture repo."""
+        """Copy the committed contracts/ and adapters/ files into the fixture repo.
+
+        `datastore.yaml`'s explicit `authority.writers` lists name real skills,
+        and this fixture library holds two of its own, so every list is emptied
+        on the way in; a case that needs a named authority calls `_authorize`.
+        The `holders-of:` sentinels are library-independent and stay.
+        """
         for rel in CONTRACT_SOURCES:
-            self._write(rel, (REPO / rel).read_text(encoding="utf-8"))
+            text = (REPO / rel).read_text(encoding="utf-8")
+            if rel == "contracts/datastore.yaml":
+                text = re.sub(
+                    r"^      writers: \[[^\]]*\]$", "      writers: []", text, flags=re.M
+                )
+            self._write(rel, text)
+
+    def _authorize(self, namespace: str, *skills: str) -> None:
+        """Name `skills` the fixture contract's writers for `namespace`, in both halves."""
+        contract = self.root / "contracts" / "datastore.yaml"
+        marker = f"  - name: {namespace}\n"
+        head, found, tail = contract.read_text(encoding="utf-8").partition(marker)
+        self.assertTrue(found, f"no {namespace!r} namespace in the fixture contract")
+        contract.write_text(
+            head
+            + found
+            + tail.replace(
+                "      writers: []\n", f"      writers: [{', '.join(skills)}]\n", 1
+            ),
+            encoding="utf-8",
+        )
+
+        view = self.root / "contracts" / "datastore.md"
+        lines = view.read_text(encoding="utf-8").splitlines(keepends=True)
+        column = None
+        for index, line in enumerate(lines):
+            if not line.startswith("|"):
+                continue
+            cells = [part.strip() for part in line.strip().strip("|").split("|")]
+            if column is None:
+                if "Authority" in cells:
+                    column = cells.index("Authority")
+                continue
+            if cells[0].strip("`").rstrip("/") != namespace:
+                continue
+            cells[column] = ", ".join(f"`{name}`" for name in skills) or "none yet"
+            lines[index] = "| " + " | ".join(cells) + " |\n"
+            break
+        else:  # pragma: no cover - a missing row is a fixture bug
+            self.fail(f"no {namespace!r} row in the fixture datastore.md")
+        view.write_text("".join(lines), encoding="utf-8")
 
     def _write_base_repo(self) -> None:
         self._write(".gitignore", "evals/workspaces/\n.env\n*.skill\n")
@@ -1760,6 +1809,7 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertIn("writes_to names unknown namespace 'ghost'", output)
 
     def test_writes_to_requires_datastore_write_effect(self) -> None:
+        self._authorize("decisions", "approved-skill")
         self._promote_to_v2(
             "approved-skill",
             "pending-skill",
@@ -2201,6 +2251,7 @@ class ValidateRepoTest(unittest.TestCase):
     def test_a_datastore_write_about_a_connector_is_not_a_provider_write(self) -> None:
         # The real library writes connector state into a namespace; that is a
         # datastore write, and the provider row must not claim it.
+        self._authorize("agents", "approved-skill")
         code, output = self._scan_workflow(
             "Write the connector state into the `agents` namespace with a readback.",
             reads_from="[agents]",
@@ -2208,6 +2259,75 @@ class ValidateRepoTest(unittest.TestCase):
             effects="[datastore:read, datastore:write]",
         )
         self.assertEqual(code, 0, output)
+
+    # --- namespace authority, both ways (issue #6) ----------------------------
+
+    def test_a_skill_the_namespace_does_not_authorize_fails(self) -> None:
+        code, output = self._scan_workflow(
+            "Emit the approved skill fixture verdict twice.",
+            writes_to="[conversations, effects]",
+            effects="[datastore:read, datastore:write]",
+        )
+        self.assertEqual(code, 1)
+        self.assertIn("writes_to names 'conversations'", output)
+        self.assertIn("no skill yet", output)
+
+    def test_a_skill_the_namespace_names_passes(self) -> None:
+        self._authorize("conversations", "approved-skill")
+        code, output = self._scan_workflow(
+            "Emit the approved skill fixture verdict twice.",
+            writes_to="[conversations, effects]",
+            effects="[datastore:read, datastore:write]",
+        )
+        self.assertEqual(code, 0, output)
+
+    def test_a_named_authority_that_does_not_declare_the_namespace_fails(self) -> None:
+        self._authorize("conversations", "approved-skill")
+        code, output = self._scan_workflow("Emit the approved skill fixture verdict twice.")
+        self.assertEqual(code, 1)
+        self.assertIn("names authority 'approved-skill'", output)
+        self.assertIn("writes_to does not name it", output)
+
+    def test_a_named_authority_that_is_not_a_skill_fails(self) -> None:
+        self._authorize("jobs", "no-such-skill")
+        code, output = self._scan_workflow("Emit the approved skill fixture verdict twice.")
+        self.assertEqual(code, 1)
+        self.assertIn("names authority 'no-such-skill'", output)
+        self.assertIn("not a skill in this library", output)
+
+    def test_a_holders_of_namespace_passes_for_a_holder(self) -> None:
+        # `projects` authorizes every holder of datastore:write, so a declared
+        # writer that holds the effect needs no name in the contract.
+        code, output = self._scan_workflow(
+            "Emit the approved skill fixture verdict twice.",
+            writes_to="[projects, effects]",
+            effects="[datastore:read, datastore:write]",
+        )
+        self.assertEqual(code, 0, output)
+
+    def test_a_holders_of_namespace_fails_without_the_effect(self) -> None:
+        # `checkpoints` authorizes holders of checkpoint:advance; the fixture
+        # declares the namespace without the effect.
+        code, output = self._scan_workflow(
+            "Emit the approved skill fixture verdict twice.",
+            writes_to="[checkpoints, effects]",
+            effects="[datastore:read, datastore:write]",
+        )
+        self.assertEqual(code, 1)
+        self.assertIn("every holder of 'checkpoint:advance'", output)
+
+    def test_the_rendered_view_must_name_the_authority(self) -> None:
+        view = self.root / "contracts" / "datastore.md"
+        view.write_text(
+            view.read_text(encoding="utf-8").replace(
+                "| holders of `checkpoint:advance` |", "| the cursor-advancing skills |", 1
+            ),
+            encoding="utf-8",
+        )
+        code, output = self._scan_workflow("Emit the approved skill fixture verdict twice.")
+        self.assertEqual(code, 1)
+        self.assertIn("contracts/datastore.md", output)
+        self.assertIn("checkpoint:advance", output)
 
     def test_a_mutating_effect_requires_the_effects_namespace(self) -> None:
         # Task 25 item 14: every mutating skill appends to the side-effect ledger.

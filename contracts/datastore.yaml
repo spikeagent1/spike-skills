@@ -53,7 +53,8 @@ namespaces:
     status: active
     system_of_record: datastore
     kinds: [owner-fact, preference, boundary, authority-rule, correction]
-    authority: consolidation and owner-context-onboarding
+    authority:
+      writers: [owner-dream-cycle, owner-context-onboarding]
     scope: owner-private
     mutability: supersede-only
     provenance: owner turns
@@ -63,7 +64,8 @@ namespaces:
     status: active
     system_of_record: datastore
     kinds: [person, relationship-context, voice-profile, contact-card]
-    authority: consolidation; draft-in-voice for voice-profile
+    authority:
+      writers: [draft-in-voice]
     scope: one slug per human or org
     mutability: supersede-only
     provenance: owner-stated or agent-inference
@@ -79,7 +81,8 @@ namespaces:
     status: active
     system_of_record: datastore
     kinds: [agent-identity, account-state, roster-entry, connector-state]
-    authority: "holders of datastore:write on agents: mcp-connector-onboarding, runtime-handoff-onboarding, social-agent-onboarding, social-agent-practice, team-skill-sharing-norm"
+    authority:
+      writers: [mcp-connector-onboarding, runtime-handoff-onboarding, social-agent-onboarding, social-agent-practice, team-skill-sharing-norm]
     scope: the agent and its accounts
     mutability: explicit state transitions
     provenance: verified probes
@@ -89,7 +92,8 @@ namespaces:
     status: active
     system_of_record: datastore
     kinds: [brief, status, handoff]
-    authority: any skill holding datastore:write
+    authority:
+      writers: holders-of:datastore:write
     scope: one page per project slug
     mutability: append status, supersede brief
     provenance: session handoffs
@@ -99,7 +103,8 @@ namespaces:
     status: active
     system_of_record: datastore
     kinds: [decision, commitment]
-    authority: consolidation only
+    authority:
+      writers: [owner-dream-cycle]
     scope: dated owner choices
     mutability: supersede-only
     provenance: corpus span and local date
@@ -109,7 +114,8 @@ namespaces:
     status: active
     system_of_record: datastore
     kinds: [dream-report, candidate-ledger, reflection-cycle, run-report, health-log]
-    authority: any session kind
+    authority:
+      writers: holders-of:datastore:write
     scope: dated run artifacts
     mutability: append-only per run key
     provenance: run identity
@@ -120,7 +126,8 @@ namespaces:
     system_of_record: datastore
     separate_root: true
     kinds: [transcript, manifest]
-    authority: conversation-archive only
+    authority:
+      writers: [conversation-archive]
     scope: imported external transcripts
     mutability: create-only; quarantine on hash change
     provenance: untrusted origin, always
@@ -130,7 +137,8 @@ namespaces:
     status: active
     system_of_record: provider
     kinds: [task, id-map]
-    authority: daily-task-manager
+    authority:
+      writers: [daily-task-manager]
     scope: owner tasks mirrored from the task provider
     mutability: provider-led, mirror follows
     provenance: provider readback
@@ -146,7 +154,8 @@ namespaces:
     status: reserved
     system_of_record: provider
     kinds: [event, id-map]
-    authority: none yet
+    authority:
+      writers: []
     scope: owner events
     mutability: read-only until a conduit exists
     provenance: provider readback
@@ -162,7 +171,8 @@ namespaces:
     status: reserved
     system_of_record: provider
     kinds: [thread, message-ref, id-map]
-    authority: none yet
+    authority:
+      writers: []
     scope: refs and triage state, never bodies
     mutability: read-only until a conduit exists
     provenance: provider readback
@@ -178,7 +188,8 @@ namespaces:
     status: active
     system_of_record: scheduler
     kinds: [job-spec, occurrence]
-    authority: cron-scheduler
+    authority:
+      writers: [cron-scheduler]
     scope: scheduled work the owner can see
     mutability: update by stable job key
     provenance: scheduler readback
@@ -188,7 +199,8 @@ namespaces:
     status: active
     system_of_record: datastore
     kinds: [effect]
-    authority: every mutating skill appends
+    authority:
+      writers: holders-of:datastore:write
     scope: side-effect ledger
     mutability: append-only
     provenance: operation key and readback
@@ -198,7 +210,8 @@ namespaces:
     status: active
     system_of_record: datastore
     kinds: [cursor]
-    authority: holders of checkpoint:advance
+    authority:
+      writers: holders-of:checkpoint:advance
     scope: one cursor per skill and channel
     mutability: advance only after terminal verification
     provenance: last verified item
@@ -208,7 +221,8 @@ namespaces:
     status: active
     system_of_record: datastore
     kinds: [delivery, held]
-    authority: holders of notify:owner
+    authority:
+      writers: holders-of:notify:owner
     scope: one record per delivery key
     mutability: state transitions only
     provenance: channel readback

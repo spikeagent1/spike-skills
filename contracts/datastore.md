@@ -18,22 +18,26 @@ current truth (F2). Deletes are soft; nothing is destroyed in place.
 ## Namespaces
 
 Six axes per namespace: authority (who may write), scope, mutability,
-provenance, recoverability, actionability.
+provenance, recoverability, actionability. The Authority column is the rendered
+view of `authority.writers` in `contracts/datastore.yaml` -- either the skills
+named there, or the `holders-of:<effect>` sentinel. `tools/validate_repo.py`
+holds the two halves to each other, and both to what each skill declares in
+`metadata.spike-os.writes_to`.
 
 | Namespace | Status | System of record | Kinds | Authority | Scope | Mutability | Provenance | Recoverability | Actionability |
 |---|---|---|---|---|---|---|---|---|---|
-| `profile/` | active | datastore | owner-fact, preference, boundary, authority-rule, correction | consolidation and owner-context-onboarding | owner-private | supersede-only | owner turns | history plus superseded records | authority-rule gates every permission check |
-| `people/` | active | datastore; contact-card from provider | person, relationship-context, voice-profile, contact-card | consolidation; draft-in-voice for voice-profile | one slug per human or org | supersede-only | owner-stated or agent-inference | history | consent required before quoting (P5) |
+| `profile/` | active | datastore | owner-fact, preference, boundary, authority-rule, correction | consolidation -- `owner-dream-cycle` -- and `owner-context-onboarding` | owner-private | supersede-only | owner turns | history plus superseded records | authority-rule gates every permission check |
+| `people/` | active | datastore; contact-card from provider | person, relationship-context, voice-profile, contact-card | `draft-in-voice`, for `voice-profile` | one slug per human or org | supersede-only | owner-stated or agent-inference | history | consent required before quoting (P5) |
 | `agents/` | active | datastore | agent-identity, account-state, roster-entry, connector-state | holders of `datastore:write` on `agents` — `mcp-connector-onboarding`, `runtime-handoff-onboarding`, `social-agent-onboarding`, `social-agent-practice`, `team-skill-sharing-norm` | the agent and its accounts | explicit state transitions | verified probes | re-probe the provider | gates connector and account use |
 | `projects/` | active | datastore | brief, status, handoff | any skill holding `datastore:write` | one page per project slug | append status, supersede brief | session handoffs | history | read before resuming work |
-| `decisions/` | active | datastore | decision, commitment | consolidation only | dated owner choices | supersede-only | corpus span and local date | history | cited in briefings |
-| `journal/` | active | datastore | dream-report, candidate-ledger, reflection-cycle, run-report, health-log | any session kind | dated run artifacts | append-only per run key | run identity | rerun is idempotent | run artifacts are candidates only, never authority; `health-log` entries are owner records — authoritative for what was recorded, never for clinical truth |
-| `conversations/` | active | datastore, separate root | transcript, manifest | conversation-archive only | imported external transcripts | create-only; quarantine on hash change | untrusted origin, always | manifest replay | evidence only (S3) |
-| `tasks/` | active | provider | task, id-map | daily-task-manager | owner tasks mirrored from the task provider | provider-led, mirror follows | provider readback | reconcile from provider | the mirror is never provider truth |
+| `decisions/` | active | datastore | decision, commitment | consolidation -- `owner-dream-cycle` -- only | dated owner choices | supersede-only | corpus span and local date | history | cited in briefings |
+| `journal/` | active | datastore | dream-report, candidate-ledger, reflection-cycle, run-report, health-log | any skill holding `datastore:write`, from any session kind | dated run artifacts | append-only per run key | run identity | rerun is idempotent | run artifacts are candidates only, never authority; `health-log` entries are owner records — authoritative for what was recorded, never for clinical truth |
+| `conversations/` | active | datastore, separate root | transcript, manifest | `conversation-archive` only | imported external transcripts | create-only; quarantine on hash change | untrusted origin, always | manifest replay | evidence only (S3) |
+| `tasks/` | active | provider | task, id-map | `daily-task-manager` | owner tasks mirrored from the task provider | provider-led, mirror follows | provider readback | reconcile from provider | the mirror is never provider truth |
 | `calendar/` | reserved | provider | event, id-map | none yet | owner events | read-only until a conduit exists | provider readback | resync | read through `provider:read` |
 | `inbox/` | reserved | provider | thread, message-ref, id-map | none yet | refs and triage state, never bodies | read-only until a conduit exists | provider readback | resync | never store message bodies |
-| `jobs/` | active | scheduler | job-spec, occurrence | cron-scheduler | scheduled work the owner can see | update by stable job key | scheduler readback | prior-definition snapshot | occurrence key deduplicates runs |
-| `effects/` | active | datastore | effect | every mutating skill appends | side-effect ledger | append-only | operation key and readback | rollback handle | consulted before any retry |
+| `jobs/` | active | scheduler | job-spec, occurrence | `cron-scheduler` | scheduled work the owner can see | update by stable job key | scheduler readback | prior-definition snapshot | occurrence key deduplicates runs |
+| `effects/` | active | datastore | effect | every mutating skill appends; any holder of `datastore:write` | side-effect ledger | append-only | operation key and readback | rollback handle | consulted before any retry |
 | `checkpoints/` | active | datastore | cursor | holders of `checkpoint:advance` | one cursor per skill and channel | advance only after terminal verification | last verified item | replay from prior cursor | never advanced by a read |
 | `notifications/` | active | datastore | delivery, held | holders of `notify:owner` | one record per delivery key | state transitions only | channel readback | held digest replay | retry on the same key is a no-op |
 

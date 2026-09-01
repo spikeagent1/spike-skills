@@ -115,6 +115,18 @@ class DatastoreTest(unittest.TestCase):
                 for axis in contracts_check.AXES:
                     self.assertTrue(entry[axis])
 
+    def test_the_authority_axis_is_machine_readable(self) -> None:
+        """Every namespace states its writers as data, not only as prose."""
+        for entry in NAMESPACES:
+            with self.subTest(namespace=entry.get("name")):
+                writers = entry["authority"]["writers"]
+                if isinstance(writers, str):
+                    self.assertTrue(writers.startswith(validate_repo.HOLDERS_OF), writers)
+                    effect = writers[len(validate_repo.HOLDERS_OF) :]
+                    self.assertIn(effect, {item["name"] for item in EFFECTS})
+                else:
+                    self.assertIsInstance(writers, list)
+
     def test_conversations_is_a_separate_root(self) -> None:
         entry = next(item for item in NAMESPACES if item["name"] == "conversations")
         self.assertTrue(entry["separate_root"])
