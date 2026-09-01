@@ -21,6 +21,7 @@ from .frontmatter import (
     parse_frontmatter,
     skill_body,
     spike_os_block,
+    without_fenced_blocks,
 )
 
 # The contract_version 2 rules below read the machine-readable contracts through
@@ -587,7 +588,10 @@ def validate_namespaces(
                     f"{namespaces[name]!r}; only an active namespace is writable",
                 )
 
-    body = skill_body(text)
+    # Fenced blocks are exempt: a namespace token inside a rendered record or a
+    # worked example is quoted, not touched, and the access the installer grants
+    # follows what the skill *does* in its prose.
+    body = without_fenced_blocks(skill_body(text))
     declared = set(reads) | set(writes)
     for name in sorted(namespaces):
         if name in declared:

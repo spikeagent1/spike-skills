@@ -1803,6 +1803,36 @@ class ValidateRepoTest(unittest.TestCase):
 
         self.assertEqual(code, 0, output)
 
+    def test_a_namespace_named_only_inside_a_fenced_block_is_not_a_use(self) -> None:
+        """A rendered example is not an access the installer has to grant.
+
+        The lint reads the body for `<namespace>/` because an undeclared use is
+        access the adapter never granted. A fenced block is not use: a skill
+        that shows what another skill's record looks like -- the autonomy
+        manager showing an `object-pattern` of `tasks/*` -- is quoting, not
+        reading. Prose outside the fence is still a use, which the test above
+        pins.
+        """
+        workflow = (
+            "1. Render the record before asking anything back.\n"
+            "```\n"
+            "object-pattern : projects/*\n"
+            "```\n"
+            "2. Emit the approved skill fixture verdict."
+        )
+        self._promote_to_v2(
+            "approved-skill",
+            "pending-skill",
+            metadata_block=self._v2_metadata(),
+            sections={"Workflow": workflow},
+        )
+        self._git_add()
+
+        code, output = self._run_validator()
+
+        self.assertEqual(code, 0, output)
+        self.assertNotIn("body names namespace 'projects/'", output)
+
     def test_reserved_namespace_not_writable(self) -> None:
         self._promote_to_v2(
             "approved-skill",

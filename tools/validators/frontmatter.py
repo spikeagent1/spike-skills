@@ -282,6 +282,25 @@ def skill_body(text: str) -> str:
     return text[match.end():] if match else text
 
 
+def without_fenced_blocks(body: str) -> str:
+    """The body with every fenced code block's contents removed.
+
+    A fenced block is rendered, not performed: a record template, a worked
+    example, or another skill's object pattern quoted inside one is not this
+    skill naming a thing it touches. The fence lines themselves stay, so line
+    counts and anything that reads structure around them are unchanged.
+    """
+    kept: list[str] = []
+    inside = False
+    for line in body.splitlines():
+        if line.lstrip().startswith("```"):
+            inside = not inside
+            kept.append(line)
+            continue
+        kept.append("" if inside else line)
+    return "\n".join(kept)
+
+
 def spike_os_block(meta: dict[str, Any]) -> dict[str, Any]:
     """`metadata.spike-os`, or an empty mapping when it is absent or malformed."""
     metadata = meta.get("metadata")
