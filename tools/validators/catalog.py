@@ -210,18 +210,27 @@ def parse_domain_lists(errors: list[str]) -> tuple[set[str], set[str]]:
     return released, next_names
 
 
-def parse_cohorts(errors: list[str]) -> dict[str, dict[str, Any]]:
-    """Cohort name -> {"status", "skills"} from catalog/cohorts.yaml."""
-    path = context.ROOT / "catalog" / "cohorts.yaml"
-    if not path.exists():
+def parse_cohorts(errors: list[str], path: Path | None = None) -> dict[str, dict[str, Any]]:
+    """Cohort name -> {"status", "skills"} from catalog/cohorts.yaml.
+
+    `path` names a cohort file other than the repository's own; the eval runner
+    passes one so `--cohort` reads cohorts through this loader rather than a
+    second parser of its own.
+    """
+    target = path or context.ROOT / "catalog" / "cohorts.yaml"
+    if not target.exists():
         add_error(errors, "catalog/cohorts.yaml: missing cohort catalog")
         return {}
+    return parse_cohorts_text(target.read_text(encoding="utf-8"), errors)
 
+
+def parse_cohorts_text(text: str, errors: list[str]) -> dict[str, dict[str, Any]]:
+    """The cohort mapping of an already-read cohorts.yaml body."""
     cohorts: dict[str, dict[str, Any]] = {}
     current: dict[str, Any] | None = None
     in_skills = False
 
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in text.splitlines():
         if not line.strip():
             continue
         name_match = re.match(r"^\s+- name: ([a-z0-9-]+)\s*$", line)

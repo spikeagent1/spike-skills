@@ -2612,5 +2612,71 @@ class ValidateRepoTest(unittest.TestCase):
         self.assertEqual(code, 0, output)
 
 
+class FrontmatterDepthTest(unittest.TestCase):
+    """`parse_frontmatter` reads a deeper staged block when the caller opts in.
+
+    A rendered runtime file nests `metadata.<runtime>.requires.<bucket>`, one
+    level past what a source SKILL.md may use; `tools/check_staging.py` reads
+    those files and had its own regex for them.
+    """
+
+    STAGED = (
+        "---\n"
+        "name: fixture\n"
+        "metadata:\n"
+        "  openclaw:\n"
+        "    requires:\n"
+        "      env: [TOKEN]\n"
+        "      bins: []\n"
+        "---\n"
+        "\n# Fixture\n"
+    )
+
+    def test_the_default_still_stops_at_the_namespace_level(self) -> None:
+        parsed = validate_repo.parse_frontmatter(self.STAGED)
+        self.assertIsNotNone(parsed)
+        problems = parsed.get(validate_repo.FRONTMATTER_PARSE_ERRORS, [])
+        self.assertTrue(
+            any("nests deeper" in problem for problem in problems), problems
+        )
+
+    def test_an_opted_in_depth_reads_the_rendered_requires_block(self) -> None:
+        parsed = validate_repo.parse_frontmatter(self.STAGED, max_depth=3)
+        self.assertIsNotNone(parsed)
+        self.assertNotIn(validate_repo.FRONTMATTER_PARSE_ERRORS, parsed)
+        self.assertEqual(
+            parsed["metadata"]["openclaw"]["requires"],
+            {"env": ["TOKEN"], "bins": []},
+        )
+
+
+class EffectLedgerEntriesTest(unittest.TestCase):
+    """The ledger rule scores against the capabilities the caller already loaded."""
+
+    def test_the_passed_in_entries_are_what_is_scored(self) -> None:
+        errors: list[str] = []
+        validate_repo.validate_effect_ledgers(
+            Path("skills/fixture"),
+            ["fixture:mutate"],
+            [],
+            errors,
+            {"fixture:mutate": {"name": "fixture:mutate", "readOnlyHint": False}},
+        )
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("fixture:mutate", errors[0])
+        self.assertIn("effects", errors[0])
+
+    def test_a_read_only_entry_obliges_no_ledger_write(self) -> None:
+        errors: list[str] = []
+        validate_repo.validate_effect_ledgers(
+            Path("skills/fixture"),
+            ["fixture:look"],
+            [],
+            errors,
+            {"fixture:look": {"name": "fixture:look", "readOnlyHint": True}},
+        )
+        self.assertEqual(errors, [])
+
+
 if __name__ == "__main__":
     unittest.main()

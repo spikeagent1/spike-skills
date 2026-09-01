@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import random
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
@@ -30,10 +29,6 @@ EVAL_ID_FILE_OFFSET = 100
 
 PROMPT_KEYS = ("prompt", "input")
 ASSERTION_KEYS = ("assertions", "expectations", "expect")
-
-_COHORT_NAME_RE = re.compile(r"^\s*-\s+name:\s*(\S+)\s*$")
-_YAML_KEY_RE = re.compile(r"^\s*([A-Za-z_][\w-]*):")
-_YAML_ITEM_RE = re.compile(r"^\s*-\s+(\S.*?)\s*$")
 
 
 class CaseLoadError(ValueError):
@@ -282,43 +277,28 @@ def load_routing_cases(
 
 
 def parse_cohort_lists(text: str) -> Dict[str, List[str]]:
-    """Cohort name -> skill names, read line-wise in the style of `parse_domain_lists`.
+    """Cohort name -> skill names, through the validator's own cohort loader.
 
-    Only the `skills:` list of each cohort is collected; `acceptance:` items and
-    folded prose blocks are skipped.
+    Only the `skills:` list of each cohort is kept; the loader already skips
+    `acceptance:` items and folded prose blocks, and accepts both the block and
+    the flow (`skills: [a, b]`) spelling.
     """
-    cohorts: Dict[str, List[str]] = {}
-    current: Optional[str] = None
-    collecting = False
-
-    for line in text.splitlines():
-        name_match = _COHORT_NAME_RE.match(line)
-        if name_match:
-            current = name_match.group(1)
-            cohorts.setdefault(current, [])
-            collecting = False
-            continue
-        key_match = _YAML_KEY_RE.match(line)
-        if key_match:
-            collecting = key_match.group(1) == "skills"
-            continue
-        item_match = _YAML_ITEM_RE.match(line)
-        if item_match and collecting and current:
-            cohorts[current].append(item_match.group(1))
-    return cohorts
+    parsed = validate_repo.parse_cohorts_text(text, [])
+    return {name: list(info["skills"]) for name, info in parsed.items()}
 
 
 def cohort_skills(name: str, path: Optional[Path] = None) -> List[str]:
     """Skill names listed by one cohort in `catalog/cohorts.yaml`."""
     target = Path(path) if path else COHORTS
-    try:
-        text = target.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise CaseLoadError(f"{target}: cannot read cohorts file: {exc}") from exc
-    cohorts = parse_cohort_lists(text)
-    if name not in cohorts:
-        raise CaseLoadError(f"unknown cohort {name!r}; known: {', '.join(sorted(cohorts))}")
-    return cohorts[name]
+    if not target.is_file():
+        raise CaseLoadError(f"{target}: cannot read cohorts file")
+    errors: List[str] = []
+    parsed = validate_repo.parse_cohorts(errors, target)
+    if errors:
+        raise CaseLoadError(f"{target}: {'; '.join(errors)}")
+    if name not in parsed:
+        raise CaseLoadError(f"unknown cohort {name!r}; known: {', '.join(sorted(parsed))}")
+    return list(parsed[name]["skills"])
 
 
 def _matches_selector(case: BehavioralCase, selector: str) -> bool:

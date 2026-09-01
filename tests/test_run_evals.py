@@ -12,6 +12,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -1247,6 +1248,36 @@ class CaseFilterTest(unittest.TestCase):
         self.assertEqual(len(cases.select_cases(self.all, sample=99, seed=1)), len(self.all))
 
 
+class ConfigConstantHomeTest(unittest.TestCase):
+    """The two config names live in one module, not one copy per module.
+
+    `report.py` used to carry its own `CONFIG_*` because importing `executor`
+    would cycle back through `tools.validate_repo`; the package root is
+    stdlib-only, so both modules can read the same definition from there.
+    """
+
+    NAMES = ("CONFIG_WITH_SKILL", "CONFIG_WITHOUT_SKILL")
+
+    def test_exactly_one_module_assigns_each_config_constant(self) -> None:
+        package = Path(executor.__file__).parent
+        for name in self.NAMES:
+            pattern = re.compile(rf"^{name}\s*=", re.MULTILINE)
+            definers = sorted(
+                path.name
+                for path in package.glob("*.py")
+                if pattern.search(path.read_text(encoding="utf-8"))
+            )
+            self.assertEqual(definers, ["__init__.py"], name)
+
+    def test_the_importers_still_expose_the_same_values(self) -> None:
+        import tools.evalrunner as evalrunner
+
+        for name in self.NAMES:
+            shared = getattr(evalrunner, name)
+            self.assertEqual(getattr(executor, name), shared, name)
+            self.assertEqual(getattr(report, name), shared, name)
+
+
 class CohortListTest(unittest.TestCase):
     YAML = (
         "cohorts:\n"
@@ -1276,6 +1307,24 @@ class CohortListTest(unittest.TestCase):
     def test_unknown_cohort_is_an_error(self) -> None:
         with self.assertRaises(cases.CaseLoadError):
             cases.cohort_skills("no-such-cohort")
+
+    def test_a_flow_list_cohort_reads_the_same_as_the_catalog_loader(self) -> None:
+        """The runner reads cohorts through the catalog loader, flow lists included.
+
+        `catalog.parse_cohorts` accepts `skills: [a, b]`; the runner's own
+        line-wise reader returned [] for it, which `_resolve_skills` would have
+        turned into "this cohort names no skills".
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "cohorts.yaml"
+            path.write_text(
+                "cohorts:\n"
+                "  - name: flow-cohort\n"
+                "    status: completed\n"
+                "    skills: [alpha, beta]\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(cases.cohort_skills("flow-cohort", path), ["alpha", "beta"])
 
 
 class RoutingLoaderTest(unittest.TestCase):

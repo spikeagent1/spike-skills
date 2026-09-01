@@ -32,7 +32,8 @@ from tools.validators.context import (
 from tools.validators.frontmatter import (
     BLOCK_SCALAR_RE, DESCRIPTION_FORBIDDEN_RE, DESCRIPTION_MAX_CHARS, DESCRIPTION_TRIGGER_RE,
     FRONTMATTER_ALLOWED_KEYS, FRONTMATTER_PARSE_ERRORS, FRONTMATTER_REJECTED_KEYS,
-    LISTING_BUDGET_WARN_RATIO, METADATA_KEYS, METADATA_NS, REQUIRE_VERSION, SEMVER_RE,
+    LISTING_BUDGET_WARN_RATIO, METADATA_KEYS, METADATA_MAX_DEPTH, METADATA_NS, REQUIRE_VERSION,
+    SEMVER_RE,
     SKILL_LISTING_MAX_CHARS, _declared_list, _frontmatter_value, frontmatter, installer_module,
     parse_frontmatter, rendered_listing_chars, skill_body, spike_os_block,
     validate_description, validate_frontmatter, validate_listing_budget, validate_version
@@ -48,7 +49,7 @@ from tools.validators.structure import (
 from tools.validators.catalog import (
     ADAPTED_SOURCE_FIELDS, ALLOWED_CLASSIFICATIONS, CATALOG_PARITY_FIELDS, DomainEntry,
     HEX_COMMIT_RE, IMMUTABLE_SOURCE_FIELDS, SHA256_RE, SOURCE_ENTRY_KEYS,
-    parse_catalog_inventory, parse_cohorts, parse_domain_lists, parse_domains,
+    parse_catalog_inventory, parse_cohorts, parse_cohorts_text, parse_domain_lists, parse_domains,
     parse_list_catalog, parse_routing_clusters, parse_source_entries, validate_baseline,
     validate_catalog_index, validate_cluster_routing, validate_cohort_parity,
     validate_provenance_artifacts, validate_source_catalog
@@ -183,12 +184,17 @@ def validate_skill(
     )
     # Each rule is skipped when its contract failed to load, so a missing
     # contract reports once instead of cascading through every skill.
+    capabilities = (
+        effect_enum(contracts.capabilities)
+        if contracts is not None and contracts.capabilities
+        else None
+    )
     if contracts is not None and contracts.datastore:
         validate_namespaces(
-            rel, meta, text, namespace_statuses(contracts.datastore), errors
+            rel, meta, text, namespace_statuses(contracts.datastore), errors, capabilities
         )
-    if contracts is not None and contracts.capabilities:
-        validate_effects(rel, meta, text, effect_enum(contracts.capabilities), errors)
+    if capabilities is not None:
+        validate_effects(rel, meta, text, capabilities, errors)
     if contracts is not None and contracts.adapters and contracts.vocabulary:
         validate_runtime_binding(
             rel,

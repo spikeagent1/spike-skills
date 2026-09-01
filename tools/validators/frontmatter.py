@@ -26,6 +26,12 @@ METADATA_NS = "spike-os"
 METADATA_KEYS = frozenset({"version", "runtime", "reads_from", "writes_to", "effects"})
 
 
+# A source SKILL.md nests exactly one level under `metadata`; `metadata` is 0,
+# the namespace 1, its keys 2. Rendered runtime output may go one deeper, which
+# only a caller that opts in with `parse_frontmatter(..., max_depth=...)` reads.
+METADATA_MAX_DEPTH = 2
+
+
 # Never valid: runtime coupling and a second version source of truth.
 FRONTMATTER_REJECTED_KEYS = frozenset({"triggers", "tools", "version"})
 
@@ -72,7 +78,7 @@ def _frontmatter_value(raw: str) -> Any:
     return catalog_scalar(value)
 
 
-def parse_frontmatter(text: str) -> dict[str, Any] | None:
+def parse_frontmatter(text: str, max_depth: int = METADATA_MAX_DEPTH) -> dict[str, Any] | None:
     """Every top-level frontmatter key, or None when the block is absent.
 
     This is not a YAML parser; it accepts the deliberately small subset the
@@ -89,6 +95,11 @@ def parse_frontmatter(text: str) -> dict[str, Any] | None:
     `metadata`, a block scalar, an unparsable line -- is recorded under
     `FRONTMATTER_PARSE_ERRORS` so `validate_frontmatter` reports it verbatim
     without re-parsing.
+
+    `max_depth` raises the nesting ceiling for a caller reading rendered runtime
+    output rather than a source SKILL.md: `tools/check_staging.py` reads
+    `metadata.<runtime>.requires.<bucket>`, one level past what a source file may
+    write. A source skill is always parsed at the default.
     """
     match = re.match(r"^---\n(.*?)\n---\n", text, re.DOTALL)
     if not match:
@@ -131,7 +142,7 @@ def parse_frontmatter(text: str) -> dict[str, Any] | None:
             continue
 
         depth = indent // 2
-        if depth > 2:
+        if depth > max_depth:
             problems.append(f"key {field.group(1)!r} nests deeper than metadata.<namespace>")
             continue
         container = containers.get(depth)

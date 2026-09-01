@@ -449,6 +449,7 @@ def validate_namespaces(
     text: str,
     namespaces: dict[str, str],
     errors: list[str],
+    entries: dict[str, dict[str, Any]] | None = None,
 ) -> None:
     """reads_from/writes_to against contracts/datastore.yaml, and the body against both.
 
@@ -502,11 +503,15 @@ def validate_namespaces(
                 f"{effect} is not declared in metadata.{METADATA_NS}.effects",
             )
 
-    validate_effect_ledgers(rel, effects, writes, errors)
+    validate_effect_ledgers(rel, effects, writes, errors, entries)
 
 
 def validate_effect_ledgers(
-    rel: Path, effects: Sequence[str], writes: Sequence[str], errors: list[str]
+    rel: Path,
+    effects: Sequence[str],
+    writes: Sequence[str],
+    errors: list[str],
+    entries: dict[str, dict[str, Any]] | None = None,
 ) -> None:
     """The two namespaces an effect obliges a skill to declare it writes.
 
@@ -514,13 +519,16 @@ def validate_effect_ledgers(
     mutating skill appends" and the `notifications` namespace "holders of
     notify:owner". A skill that declares the effect but not the namespace would
     be installed without the grant its own ledger write needs.
+
+    `entries` is the effect enum the caller has already loaded; only a caller
+    that has none falls back to reading the contract again.
     """
-    entries = capability_entries()
+    known = capability_entries() if entries is None else entries
     written = set(writes)
     mutating = [
         name
         for name in effects
-        if name in entries and not entries[name].get("readOnlyHint")
+        if name in known and not known[name].get("readOnlyHint")
     ]
     if mutating and EFFECTS_LEDGER_NS not in written:
         add_error(

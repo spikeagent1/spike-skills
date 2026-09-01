@@ -26,7 +26,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 from typing import Any, NamedTuple, Sequence
@@ -38,12 +37,12 @@ except ImportError:  # pragma: no cover - one of the two branches always runs.
     import install_skill  # type: ignore[no-redef]
     import validate_repo  # type: ignore[no-redef]
 
-FRONTMATTER_RE = re.compile(r"^---\n(.*?\n)---\n", re.DOTALL)
 REQUIRES_BUCKETS = ("env", "bins", "config")
-REQUIRES_LINE_RE = {
-    bucket: re.compile(rf"^\s*{bucket}:\s*\[(.*)\]\s*$", re.MULTILINE)
-    for bucket in REQUIRES_BUCKETS
-}
+
+# The rendered block nests one level past a source SKILL.md
+# (`metadata.<runtime>.requires.<bucket>`), so the shared parser is asked for
+# that depth rather than given a second reader here.
+STAGED_FRONTMATTER_DEPTH = validate_repo.METADATA_MAX_DEPTH + 1
 
 
 class CheckContext(NamedTuple):
@@ -64,25 +63,25 @@ def staged_skills(dest: Path) -> list[Path]:
     )
 
 
-def frontmatter_text(text: str) -> str | None:
-    match = FRONTMATTER_RE.match(text)
-    return match.group(1) if match else None
+def staged_requires(text: str, runtime: str) -> dict[str, list[str]] | None:
+    """The rendered `metadata.<runtime>.requires` lists of a staged SKILL.md.
 
-
-def staged_requires(frontmatter: str) -> dict[str, list[str]] | None:
-    """The rendered `requires.{env,bins,config}` lists, read off the raw frontmatter.
-
-    `validate_repo.parse_frontmatter` stops two levels under `metadata`, and
-    `requires.*` is a third, so this reads the three fixed lines
-    `install_skill.render_frontmatter` writes directly instead of reparsing.
+    Read through `validate_repo.parse_frontmatter` at the staged depth, so the
+    block is located by its position under the runtime rather than by a line
+    that happens to be named `env:` somewhere else in the frontmatter.
     """
+    meta = validate_repo.parse_frontmatter(text, max_depth=STAGED_FRONTMATTER_DEPTH)
+    if not meta:
+        return None
+    block = ((meta.get("metadata") or {}).get(runtime) or {}).get("requires")
+    if not isinstance(block, dict):
+        return None
     buckets: dict[str, list[str]] = {}
-    for bucket, pattern in REQUIRES_LINE_RE.items():
-        match = pattern.search(frontmatter)
-        if match is None:
+    for bucket in REQUIRES_BUCKETS:
+        value = block.get(bucket)
+        if not isinstance(value, list):
             return None
-        inner = match.group(1).strip()
-        buckets[bucket] = [] if not inner else [item.strip() for item in inner.split(",")]
+        buckets[bucket] = [str(item) for item in value]
     return buckets
 
 
@@ -110,6 +109,7 @@ def check_vocabulary_terms(name: str, text: str, context: CheckContext) -> list[
 def check_requires(
     name: str,
     text: str,
+    runtime: str,
     vocabulary: dict[str, Any],
     datastore: dict[str, Any],
     requires_declared: bool,
@@ -117,10 +117,9 @@ def check_requires(
     """The staged `requires.*` block matches a fresh scan of its own Dependencies line."""
     if not requires_declared:
         return []
-    frontmatter = frontmatter_text(text)
-    if frontmatter is None:
+    if validate_repo.parse_frontmatter(text, max_depth=STAGED_FRONTMATTER_DEPTH) is None:
         return [f"{name}: staged SKILL.md has no frontmatter block"]
-    staged = staged_requires(frontmatter)
+    staged = staged_requires(text, runtime)
     if staged is None:
         return [f"{name}: frontmatter carries no metadata.<runtime>.requires block"]
     expected = install_skill.openclaw_requires(
@@ -183,7 +182,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         runtime_findings.extend(check_runtime_specific(name, text))
         vocabulary_findings.extend(check_vocabulary_terms(name, text, context))
         requires_findings.extend(
-            check_requires(name, text, vocabulary, datastore, requires_declared)
+            check_requires(name, text, args.runtime, vocabulary, datastore, requires_declared)
         )
 
     findings = runtime_findings + vocabulary_findings + requires_findings

@@ -18,6 +18,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from . import CONFIG_WITH_SKILL, CONFIG_WITHOUT_SKILL
 from .cases import BehavioralCase
 from .claude_cli import ClaudeRequest, ClaudeResult, ClaudeRunner, scrub_env, strategy_env
 from .doctor import probe_environ
@@ -26,8 +27,6 @@ from . import workspace
 ROOT = workspace.ROOT
 PROMPTS = Path(__file__).resolve().parent / "prompts"
 
-CONFIG_WITH_SKILL = "with_skill"
-CONFIG_WITHOUT_SKILL = "without_skill"
 OLD_SKILL_PREFIX = "old_skill@"
 DEFAULT_CONFIGS = (CONFIG_WITH_SKILL, CONFIG_WITHOUT_SKILL)
 

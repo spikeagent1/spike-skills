@@ -330,5 +330,47 @@ class CheckStagingTest(unittest.TestCase):
         self.assertIn("refused", out)
 
 
+class StagedRequiresParsingTest(unittest.TestCase):
+    """The staged `requires` block is read by the frontmatter parser, not a regex.
+
+    The regex matched `env:`/`bins:`/`config:` anywhere in the frontmatter, so a
+    key of the same name outside `metadata.<runtime>.requires` shadowed the block
+    the check is about.
+    """
+
+    STAGED = (
+        "---\n"
+        "name: fixture\n"
+        "description: \"A skill.\"\n"
+        "metadata:\n"
+        "  spike-os:\n"
+        "    env: [DECOY]\n"
+        "  openclaw:\n"
+        "    requires:\n"
+        "      env: [REAL_TOKEN]\n"
+        "      bins: [gh]\n"
+        "      config: []\n"
+        "---\n"
+        "\n# Fixture\n"
+    )
+
+    def test_the_requires_block_of_the_named_runtime_wins(self) -> None:
+        import tools.check_staging as check_staging
+
+        parsed = check_staging.staged_requires(self.STAGED, "openclaw")
+        self.assertEqual(
+            parsed, {"env": ["REAL_TOKEN"], "bins": ["gh"], "config": []}
+        )
+
+    def test_a_missing_requires_block_reads_as_absent(self) -> None:
+        import tools.check_staging as check_staging
+
+        self.assertIsNone(
+            check_staging.staged_requires(
+                "---\nname: fixture\n---\n\n# Fixture\n", "openclaw"
+            )
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -5,7 +5,7 @@ module stays dependency-free: stdlib only, plus `. workspace` (itself
 stdlib-only). No import of `tools.evalrunner.executor` or `.cases` — either one
 pulls in `tools.validate_repo`, which would cycle back through this module when
 the validator imports `check_baseline`. `CONFIG_WITH_SKILL`/`CONFIG_WITHOUT_SKILL`
-are therefore duplicated as local constants rather than imported from `executor`.
+therefore come from the stdlib-only package root, which `executor` reads too.
 """
 
 from __future__ import annotations
@@ -15,14 +15,10 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
-from . import workspace
+from . import CONFIG_WITH_SKILL, CONFIG_WITHOUT_SKILL, workspace
 
 SCHEMA_VERSION = 1
 BASELINE_REL = Path("evals") / "baseline.json"
-
-# Duplicated from `executor.py` (see module docstring) — must stay in sync.
-CONFIG_WITH_SKILL = "with_skill"
-CONFIG_WITHOUT_SKILL = "without_skill"
 
 # The same candidates `tools.validate_repo.eval_files` recognizes, duplicated
 # rather than imported so this module stays dependency-free (see module docstring).
