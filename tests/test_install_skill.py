@@ -1739,6 +1739,60 @@ class InstallSkillTest(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertIn("changes unknown", out)
 
+    def _case_insensitive(self) -> bool:
+        probe = self.dest / "CaseProbe.tmp"
+        probe.parent.mkdir(parents=True, exist_ok=True)
+        probe.write_text("x", encoding="utf-8")
+        try:
+            return (self.dest / "caseprobe.tmp").exists()
+        finally:
+            probe.unlink()
+
+    def test_a_planned_write_onto_a_file_no_stamp_recorded_is_blocked(self) -> None:
+        """The guard itself, on any filesystem: what is there is not ours to truncate.
+
+        `installed_digests` keys the install by exact byte-name, so a file the
+        filesystem resolves to the same entry under another name -- a case
+        variant on APFS, a normalization variant -- is invisible to the
+        classifier. The destination itself is asked instead.
+        """
+        self._install_launcher()
+        directory = self.dest / "fixture-launcher"
+        (directory / "references" / "probe.md").write_text("owner\n", encoding="utf-8")
+
+        self.assertIsNotNone(
+            install_skill.write_blocker(directory, "references/probe.md", {})
+        )
+        self.assertIsNone(
+            install_skill.write_blocker(directory, "references/absent.md", {})
+        )
+        # A file the stamp does record is ours to rewrite, existing or not.
+        self.assertIsNone(
+            install_skill.write_blocker(
+                directory, "references/probe.md", {"references/probe.md": "x"}
+            )
+        )
+
+    def test_update_refuses_a_new_file_the_filesystem_already_holds_by_another_name(
+        self,
+    ) -> None:
+        """A case-only collision truncated the owner's file and exited 0."""
+        if not self._case_insensitive():
+            self.skipTest("this filesystem is case-sensitive; the collision cannot arise")
+        self._install_launcher()
+        owner = self.dest / "fixture-launcher" / "references" / "Probe.md"
+        owner.write_text("the owner's irreplaceable notes\n", encoding="utf-8")
+        self._write("skills/fixture-launcher/references/probe.md", "probe body\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 1, out)
+        self.assertEqual(
+            owner.read_text(encoding="utf-8"), "the owner's irreplaceable notes\n"
+        )
+        self.assertIn("references/probe.md", out)
+        self.assertIn("recorded by no stamp", out)
+
     def test_update_never_writes_through_a_symlink_even_when_told_to(self) -> None:
         """The installer does not follow a link out of the destination, on any flag."""
         self._install_launcher()

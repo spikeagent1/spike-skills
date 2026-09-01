@@ -339,6 +339,26 @@ def classify(
     return write, blocked
 
 
+def write_blocker(directory: Path, rel: str, recorded: dict[str, str]) -> str | None:
+    """Why this render's file is not the update's to write here, or None.
+
+    The classifier reads the install through `installed_digests`, which keys it
+    by exact byte-name. A filesystem does not: APFS resolves `Probe.md` and
+    `probe.md` to one entry, and normalization variants collide the same way, so
+    a file the owner wrote can be invisible to the comparison and still be the
+    thing a write would truncate. The destination itself is asked instead --
+    anything already there that no stamp records is theirs, whatever name it was
+    matched by.
+    """
+    path = directory / rel
+    if recorded.get(rel) is None and (path.exists() or path.is_symlink()):
+        return (
+            "already in the install under a name this filesystem treats as the "
+            "same one, and recorded by no stamp"
+        )
+    return None
+
+
 def print_file_diff(rel: str, installed: bytes, rendered: bytes) -> None:
     """Your copy against what the update would have written in its place."""
     if b"\0" in installed or b"\0" in rendered:
@@ -538,6 +558,11 @@ def update_one(
     for rel in [rel for rel in write if (directory / rel).is_symlink()]:
         write.remove(rel)
         blocked[rel] = "a symlink in the install; never written through"
+    for rel in list(write):
+        reason = write_blocker(directory, rel, recorded)
+        if reason is not None:
+            write.remove(rel)
+            blocked[rel] = reason
     refusals.extend(report_skill(context, name, directory, notes, blocked, planned))
     report.refused.extend(refusals)
 
