@@ -198,6 +198,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--require-clean", action="store_true", help="Refuse when the source run was recorded dirty."
     )
     baseline_update.add_argument(
+        "--frontmatter-only", action="store_true", dest="frontmatter_only",
+        help=(
+            "Re-stamp the named entries instead of merging: keep every measured "
+            "number, move skill_sha256, and record frontmatter_only: true."
+        ),
+    )
+    baseline_update.add_argument(
         "--allow-ungraded", action="store_true",
         help="Merge a skill whose run has ungraded > 0 anyway (the entry still records the count).",
     )
@@ -1267,17 +1274,63 @@ def _ungraded_refusal_message(offending: List[Tuple[str, int]], run_root: Path) 
     return ", ".join(parts)
 
 
+def _restamp_frontmatter_only(args: argparse.Namespace) -> int:
+    """`--frontmatter-only`: move each named entry's digest and mark it, measuring nothing.
+
+    The run directory is never read. Workspaces are not committed, so the entry's
+    own `run_id` is what `--from` is checked against -- a typo, or a re-stamp
+    pointed at some other run's numbers, is refused. The ungraded and regression
+    gates do not apply: nothing measured is merged, and whatever the entry
+    carries was gated when it was first written.
+    """
+    if args.routing_from:
+        print(
+            "run_evals.py baseline update: --frontmatter-only re-stamps skill "
+            "entries and measures nothing; drop --routing-from and merge routing "
+            "in its own run",
+            file=sys.stderr,
+        )
+        return 2
+    existing = report.load_baseline()
+    if existing is None:
+        print(
+            "run_evals.py baseline update: no committed evals/baseline.json to re-stamp",
+            file=sys.stderr,
+        )
+        return 2
+    names = [name.strip() for name in (args.skill or "").split(",") if name.strip()]
+    if not names:
+        names = sorted((existing.get("skills") or {}))
+    problems = report.restamp_problems(existing, names, args.from_run, workspace.ROOT)
+    if problems:
+        print("run_evals.py baseline update: refusing to re-stamp", file=sys.stderr)
+        for problem in problems:
+            print(f"- {problem}", file=sys.stderr)
+        return 2
+
+    merged = report.merge_baseline(
+        existing, {}, {}, names, root=workspace.ROOT, frontmatter_only=True
+    )
+    path = report.write_baseline(merged, root=workspace.ROOT)
+    print(f"re-stamped: {path} ({len(names)} entry(s): {', '.join(names)})")
+    return 0
+
+
 def cmd_baseline_update(args: argparse.Namespace) -> int:
     """Merge a behavioral run, a routing run, or both into evals/baseline.json.
 
     Two merges are refused rather than written: one carrying an ungraded
     assertion (`--allow-ungraded`), and one that regresses against the entry it
     would replace (`--allow-regression`). Either refusal leaves every committed
-    entry exactly as it was.
+    entry exactly as it was. `--frontmatter-only` takes the re-stamp path
+    instead, which merges no measurement at all.
     """
     if not args.from_run and not args.routing_from:
         print("run_evals.py baseline update: pass --from, --routing-from, or both", file=sys.stderr)
         return 2
+
+    if getattr(args, "frontmatter_only", False):
+        return _restamp_frontmatter_only(args)
 
     run_root: Optional[Path] = None
     run_meta: Dict[str, Any] = {}

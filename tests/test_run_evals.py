@@ -13,6 +13,7 @@ import io
 import json
 import os
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -5623,6 +5624,157 @@ class MergeRoutingBlockTest(unittest.TestCase):
 
     def test_no_existing_block_is_the_incoming_block(self) -> None:
         self.assertEqual(report.merge_routing_block(None, self.INCOMING), self.INCOMING)
+
+
+class FrontmatterOnlyRestampTest(unittest.TestCase):
+    """A re-stamp says the SKILL.md moved without moving what was measured.
+
+    The iteration-2 vocabulary rename edits declarations and ledger sentences in
+    every skill, which invalidates `skill_sha256` on all 31 baseline entries
+    while changing nothing a grader scored. `--frontmatter-only` re-points the
+    digest and marks the entry, and refuses wherever the claim would be false.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self._saved_ws = run_evals.workspace.WORKSPACE
+        self._saved_root = run_evals.workspace.ROOT
+        run_evals.workspace.WORKSPACE = self.root / "evals" / "workspaces"
+        run_evals.workspace.ROOT = self.root
+        for name in ("alpha", "beta"):
+            _write_skill_tree(
+                self.root, name,
+                examples={"evals": [{"id": 1, "prompt": "p", "assertions": ["a", "b"]}]},
+            )
+        run_root = run_evals.workspace.WORKSPACE / "runs" / "r1"
+        _write_json(run_root / "run.json", {"run_id": "r1", "repeats": 1, "commit": "abc1234"})
+        for name in ("alpha", "beta"):
+            eval_dir = run_root / name / "eval-1"
+            _write_eval_metadata(eval_dir, eval_id=1, key=f"{name}:examples:1", assertions=["a", "b"])
+            for config, marks in (("with_skill", [True, True]), ("without_skill", [True, False])):
+                _write_timing(eval_dir / config / "run-1")
+                _write_grading(eval_dir / config / "run-1", ["a", "b"], marks)
+        self._main_quietly(["baseline", "update", "--from", "r1"])
+        self.before = self._baseline()
+
+    def tearDown(self) -> None:
+        run_evals.workspace.WORKSPACE = self._saved_ws
+        run_evals.workspace.ROOT = self._saved_root
+        self.tmp.cleanup()
+
+    def _main_quietly(self, argv: list[str]) -> int:
+        with contextlib.redirect_stdout(io.StringIO()):
+            return run_evals.main(argv)
+
+    def _baseline(self) -> dict:
+        return json.loads(
+            (self.root / "evals" / "baseline.json").read_text(encoding="utf-8")
+        )
+
+    def _rename_declaration(self, name: str) -> None:
+        """The mechanical edit this flag exists for: frontmatter, not content."""
+        path = self.root / "skills" / name / "SKILL.md"
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(
+                f"description: Fixture skill {name}.",
+                f"description: Fixture skill {name}.\ncapabilities: [datastore:read]",
+            ),
+            encoding="utf-8",
+        )
+
+    MEASURED = (
+        "cases", "assertions", "delta", "classes", "non_discriminating",
+        "broken", "harmful", "flaky", "ungraded", "with_skill", "without_skill",
+        "run_id", "source_commit", "evals_sha256",
+    )
+
+    def test_merge_baseline_moves_only_the_digest_and_the_flag(self) -> None:
+        self._rename_declaration("alpha")
+        merged = report.merge_baseline(
+            self.before, {}, {}, ["alpha"], root=self.root, frontmatter_only=True
+        )
+        entry = merged["skills"]["alpha"]
+        for field in self.MEASURED:
+            with self.subTest(field=field):
+                self.assertEqual(entry.get(field), self.before["skills"]["alpha"].get(field))
+        self.assertTrue(entry["frontmatter_only"])
+        self.assertEqual(entry["skill_sha256"], report.skill_sha256("alpha", self.root))
+        self.assertNotEqual(entry["skill_sha256"], self.before["skills"]["alpha"]["skill_sha256"])
+        # Nothing was measured, so the run-level provenance is carried over.
+        self.assertEqual(merged["evaluator"], self.before["evaluator"])
+        self.assertEqual(merged["harness_version"], self.before["harness_version"])
+
+    def test_an_untouched_entry_keeps_its_own_digest_and_no_flag(self) -> None:
+        self._rename_declaration("alpha")
+        merged = report.merge_baseline(
+            self.before, {}, {}, ["alpha"], root=self.root, frontmatter_only=True
+        )
+        self.assertEqual(merged["skills"]["beta"], self.before["skills"]["beta"])
+        self.assertNotIn("frontmatter_only", merged["skills"]["beta"])
+
+    def test_the_cli_restamps_and_baseline_check_goes_quiet(self) -> None:
+        self._rename_declaration("alpha")
+        self.assertTrue(
+            report.check_baseline(self.before, self.root),
+            "the fixture must be stale before the re-stamp, or the test proves nothing",
+        )
+        code = self._main_quietly(
+            ["baseline", "update", "--from", "r1", "--skill", "alpha", "--frontmatter-only"]
+        )
+        self.assertEqual(code, 0)
+        after = self._baseline()
+        self.assertTrue(after["skills"]["alpha"]["frontmatter_only"])
+        self.assertEqual(after["skills"]["alpha"]["cases"], self.before["skills"]["alpha"]["cases"])
+        self.assertEqual(report.check_baseline(after, self.root), [])
+
+    def test_it_works_after_the_run_directory_is_gone(self) -> None:
+        """Workspaces are not committed; a re-stamp reads the entry, not the run."""
+        self._rename_declaration("alpha")
+        shutil.rmtree(run_evals.workspace.WORKSPACE / "runs" / "r1")
+        code = self._main_quietly(
+            ["baseline", "update", "--from", "r1", "--skill", "alpha", "--frontmatter-only"]
+        )
+        self.assertEqual(code, 0)
+        self.assertTrue(self._baseline()["skills"]["alpha"]["frontmatter_only"])
+
+    def test_a_run_id_that_is_not_the_entrys_own_is_refused(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = run_evals.main(
+                ["baseline", "update", "--from", "r9", "--skill", "alpha", "--frontmatter-only"]
+            )
+        self.assertEqual(code, 2)
+        self.assertIn("r1", err.getvalue())
+        self.assertNotIn("frontmatter_only", json.dumps(self._baseline()))
+
+    def test_a_skill_with_no_committed_entry_is_refused(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = run_evals.main(
+                ["baseline", "update", "--from", "r1", "--skill", "ghost", "--frontmatter-only"]
+            )
+        self.assertEqual(code, 2)
+        self.assertIn("ghost", err.getvalue())
+
+    def test_changed_eval_files_need_a_real_run_not_a_restamp(self) -> None:
+        _write_json(
+            self.root / "skills" / "alpha" / "examples" / "evals.json",
+            {"evals": [{"id": 1, "prompt": "a different probe", "assertions": ["a"]}]},
+        )
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = run_evals.main(
+                ["baseline", "update", "--from", "r1", "--skill", "alpha", "--frontmatter-only"]
+            )
+        self.assertEqual(code, 2)
+        self.assertIn("evals_sha256", err.getvalue())
+
+    def test_a_routing_merge_is_not_a_restamp(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = run_evals.main(
+                ["baseline", "update", "--from", "r1", "--skill", "alpha",
+                 "--frontmatter-only", "--routing-from", "rt1"]
+            )
+        self.assertEqual(code, 2)
+        self.assertIn("--routing-from", err.getvalue())
 
 
 class BaselineUpdateFlagsTest(unittest.TestCase):

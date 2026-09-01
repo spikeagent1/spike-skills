@@ -358,6 +358,39 @@ def _condense_skill(
     return entry
 
 
+def restamp_problems(
+    existing: Optional[Dict[str, Any]],
+    names: Sequence[str],
+    run_id: Optional[str],
+    root: Path,
+) -> List[str]:
+    """Why a frontmatter-only re-stamp of `names` would be a false claim; empty means it holds.
+
+    A re-stamp keeps every measured number and moves `skill_sha256` alone, so it
+    is only honest where the entry exists, where it came from the run the caller
+    names, and where the eval files behind it are the ones that were graded. A
+    changed eval file needs a run, not a re-stamp.
+    """
+    skills = (existing or {}).get("skills") or {}
+    problems: List[str] = []
+    for name in names:
+        entry = skills.get(name)
+        if entry is None:
+            problems.append(f"{name}: no committed baseline entry to re-stamp")
+            continue
+        recorded = entry.get("run_id")
+        if run_id and recorded != run_id:
+            problems.append(
+                f"{name}: the committed entry was measured by run {recorded!r}, not {run_id!r}"
+            )
+        if entry.get("evals_sha256") != evals_sha256(name, Path(root)):
+            problems.append(
+                f"{name}: evals_sha256 is stale, so the eval files changed since the "
+                "entry was measured; that needs a run, not a re-stamp"
+            )
+    return problems
+
+
 def merge_baseline(
     existing: Optional[Dict[str, Any]],
     run_results: Dict[str, Any],
@@ -366,6 +399,7 @@ def merge_baseline(
     *,
     routing: Optional[Dict[str, Any]] = None,
     root: Optional[Path] = None,
+    frontmatter_only: bool = False,
 ) -> Dict[str, Any]:
     """New baseline: `existing`'s skills untouched except the ones this run covers.
 
@@ -375,29 +409,56 @@ def merge_baseline(
     `existing`'s routing section (if any) is carried over as-is. The top-level
     `commit`/`dirty` describe `root` at merge time; each merged entry records the
     commit its own run measured as `source_commit`.
+
+    `frontmatter_only` re-stamps instead of merging: each named entry keeps every
+    measured field it already carries, takes the current `skill_sha256`, and
+    gains `frontmatter_only: true` to say the SKILL.md moved in ways no grader
+    scored -- a renamed declaration key or ledger namespace, not content. Nothing
+    is read from `run_results`, so the run-level provenance is carried over too.
+    `restamp_problems` is what decides whether the claim is allowed.
     """
     root_path = Path(root) if root else workspace.ROOT
     baseline_skills: Dict[str, Any] = dict((existing or {}).get("skills") or {})
     run_skills = run_results.get("skills") or {}
-    wanted = set(skills_subset) if skills_subset is not None else set(run_skills)
+    if frontmatter_only:
+        wanted = set(skills_subset) if skills_subset is not None else set(baseline_skills)
+    else:
+        wanted = set(skills_subset) if skills_subset is not None else set(run_skills)
     run_id = run_results.get("run_id") or run_meta.get("run_id")
     source_commit = run_meta.get("commit")
 
-    for name, full in run_skills.items():
-        if name not in wanted:
-            continue
-        baseline_skills[name] = _condense_skill(name, full, run_id, root_path, source_commit)
+    if frontmatter_only:
+        for name in sorted(wanted):
+            entry = dict(baseline_skills.get(name) or {})
+            entry["skill_sha256"] = skill_sha256(name, root_path)
+            entry["frontmatter_only"] = True
+            baseline_skills[name] = entry
+    else:
+        for name, full in run_skills.items():
+            if name not in wanted:
+                continue
+            baseline_skills[name] = _condense_skill(name, full, run_id, root_path, source_commit)
 
-    executor_model = run_meta.get("executor_model") or {}
+    if frontmatter_only:
+        # Nothing was measured, so the run-level provenance is the committed one.
+        executor_model: Dict[str, Any] = {}
+        evaluator = (existing or {}).get("evaluator")
+        harness_version = (existing or {}).get("harness_version")
+    else:
+        executor_model = run_meta.get("executor_model") or {}
+        evaluator = None
+        harness_version = run_results.get("harness_version") or run_meta.get("harness_version")
     return {
         "schema_version": (existing or {}).get("schema_version") or SCHEMA_VERSION,
-        "harness_version": run_results.get("harness_version") or run_meta.get("harness_version"),
+        "harness_version": harness_version,
         "generated_at": workspace.utc_iso(),
         # HEAD at merge time, not the source run's: the baseline describes the
         # tree it is committed alongside, and its entries carry `source_commit`.
         "commit": workspace.git_commit_short(root_path),
         "dirty": workspace.git_dirty(root_path, exclude=(BASELINE_REL.as_posix(),)),
-        "evaluator": {
+        "evaluator": evaluator
+        if evaluator is not None
+        else {
             "claude_code_version": run_meta.get("claude_code_version"),
             "executor_model": executor_model.get("resolved") or executor_model.get("alias"),
             "grader_model": run_meta.get("grader_model"),
