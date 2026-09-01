@@ -1989,6 +1989,39 @@ class InstallSkillTest(unittest.TestCase):
             "detail\n",
         )
 
+    def test_update_says_the_adapter_file_is_behind_without_a_version_bump(self) -> None:
+        """A binding can change without the version integer moving, and did.
+
+        Every `SKILL.md` re-renders from the changed adapter while the rendered
+        ADAPTER.md on disk keeps the old text; keying the staleness note on a
+        hand-bumped `version:` reported none of it.
+        """
+        self._install_launcher()
+        self._write(
+            "adapters/claude-code/ADAPTER.md",
+            (self.root / "adapters" / "claude-code" / "ADAPTER.md").read_text(
+                encoding="utf-8"
+            )
+            + "\nQuiet hours are read in the owner's timezone.\n",
+        )
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 0, out)
+        self.assertIn("ADAPTER.md", out)
+        self.assertIn("not what this tree renders", out)
+
+    def test_update_and_check_say_the_adapter_still_carries_a_placeholder(self) -> None:
+        """Neither renders the adapter, so neither can refuse -- but both can say."""
+        code, out = self._run("--runtime", "claude-code", "fixture-launcher")
+        self.assertEqual(code, 1, out)  # the unconfigured-host refusal
+
+        for action in ("--update", "--check"):
+            with self.subTest(action=action):
+                _, out = self._run("--runtime", "claude-code", action)
+                self.assertIn("unfilled placeholder", out)
+                self.assertIn("VAULT_ROOT", out)
+
     def test_update_says_the_adapter_file_itself_is_not_refreshed(self) -> None:
         """`--update` re-renders skills; the ADAPTER.md they read is the install's job."""
         self._install_launcher()

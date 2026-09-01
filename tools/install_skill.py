@@ -110,7 +110,7 @@ from tools.installer.render import (
 from tools.installer.io import (
     repo_commit, run_validator,
     CHANGELOG_UNKNOWN, Planned, adapter_template, apply_identity_import,
-    bind_identity_file, changes_since,
+    adapter_notes, bind_identity_file, changes_since, rendered_adapter,
     check_adapter_template, default_dest, file_digests, git_ignored, install_adapter,
     inside_git_work_tree, installed_digests, local_overrides_path,
     local_overrides_template, locate_block, marker_block, marker_lines, placeholder_names,

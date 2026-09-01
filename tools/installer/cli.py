@@ -28,9 +28,9 @@ from .render import (
     unconfirmed_term
 )
 from .io import (
-    check_adapter_template, default_dest, install_adapter, installed_digests,
-    local_overrides_path, planned_files, print_diff, read_stamp, stamp_path,
-    stamped_installs, write_planned, write_skill, write_stamp
+    adapter_notes, check_adapter_template, default_dest, install_adapter,
+    installed_digests, local_overrides_path, planned_files, print_diff, read_stamp,
+    stamp_path, stamped_installs, write_planned, write_skill, write_stamp
 )
 from . import io
 
@@ -695,6 +695,14 @@ def do_update(context: Context, names: Sequence[str], args: argparse.Namespace) 
                 "what this installer wrote, so install it before updating it"
             )
     print(f"{context.runtime}: updating {len(installs)} stamped install(s) in {context.dest}")
+    # The notes lead, as they do on an install: what is wrong with the adapter
+    # every one of these skills reads is read before the per-skill blocks.
+    for note in adapter_notes(
+        context.runtime,
+        context.adapter,
+        local_overrides_path(context.adapter, args.local_overrides),
+    ):
+        print(f"note: {note}")
 
     statuses = install_statuses(context, [path.name for path in installs])
     for directory in installs:
@@ -716,12 +724,19 @@ def do_update(context: Context, names: Sequence[str], args: argparse.Namespace) 
     return 1 if report.refused else 0
 
 
-def do_check(context: Context, names: Sequence[str]) -> int:
+def do_check(context: Context, names: Sequence[str], args: argparse.Namespace) -> int:
     report = Report()
     installs = stamped_installs(context.dest)
     if names:
         installs = [path for path in installs if path.name in set(names)]
     print(f"{context.runtime}: checking {len(installs)} stamped install(s) in {context.dest}")
+    report.notes.extend(
+        adapter_notes(
+            context.runtime,
+            context.adapter,
+            local_overrides_path(context.adapter, args.local_overrides),
+        )
+    )
 
     for directory in installs:
         try:
@@ -944,7 +959,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if installing and args.all:
             names = runtime_skills(args.runtime)
         if args.check:
-            return do_check(context, names)
+            return do_check(context, names, args)
         if args.update:
             return do_update(context, names, args)
         if args.uninstall:

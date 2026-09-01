@@ -264,6 +264,62 @@ def placeholder_note(
     return ["; ".join(clauses) + fix]
 
 
+def rendered_adapter(runtime: str, overrides_path: Path) -> tuple[str, list[str]] | None:
+    """What this tree would render for ADAPTER.md, and the keys it leaves literal.
+
+    None where the render cannot be produced at all -- an unreadable template, a
+    local file that does not parse -- so a caller reporting on it says nothing
+    rather than guessing.
+    """
+    try:
+        values = read_local_overrides(overrides_path)
+        template = adapter_template(runtime).read_text(encoding="utf-8")
+    except (InstallError, OSError):
+        return None
+    unfilled = [name for name in placeholder_names(runtime) if not values.get(name)]
+    return substitute(template, values), unfilled
+
+
+def adapter_notes(runtime: str, adapter: dict[str, Any], overrides_path: Path) -> list[str]:
+    """The rendered ADAPTER.md on this host, against what this tree renders now.
+
+    `--update` and `--check` never deliver the adapter, so neither can refuse an
+    unconfigured host the way an install does -- but both can say that the file
+    every installed skill resolves its backticked terms against is behind this
+    tree, missing, or still carrying a `${NAME}` literal. A version integer is
+    not the detector: an adapter binding can change without one moving, and then
+    every body re-renders while the file they read stays as it was.
+    """
+    state = rendered_adapter(runtime, overrides_path)
+    if state is None:
+        return []
+    text, unfilled = state
+    path = expand(str(adapter["adapter_file"]))
+    notes: list[str] = []
+    try:
+        installed: str | None = path.read_text(encoding="utf-8")
+    except OSError:
+        installed = None
+    where = display_path(str(path))
+    if installed is None:
+        notes.append(
+            f"{where} is not readable on this host, and it is what every installed "
+            "skill resolves its terms against; re-run the install to deliver it"
+        )
+    elif installed != text:
+        notes.append(
+            f"{where} is not what this tree renders; --update re-renders skills only, "
+            "so re-run the install to refresh the file they read"
+        )
+    if unfilled:
+        notes.append(
+            f"{display_path(str(overrides_path))}: {len(unfilled)} unfilled "
+            f"placeholders, left literal in {where}: {', '.join(unfilled)}. An install "
+            "refuses on this; these actions only report it"
+        )
+    return notes
+
+
 def default_dest(adapter: dict[str, Any]) -> Path:
     """`~/.claude/skills` for a host runtime; the staging tree for a shipped one."""
     adapter_file = str(adapter["adapter_file"])
