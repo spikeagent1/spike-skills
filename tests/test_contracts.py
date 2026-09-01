@@ -212,20 +212,16 @@ class DatastoreTest(unittest.TestCase):
     def test_the_autonomy_namespace_answers_the_six_axes_its_own_way(self) -> None:
         """`autonomy/` holds the owner's standing permissions and nothing else.
 
-        No writer is named because the manager skill is not in this library yet;
-        the note is what says so, the way `people/` says which kinds are
-        reserved. The namespace is reserved for the same reason -- an empty
-        writers list plus `reserved` is the fail-closed pair, and the manager's
-        own task flips both in one edit when it lands.
+        The manager skill named here is the only writer, and the namespace is
+        active because that skill is now in the library: an empty writers list
+        plus `reserved` was the fail-closed pair that held until it landed, and
+        both moved in one edit.
         """
         entry = next(item for item in NAMESPACES if item["name"] == "autonomy")
         self.assertEqual(entry["kinds"], ["autonomy-contract"])
-        self.assertEqual(entry["authority"]["writers"], [])
+        self.assertEqual(entry["authority"]["writers"], ["autonomy"])
         self.assertIn("interactive owner session", entry["authority"]["note"])
-        # Reserved, not active: a namespace no skill may write yet is the one
-        # thing `reserved` means, and the manager's task is what activates it.
-        self.assertEqual(entry["status"], "reserved")
-        self.assertIn("activates it", entry["authority"]["note"])
+        self.assertEqual(entry["status"], "active")
         self.assertEqual(
             entry["record_fields"]["autonomy-contract"],
             [

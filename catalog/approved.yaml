@@ -307,3 +307,12 @@ skills:
     cohort: launcher
     contract_version: 2
     version: 1.0.0
+
+  - name: autonomy
+    classification: owned
+    runtime_path: skills/autonomy
+    repository_path: skills/autonomy
+    status: approved
+    cohort: autonomy
+    contract_version: 2
+    version: 1.0.0

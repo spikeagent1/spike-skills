@@ -83,6 +83,25 @@ cohorts:
     status: queued
     skills: []
 
+  - name: autonomy
+    status: completed
+    rationale: >-
+      The week-in audit found the approval ladder frozen in prose: no tool read it,
+      no owner could relax it, and the record kind designed to carry a standing
+      permission was written by nobody. A manager skill is the owner's surface onto
+      that ring -- it writes the permissions, shows what stands, ends them, and
+      counts the repeated approvals that argue for one. It belongs to no life
+      domain's cohort because the permissions it keeps are about every domain.
+    skills:
+      - autonomy
+    acceptance:
+      - every contract previewed as an exact record and written only on the owner's authorization
+      - creation refused outside an interactive owner turn, and on the skill's own initiative
+      - a capability outside the eligible ring refused by name, never narrowed into a contract
+      - no contract written for a write to the autonomy namespace itself
+      - an ending supersedes and keeps the history readable
+      - repeated approvals surfaced as a suggestion the owner may act on, never as a record
+
   - name: health-and-home-lifestyle
     status: completed
     rationale: >-

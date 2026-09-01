@@ -115,6 +115,7 @@ domains:
       - public-post-workshop
       - skill-library-ops
       - home
+      - autonomy
     next:
       - local-backup-and-export
       - privacy-review

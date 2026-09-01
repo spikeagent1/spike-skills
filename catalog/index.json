@@ -803,6 +803,27 @@
           },
           "contract_version": "2",
           "cluster": []
+        },
+        {
+          "name": "autonomy",
+          "description": "Use when standing permission itself is the ask: 'let it add tasks without asking', 'stop asking me every time', 'show my autonomy contracts' — what one covers, when it lapses, which one was used — or ending one. Not for performing the work a permission is about (daily-task-manager).",
+          "version": "1.0.0",
+          "runtime": [
+            "openclaw",
+            "claude-code"
+          ],
+          "capabilities": [
+            "datastore:read",
+            "datastore:write"
+          ],
+          "hints": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "contract_version": "2",
+          "cluster": []
         }
       ],
       "next": [
@@ -814,12 +835,6 @@
   ],
   "unassigned": [],
   "reserved_namespaces": [
-    {
-      "name": "autonomy",
-      "status": "reserved",
-      "system_of_record": "datastore",
-      "authority": "none yet"
-    },
     {
       "name": "calendar",
       "status": "reserved",

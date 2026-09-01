@@ -343,3 +343,12 @@ sources:
     cohort: launcher
     provenance: repo-owned
     version: 1.0.0
+
+  autonomy:
+    classification: owned
+    runtime_path: skills/autonomy
+    repository_path: skills/autonomy
+    status: approved
+    cohort: autonomy
+    provenance: repo-owned
+    version: 1.0.0

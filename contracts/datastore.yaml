@@ -61,15 +61,15 @@ namespaces:
     recoverability: history plus superseded records
     actionability: a boundary record gates every permission check
   - name: autonomy
-    status: reserved
+    status: active
     system_of_record: datastore
     kinds: [autonomy-contract]
     record_fields:
       autonomy-contract: [capability, skill-pattern, object-pattern, granted-at, expires, superseded-by, provenance]
     pattern_grammar: ["exact", "prefix/*", "*"]
     authority:
-      writers: []
-      note: reserved until the autonomy manager skill's task activates it - that skill is not in this library yet, so no writer is named and the namespace is read-only meanwhile. It writes these records only from an interactive owner session, and no other skill, schedule, handoff, or piece of external content may write here.
+      writers: [autonomy]
+      note: the autonomy manager skill writes these records only from an interactive owner session, and never on its own initiative. No other skill, scheduled run, handoff, or piece of external content may write here.
     scope: owner
     mutability: supersede-only; a revocation is a supersede, never a delete
     provenance: an owner-turn reference is required

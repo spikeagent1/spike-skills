@@ -75,12 +75,12 @@ _No skills released yet in this domain._
 | `public-post-workshop` | Use when public writing is made before it goes anywhere: write the result up as a journal entry and open it as a review PR, say something honest about a change that is not merged yet, or get a fresh reviewer on the draft before anyone sees it. Not for putting an approved entry live (`publish`). | 2.0.0 | openclaw, claude-code | IDEM OPEN · `datastore:read`, `datastore:write`, `repo:write` | release |
 | `skill-library-ops` | Use when this skill repository is itself the work: audit a cohort of packages against the contracts, add eval coverage, fix or bump a catalog entry, get the validator green, and open the branch as an unmerged pull request. Not for a package another agent sent (`team-skill-sharing-norm`). | 2.0.0 | openclaw, claude-code | IDEM OPEN · `datastore:write`, `repo:write`, `fs:write-local` | governance |
 | `home` | Use when the request names no skill and two or more could each own it, spans several life domains, asks what the agent can do or which skills exist, or would be answered directly although a skill here covers it. Not for the day compiled (briefing) or one task (daily-task-manager). | 1.0.0 | openclaw, claude-code | RO IDEM · — | — |
+| `autonomy` | Use when standing permission itself is the ask: 'let it add tasks without asking', 'stop asking me every time', 'show my autonomy contracts' — what one covers, when it lapses, which one was used — or ending one. Not for performing the work a permission is about (daily-task-manager). | 1.0.0 | openclaw, claude-code | IDEM · `datastore:read`, `datastore:write` | — |
 
 ## Not yet available
 
 | namespace | status | system of record | authority |
 | --- | --- | --- | --- |
-| `autonomy` | reserved | datastore | none yet |
 | `calendar` | reserved | provider | none yet |
 | `inbox` | reserved | provider | none yet |
 
