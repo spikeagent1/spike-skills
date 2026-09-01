@@ -2072,6 +2072,20 @@ class GradeRunTest(unittest.TestCase):
         self.assertEqual(grading["status"], "no_response")
         self.assertEqual(runner.requests, [])
 
+    def test_the_resolved_grader_model_is_recorded_beside_the_alias(self) -> None:
+        # `grader_model` is what was asked for; an alias moves, and a baseline
+        # graded before it moved cannot otherwise be told from one graded after.
+        raw = _grading_payload(self.case.assertions, [True, True])
+        runner = FakeClaudeRunner([_grader_result(raw)])
+        grading = grader.grade_run(runner, self.run_dir, self.case, self.args)
+        self.assertEqual(grading["grader_model"], "sonnet")
+        self.assertEqual(grading["grader_model_resolved"], "claude-sonnet-5")
+
+    def test_an_ungraded_run_records_no_resolved_grader_model(self) -> None:
+        (self.run_dir / "outputs" / "response.md").write_text("", encoding="utf-8")
+        grading = grader.grade_run(FakeClaudeRunner([]), self.run_dir, self.case, self.args)
+        self.assertIsNone(grading["grader_model_resolved"])
+
 
 class RunCommandGuardTest(unittest.TestCase):
     """`run` must refuse rather than measure the operator's own configuration."""
@@ -3218,6 +3232,133 @@ class BaselineCLITest(unittest.TestCase):
         # This fixture's run has zero ungraded assertions; the new refusal
         # check must not misfire on the ordinary, healthy path.
         self.assertEqual(self._main_quietly(["baseline", "update", "--from", "r1"]), 0)
+
+
+class BaselineBackfillTest(unittest.TestCase):
+    """`baseline backfill` fills provenance from the runs and measures nothing.
+
+    Entries merged before `source_commit` existed carry null; the run directory
+    still on disk knows the commit its run measured.
+    """
+
+    MEASURED = ("cases", "assertions", "delta", "classes", "with_skill", "without_skill")
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self._saved_ws = run_evals.workspace.WORKSPACE
+        self._saved_root = run_evals.workspace.ROOT
+        run_evals.workspace.WORKSPACE = self.root / "evals" / "workspaces"
+        run_evals.workspace.ROOT = self.root
+        _write_json(
+            run_evals.workspace.WORKSPACE / "runs" / "r-old" / "run.json",
+            {"run_id": "r-old", "commit": "dec0ded", "grader_model": "opus"},
+        )
+        _write_json(
+            run_evals.workspace.WORKSPACE
+            / "runs"
+            / "r-old"
+            / "briefing"
+            / "eval-1"
+            / "with_skill"
+            / "run-1"
+            / "grading.json",
+            {"grader_model": "opus", "grader_model_resolved": "claude-opus-5"},
+        )
+        self.path = self.root / "evals" / "baseline.json"
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.baseline = {
+            "schema_version": 1,
+            "commit": "headsha",
+            "generated_at": "2026-08-29T16:24:16+00:00",
+            "evaluator": {"grader_model": "opus", "executor_model": "claude-sonnet-5"},
+            "skills": {
+                "briefing": {
+                    "run_id": "r-old",
+                    "source_commit": None,
+                    "cases": 4,
+                    "assertions": 12,
+                    "delta": 0.5,
+                    "classes": {"discriminating": 12},
+                    "with_skill": {"pass_rate": 0.9, "cost_usd": 1.0},
+                    "without_skill": {"pass_rate": 0.4, "cost_usd": 0.5},
+                },
+                "meal-planner": {
+                    "run_id": "r-gone",
+                    "source_commit": None,
+                    "cases": 4,
+                    "assertions": 8,
+                    "delta": 0.3,
+                    "classes": {"discriminating": 8},
+                    "with_skill": {"pass_rate": 0.8, "cost_usd": 1.0},
+                    "without_skill": {"pass_rate": 0.5, "cost_usd": 0.5},
+                },
+                "home": {
+                    "run_id": "r-old",
+                    "source_commit": "already7",
+                    "cases": 4,
+                    "assertions": 8,
+                    "delta": 0.2,
+                    "classes": {"discriminating": 8},
+                    "with_skill": {"pass_rate": 0.7, "cost_usd": 1.0},
+                    "without_skill": {"pass_rate": 0.5, "cost_usd": 0.5},
+                },
+            },
+        }
+        self.path.write_text(json.dumps(self.baseline, indent=2) + "\n", encoding="utf-8")
+
+    def tearDown(self) -> None:
+        run_evals.workspace.WORKSPACE = self._saved_ws
+        run_evals.workspace.ROOT = self._saved_root
+        self.tmp.cleanup()
+
+    def _run(self, *argv: str) -> tuple[int, str]:
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            code = run_evals.main(["baseline", "backfill", *argv])
+        return code, stream.getvalue()
+
+    def _written(self) -> dict:
+        return json.loads(self.path.read_text(encoding="utf-8"))
+
+    def test_a_null_source_commit_is_filled_from_its_run_directory(self) -> None:
+        code, out = self._run()
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self._written()["skills"]["briefing"]["source_commit"], "dec0ded")
+
+    def test_an_entry_that_already_has_one_is_left_alone(self) -> None:
+        self._run()
+        self.assertEqual(self._written()["skills"]["home"]["source_commit"], "already7")
+
+    def test_a_missing_run_directory_is_reported_and_left_null(self) -> None:
+        code, out = self._run()
+        self.assertEqual(code, 0, out)
+        self.assertIsNone(self._written()["skills"]["meal-planner"]["source_commit"])
+        self.assertIn("meal-planner", out)
+        self.assertIn("r-gone", out)
+
+    def test_the_resolved_grader_model_is_filled_from_the_grading_artifacts(self) -> None:
+        self._run()
+        self.assertEqual(
+            self._written()["evaluator"]["grader_model_resolved"], "claude-opus-5"
+        )
+
+    def test_every_measured_number_is_byte_identical_afterwards(self) -> None:
+        self._run()
+        after = self._written()
+        for name, entry in self.baseline["skills"].items():
+            for field in self.MEASURED:
+                with self.subTest(skill=name, field=field):
+                    self.assertEqual(after["skills"][name][field], entry[field])
+        self.assertEqual(after["generated_at"], self.baseline["generated_at"])
+        self.assertEqual(after["commit"], self.baseline["commit"])
+
+    def test_dry_run_writes_nothing(self) -> None:
+        before = self.path.read_bytes()
+        code, out = self._run("--dry-run")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.path.read_bytes(), before)
+        self.assertIn("briefing", out)
 
 
 def _write_response(run_dir: Path, text: str = "A graded response.") -> None:
@@ -5370,6 +5511,18 @@ class BaselineCommitProvenanceTest(unittest.TestCase):
         merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
         self.assertEqual(merged["commit"], self.head)
         self.assertNotEqual(merged["commit"], "abc1234")
+
+    def test_the_evaluator_block_records_the_resolved_grader_model(self) -> None:
+        meta = dict(self.run_meta, grader_model="opus", grader_model_resolved="claude-opus-5")
+        merged = report.merge_baseline(None, self.run_results, meta, root=self.root)
+        self.assertEqual(merged["evaluator"]["grader_model"], "opus")
+        self.assertEqual(merged["evaluator"]["grader_model_resolved"], "claude-opus-5")
+
+    def test_a_run_that_recorded_no_resolved_grader_leaves_the_field_null(self) -> None:
+        merged = report.merge_baseline(
+            None, self.run_results, dict(self.run_meta, grader_model="opus"), root=self.root
+        )
+        self.assertIsNone(merged["evaluator"]["grader_model_resolved"])
 
     def test_each_entry_keeps_the_commit_its_run_measured(self) -> None:
         merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)

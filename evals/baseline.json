@@ -506,6 +506,7 @@
       ],
       "run_id": "20260829T074554-5451c36",
       "skill_sha256": "036e723e2d54ba0376542f7ce6a617583827605da2e2ef16f6dc9d7d77fbfded",
+      "source_commit": "5451c36",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -549,6 +550,7 @@
       ],
       "run_id": "20260829T075911-2d371c6",
       "skill_sha256": "c40fb0507455526bb5d66c068b5c5ddd151fdd4a6dc0de43732834759e004433",
+      "source_commit": "2d371c6",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -598,6 +600,7 @@
       ],
       "run_id": "20260829T043417-ff51507",
       "skill_sha256": "f487ccb3921539bcfa205ed368dc6cc53abae03bd4f3cf013ad338ee5f2c2f31",
+      "source_commit": "ff51507",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -648,6 +651,7 @@
       ],
       "run_id": "20260829T063249-d8d3278",
       "skill_sha256": "4a69a9b7d9d0225b89359693abf470c5f93e2fdac4db9ac754727328a443c823",
+      "source_commit": "d8d3278",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -706,6 +710,7 @@
       ],
       "run_id": "20260829T062438-483cefb",
       "skill_sha256": "8d50be4896d5fad910fecfd1ded56201f9b40d6be4666452940319d0982ac968",
+      "source_commit": "483cefb",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -754,6 +759,7 @@
       ],
       "run_id": "20260828T231637-12e1cfc",
       "skill_sha256": "1863f47365854c52d457439461dd50414ea54d33cbc218b18a1795cd55f9abb5",
+      "source_commit": "12e1cfc",
       "ungraded": 0,
       "with_skill": {
         "cost_usd": 0.52894,
@@ -798,6 +804,7 @@
       ],
       "run_id": "20260828T215739-c65fed9",
       "skill_sha256": "2f849e870bc265893fe9cd5369a58c8b1914e58780384ba838a88e6268344fd0",
+      "source_commit": "c65fed9",
       "ungraded": 0,
       "with_skill": {
         "cost_usd": 0.647888,
@@ -843,6 +850,7 @@
       ],
       "run_id": "20260828T224322-46b9480",
       "skill_sha256": "569fd7ea8133a1bf10d0abdb5c6c6f692c0b29d49eebe4884269d587fde86346",
+      "source_commit": "46b9480",
       "ungraded": 0,
       "with_skill": {
         "cost_usd": 0.37065,
@@ -929,6 +937,7 @@
       ],
       "run_id": "20260828T221314-9d89c7b",
       "skill_sha256": "b9525fa55b8b16b1745ea720baf3095f8856cc764dd8d7cd01bfa8bc0a876655",
+      "source_commit": "9d89c7b",
       "ungraded": 0,
       "with_skill": {
         "cost_usd": 0.501845,
@@ -980,6 +989,7 @@
       ],
       "run_id": "20260829T014305-b062935-hm-final",
       "skill_sha256": "06589870825e805189132373f76b5da3f20e76ca47993836781b9e6b9c2ba309",
+      "source_commit": "b062935",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -1031,6 +1041,7 @@
       ],
       "run_id": "20260829T061555-395e72f",
       "skill_sha256": "7f1612754eba67d8e80e6dfd6976f88345807e6c2d09153708d655e00916974a",
+      "source_commit": "395e72f",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -1079,6 +1090,7 @@
       ],
       "run_id": "20260829T052326-a811594",
       "skill_sha256": "03cbd5343ab4da6621997863efed4263ceb6913ea65fdcab3b1996ba9c35c257",
+      "source_commit": "a811594",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -1125,6 +1137,7 @@
       ],
       "run_id": "20260828T210927-ed33b53",
       "skill_sha256": "423cf5650862946d77ce23b25bd1db9e4b49c931fc8e08994e48b6ec60bffa6b",
+      "source_commit": "ed33b53",
       "ungraded": 0,
       "with_skill": {
         "cost_usd": 0.621831,
@@ -1214,6 +1227,7 @@
       ],
       "run_id": "20260829T051957-1299909",
       "skill_sha256": "6ecb4d3f0c6a19c84cf6e598092c63ea671e021dd2b6203fac8a1ba891829082",
+      "source_commit": "1299909",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -1259,6 +1273,7 @@
       ],
       "run_id": "20260829T043909-3829af7",
       "skill_sha256": "de325d89bd34244b6073afb96987e73c08b677d8cd3801b5ab13a53157e190e9",
+      "source_commit": "3829af7",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -1356,6 +1371,7 @@
       ],
       "run_id": "20260829T072534-938f9f4",
       "skill_sha256": "98e36c655fb68ce97152243bfcb6b5708b4ec04c3a74bb6a48289c7d41f342b4",
+      "source_commit": "938f9f4",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -1402,6 +1418,7 @@
       ],
       "run_id": "20260829T014004-b4ca721",
       "skill_sha256": "d6f808a168d2860ba598d6c9af75b4ec923fc93830337ec6b47ffd61c3ca48d7",
+      "source_commit": "b4ca721",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -1452,6 +1469,7 @@
       ],
       "run_id": "20260829T053139-bac43ee",
       "skill_sha256": "08414b7f316cf4f9089879db60eb2f14eabf0d5013b3cdec07169eea2f27de7e",
+      "source_commit": "bac43ee",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -1544,6 +1562,7 @@
       ],
       "run_id": "20260828T231637-12e1cfc",
       "skill_sha256": "f6249f5276d1fa0d680c9cbf1d82298e215b368da5a947e5052f2b640f908336",
+      "source_commit": "12e1cfc",
       "ungraded": 0,
       "with_skill": {
         "cost_usd": 0.472052,
@@ -1589,6 +1608,7 @@
       ],
       "run_id": "20260829T053139-bac43ee",
       "skill_sha256": "0b70d87d2091dea6d50ac053ec81635bd6dd3cd22dc3f4e502ca2308f892e0d3",
+      "source_commit": "bac43ee",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -1722,6 +1742,7 @@
       ],
       "run_id": "20260829T085739-8c6e355-batch6",
       "skill_sha256": "1673d52e363c60b95d47708e87492f3175ad81468fb450ee3e91fdb38ce487c2",
+      "source_commit": "8c6e355",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {
@@ -1766,6 +1787,7 @@
       ],
       "run_id": "20260829T014101-b062935",
       "skill_sha256": "7918efc19bc473b6385432a489f89d637993b3c25a1accd29811f82d71733521",
+      "source_commit": "b062935",
       "ungraded": 0,
       "ungraded_keys": [],
       "with_skill": {

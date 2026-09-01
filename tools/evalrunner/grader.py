@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Sequence
 from .cases import BehavioralCase
 from .claude_cli import ClaudeRequest, ClaudeResult, ClaudeRunner, scrub_env, strategy_env
 from .doctor import probe_environ
-from .executor import sandbox_cwd
+from .executor import resolved_model, sandbox_cwd
 from . import HARNESS_VERSION, workspace
 
 PROMPTS = Path(__file__).resolve().parent / "prompts"
@@ -308,6 +308,7 @@ def grade_run(
     response = read_response(run_dir)
     grader_status = "not_run"
     cost = 0.0
+    resolved: Optional[str] = None
 
     if not response.strip():
         grading = _empty_grading(
@@ -318,6 +319,7 @@ def grade_run(
         result = runner.run(build_grader_request(payload, args, isolation_flags, run_dir))
         grader_status = result.status
         cost = result.cost_usd
+        resolved = resolved_model(result)
         parsed = parse_grading(result, case.assertions, field=structured_field(args))
         if parsed is None:
             grading = _empty_grading(
@@ -330,6 +332,10 @@ def grade_run(
             grading["status"] = STATUS_OK
 
     grading["grader_model"] = getattr(args, "grader_model", None) or args.model
+    # The alias is what was asked for; an alias moves, and a baseline graded
+    # before it moved cannot otherwise be told from one graded after. None when
+    # no grading call was made, or when the reply named no model.
+    grading["grader_model_resolved"] = resolved
     grading["grader_status"] = grader_status
     grading["grader_cost_usd"] = cost
     grading["harness_version"] = HARNESS_VERSION

@@ -401,6 +401,7 @@ def merge_baseline(
             "claude_code_version": run_meta.get("claude_code_version"),
             "executor_model": executor_model.get("resolved") or executor_model.get("alias"),
             "grader_model": run_meta.get("grader_model"),
+            "grader_model_resolved": run_meta.get("grader_model_resolved"),
             "load_mode": run_meta.get("load_mode"),
             "system_prompt_mode": run_meta.get("system_prompt_mode"),
             "repeats": run_meta.get("repeats"),

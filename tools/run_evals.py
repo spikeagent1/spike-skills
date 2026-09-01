@@ -213,6 +213,15 @@ def build_parser() -> argparse.ArgumentParser:
     baseline_check = baseline_sub.add_parser("check", help="Report staleness against the repo on disk.")
     baseline_check.set_defaults(handler=cmd_baseline_check)
 
+    baseline_backfill = baseline_sub.add_parser(
+        "backfill",
+        help="Fill missing provenance from the run directories; measures nothing.",
+    )
+    baseline_backfill.add_argument(
+        "--dry-run", action="store_true", help="Print what would be filled and write nothing."
+    )
+    baseline_backfill.set_defaults(handler=cmd_baseline_backfill)
+
     routing_parser = subparsers.add_parser(
         "routing", help="Measure which skill the router picks for each routing intent."
     )
@@ -515,6 +524,9 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     resolved = next((o["resolved_model"] for o in outcomes if o.get("resolved_model")), None)
     run_json["executor_model"]["resolved"] = resolved
+    run_json["grader_model_resolved"] = next(
+        (o["grader_resolved_model"] for o in outcomes if o.get("grader_resolved_model")), None
+    )
     run_json["finished_at"] = workspace.utc_iso()
     run_json["cost_usd_total"] = round(sum(o["cost_usd"] for o in outcomes), 6)
     run_json["spend_usd_total"] = round(sum(o.get("spend_usd", 0.0) for o in outcomes), 6)
@@ -645,6 +657,9 @@ def _execute_and_grade(
         "spend_usd": exec_spend + grade_spend,
         "cached": from_cache,
         "resolved_model": executor.resolved_model(result),
+        # None for a grading replayed from a cache entry written before the
+        # field existed, which the roll-up skips rather than records as null.
+        "grader_resolved_model": grading.get("grader_model_resolved"),
     }
 
 
@@ -1384,6 +1399,96 @@ def _load_routing_block(run_id: str) -> Tuple[Optional[Dict[str, Any]], Optional
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         return None, f"{results_path} is unreadable: {exc}"
     return routing.baseline_routing_block(aggregate, run_id), None
+
+
+def _run_grader_resolved(run_id: str) -> Optional[str]:
+    """First resolved grader model recorded under one run directory, if any."""
+    run_root = workspace.WORKSPACE / "runs" / run_id
+    if not run_root.is_dir():
+        return None
+    meta = _read_json_or_none(run_root / "run.json") or {}
+    recorded = meta.get("grader_model_resolved")
+    if isinstance(recorded, str) and recorded:
+        return recorded
+    for path in sorted(run_root.rglob("grading.json")):
+        grading = _read_json_or_none(path) or {}
+        value = grading.get("grader_model_resolved")
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
+def _read_json_or_none(path: Path) -> Optional[Dict[str, Any]]:
+    try:
+        loaded = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, ValueError):
+        return None
+    return loaded if isinstance(loaded, dict) else None
+
+
+def cmd_baseline_backfill(args: argparse.Namespace) -> int:
+    """Fill provenance the committed baseline is missing, from the runs on disk.
+
+    Entries merged before `source_commit` existed carry null, and the grader was
+    recorded as an alias before the resolved id was captured. Both are facts of
+    the run that produced the entry, and the run directory still knows them.
+    Nothing measured is touched: a run whose directory is gone keeps its null and
+    is named in the report rather than guessed at.
+    """
+    baseline = report.load_baseline()
+    if baseline is None:
+        print("run_evals.py baseline backfill: no committed evals/baseline.json", file=sys.stderr)
+        return 2
+
+    filled: List[str] = []
+    unresolved: List[str] = []
+    skills = baseline.get("skills") or {}
+    for name in sorted(skills):
+        entry = skills[name]
+        if entry.get("source_commit"):
+            continue
+        run_id = str(entry.get("run_id") or "")
+        meta = _read_json_or_none(workspace.WORKSPACE / "runs" / run_id / "run.json") if run_id else None
+        commit = (meta or {}).get("commit")
+        if isinstance(commit, str) and commit:
+            entry["source_commit"] = commit
+            filled.append(f"{name}: source_commit <- {commit} (from {run_id})")
+        else:
+            unresolved.append(
+                f"{name}: no commit recorded for run {run_id or '(none)'}; left null"
+            )
+
+    evaluator = baseline.get("evaluator")
+    if isinstance(evaluator, dict) and not evaluator.get("grader_model_resolved"):
+        run_ids = list(dict.fromkeys(
+            str(skills[name].get("run_id") or "") for name in sorted(skills)
+        ))
+        resolved = next(
+            (found for found in (_run_grader_resolved(rid) for rid in run_ids if rid) if found),
+            None,
+        )
+        if resolved:
+            evaluator["grader_model_resolved"] = resolved
+            filled.append(f"evaluator: grader_model_resolved <- {resolved}")
+        else:
+            unresolved.append(
+                "evaluator: no run recorded a resolved grader model; "
+                f"grader_model stays the alias {evaluator.get('grader_model')!r}"
+            )
+
+    for line in filled:
+        print(f"filled  {line}")
+    for line in unresolved:
+        print(f"unknown {line}")
+    if not filled:
+        print("baseline backfill: nothing to fill")
+        return 0
+    if args.dry_run:
+        print(f"baseline backfill: would fill {len(filled)} field(s); --dry-run wrote nothing")
+        return 0
+    path = report.write_baseline(baseline, root=workspace.ROOT)
+    print(f"baseline backfill: filled {len(filled)} field(s) in {path}")
+    return 0
 
 
 def cmd_baseline_check(args: argparse.Namespace) -> int:
