@@ -10,7 +10,7 @@ metadata:
     runtime: [openclaw, claude-code]
     reads_from: []
     writes_to: []
-    effects: []
+    capabilities: []
 ---
 
 # <Title>
@@ -19,7 +19,7 @@ metadata:
      license, compatibility, and allowed-tools when they do not apply.
      Under metadata.spike-os: version is semver and matches catalog/approved.yaml;
      runtime lists adapters under adapters/; reads_from and writes_to name
-     namespaces from contracts/datastore.md; effects names entries from
+     namespaces from contracts/datastore.md; capabilities names entries from
      contracts/capabilities.yaml. Description: third person, <=300 chars, opens
      with "Use when", names no principal or runtime, and carries one negative
      clause naming the sibling skill. -->

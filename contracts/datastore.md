@@ -26,7 +26,8 @@ holds the two halves to each other, and both to what each skill declares in
 
 | Namespace | Status | System of record | Kinds | Authority | Scope | Mutability | Provenance | Recoverability | Actionability |
 |---|---|---|---|---|---|---|---|---|---|
-| `profile/` | active | datastore | owner-fact, preference, boundary, authority-rule, correction | consolidation -- `owner-dream-cycle` -- and `owner-context-onboarding` | owner-private | supersede-only | owner turns | history plus superseded records | authority-rule gates every permission check |
+| `profile/` | active | datastore | owner-fact, preference, boundary, correction | consolidation -- `owner-dream-cycle` -- and `owner-context-onboarding` | owner-private | supersede-only | owner turns | history plus superseded records | a boundary record gates every permission check |
+| `autonomy/` | active | datastore | `autonomy-contract` | the autonomy manager, from an interactive owner session only -- that skill is not in this library yet, so no writer is named and nothing else may write here | owner | supersede-only; a revocation is a supersede, never a delete | an owner-turn reference is required | full history retained | gates the re-ask for a `contract_eligible` capability |
 | `people/` | active | datastore; contact-card from provider | `person` (reserved), `relationship-context` (reserved), `voice-profile`, `contact-card` (reserved) | `draft-in-voice`, for `voice-profile` only; `person`, `relationship-context` and `contact-card` are reserved kinds with no writer yet | one slug per human or org | supersede-only | owner-stated or agent-inference | history | consent required before quoting (P5) |
 | `agents/` | active | datastore | agent-identity, account-state, roster-entry, connector-state | holders of `datastore:write` on `agents` — `mcp-connector-onboarding`, `runtime-handoff-onboarding`, `social-agent-onboarding`, `social-agent-practice`, `team-skill-sharing-norm` | the agent and its accounts | explicit state transitions | verified probes | re-probe the provider | gates connector and account use |
 | `projects/` | active | datastore | brief, status, handoff | any skill holding `datastore:write` | one page per project slug | append status, supersede brief | session handoffs | history | read before resuming work |
@@ -37,7 +38,7 @@ holds the two halves to each other, and both to what each skill declares in
 | `calendar/` | reserved | provider | event, id-map | none yet | owner events | read-only until a conduit exists | provider readback | resync | read through `provider:read` |
 | `inbox/` | reserved | provider | thread, message-ref, id-map | none yet | refs and triage state, never bodies | read-only until a conduit exists | provider readback | resync | never store message bodies |
 | `jobs/` | active | scheduler | job-spec, occurrence | `cron-scheduler` | scheduled work the owner can see | update by stable job key | scheduler readback | prior-definition snapshot | occurrence key deduplicates runs |
-| `effects/` | active | datastore | effect | every mutating skill appends; any holder of `datastore:write` | side-effect ledger | append-only | operation key and readback | rollback handle | consulted before any retry |
+| `activity/` | active | datastore | activity | every mutating skill appends; any holder of `datastore:write` | the activity ledger, one record per mutating effect | append-only | operation key and readback | rollback handle | consulted before any retry |
 | `checkpoints/` | active | datastore | cursor | holders of `checkpoint:advance` | one cursor per skill and channel | advance only after terminal verification | last verified item | replay from prior cursor | never advanced by a read |
 | `notifications/` | active | datastore | delivery, held | holders of `notify:owner` | one record per delivery key | state transitions only | channel readback | held digest replay | retry on the same key is a no-op |
 
@@ -47,7 +48,7 @@ namespace is writable, that kind is not written by anyone yet, and
 `reserved_kinds` in `contracts/datastore.yaml` names them. The `writes_to` lint
 is namespace-level and cannot see which kind a write carries, so a reserved kind
 holds the way write invariants 4 and 5 do -- through each skill's own contract
-and its cases, and visibly in the `effects/` ledger afterwards.
+and its cases, and visibly in the `activity/` ledger afterwards.
 
 `health-log` (Task 13c ruling 2) is the one `journal/` kind whose authority is
 the record itself rather than a run: it is what the owner said happened, dated.
@@ -60,19 +61,33 @@ Record keys: `journal/` dream-report is `<local-date>--<corpus-hash-8>`
 and occurrence is `<job-key>@<scheduled-instant>`
 (`skills/cron-scheduler/SKILL.md:58`); `checkpoints/` cursor is
 `<skill>/<channel-or-source>` (`skills/social-listening-engagement-loop/SKILL.md:89`);
-`effects/` effect carries `operation_key`, `target`, `effect_state`, `readback`,
-and `rollback_handle` (`skills/publish/SKILL.md:62`).
+`activity/` activity carries `operation_key`, `target`, `activity_state`,
+`readback`, and `rollback_handle` (`skills/publish/SKILL.md:62`).
 
-`effect_state` is a closed enum, listed in `contracts/datastore.yaml`. It is the
-deduplicated union of what the skills that append to `effects/` report, and a
-skill reports only the subset its own declared effects can reach — which is what
-each of them means by saying its state vocabulary is "extended by nothing here".
-`publish` is the origin of the core six — `PREVIEWED`, `RENDERED`,
+`activity_state` is a closed enum, listed in `contracts/datastore.yaml`. It is
+the deduplicated union of what the skills that append to `activity/` report, and
+a skill reports only the subset its own declared capabilities can reach — which
+is what each of them means by saying its state vocabulary is "extended by
+nothing here". `publish` is the origin of the core six — `PREVIEWED`, `RENDERED`,
 `UPLOADED_UNVERIFIED`, `PUBLISHED_VERIFIED`, `LINK_DELIVERED`, `ORIGIN_REMOVED`
 (`skills/publish/SKILL.md:87`) — and `PREVIEWED` is the one name shared across
 skills, because previewing a mutation is the one state every mutating skill can
 reach. Adding a state is a change to this enum, never a local extension
 (`skills/cron-scheduler/SKILL.md:100`, `skills/conversation-archive/SKILL.md:86`).
+
+An `autonomy/` record is one standing permission the owner wrote: `capability`
+(a name from `contracts/capabilities.yaml`, and only one whose
+`contract_eligible` is true), `skill-pattern`, `object-pattern`, `granted-at`,
+`expires`, `superseded-by`, and the usual `provenance`. Both patterns are
+matched by one grammar and no other: an exact string, a `prefix/*`, or `*` —
+never a regular expression. A pattern matching nothing, a contract past its
+`expires`, and an ambiguous match all fail closed to the behavior of a library
+with no contracts at all, disclosed in one line; a failure can never widen
+autonomy. Where several live contracts match, any one of them authorizes and the
+`activity/` record cites the most specific. A contract is honored in any session
+kind, and written in none but an interactive owner turn: no schedule, handoff,
+sub-agent, or piece of external content may create, widen, or revive one, and no
+contract covers a write to `autonomy/` itself.
 
 ## Not in the datastore
 
@@ -126,7 +141,7 @@ and `status: confirmed` — the adapter maps it; records are never renamed here.
 2. A correction supersedes; it never overwrites (`skills/owner-context-onboarding/SKILL.md:60`).
 3. A skill never relabels `agent-inference` as `owner-stated` (`skills/owner-dream-cycle/SKILL.md:33`).
 4. Only consolidation — `owner-dream-cycle` — writes curated `profile/` and `decisions/` records (`skills/owner-dream-cycle/SKILL.md:43`, `docs/related-work.md` §(a)7).
-5. A session whose `session_kind` is `cron`, `heartbeat`, or `sub-agent` may write only `journal/`, `effects/`, `checkpoints/`, `notifications/`, and `jobs/`, and may never promote a candidate (`skills/owner-dream-cycle/SKILL.md:57`, `docs/related-work.md` §(a)7).
+5. A session whose `session_kind` is `cron`, `heartbeat`, or `sub-agent` may write only `journal/`, `activity/`, `checkpoints/`, `notifications/`, and `jobs/`, and may never promote a candidate (`skills/owner-dream-cycle/SKILL.md:57`, `docs/related-work.md` §(a)7).
 6. Provenance is structured frontmatter, never prose (`skills/owner-dream-cycle/SKILL.md:38`).
 7. No credentials, OTPs, email addresses, or raw sensitive excerpts, in any namespace (`skills/owner-dream-cycle/SKILL.md:38`).
 8. Every write is followed by a readback that compares envelope and body (M4).
@@ -136,7 +151,7 @@ checks a skill's declared `writes_to` against this file; it cannot see which
 `kind` a write carries, whether the record was curated or a candidate, or what
 `session_kind` the session is running under — all three are facts of the turn,
 not of the declaration. They hold because each skill's own contract states them
-and its cases test them, and a violation shows up in the `effects/` ledger after
+and its cases test them, and a violation shows up in the `activity/` ledger after
 the fact, never in a validator run before it.
 
 ## Verbs

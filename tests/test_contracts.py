@@ -78,6 +78,47 @@ class CapabilitiesTest(unittest.TestCase):
                 self.assertTrue(entry["derived_from"])
                 self.assertLessEqual(len(entry["summary"].split()), 15)
 
+    def test_every_effect_declares_contract_eligibility(self) -> None:
+        for entry in EFFECTS:
+            with self.subTest(effect=entry.get("name")):
+                self.assertIsInstance(entry["contract_eligible"], bool)
+
+    def test_the_ineligible_ring_is_exactly_the_six_the_owner_named(self) -> None:
+        """An autonomy contract can never reach these six (3A).
+
+        Both `never_autonomous` effects, plus the four whose blast radius is a
+        thing the owner cannot take back by superseding a record: an external
+        delete, money, a secret, and a publication withdrawal.
+        """
+        ineligible = {
+            entry["name"] for entry in EFFECTS if not entry["contract_eligible"]
+        }
+        self.assertEqual(
+            ineligible,
+            {
+                "identity:write",
+                "repo:merge",
+                "delete:external",
+                "spend",
+                "credential:manage",
+                "publish:revoke",
+            },
+        )
+        for entry in EFFECTS:
+            if entry["approval"] == "never_autonomous":
+                with self.subTest(effect=entry["name"]):
+                    self.assertFalse(entry["contract_eligible"])
+
+    def test_the_autonomy_block_names_the_field_and_the_fail_closed_default(self) -> None:
+        autonomy = CAPABILITIES["autonomy"]
+        self.assertEqual(autonomy["eligibility_field"], "contract_eligible")
+        self.assertEqual(autonomy["never_eligible_namespace"], "autonomy")
+        self.assertEqual(autonomy["on_ambiguity"], "fail_closed")
+        self.assertIn(
+            autonomy["never_eligible_namespace"],
+            {entry["name"] for entry in NAMESPACES},
+        )
+
     def test_derived_from_entries_are_traceable(self) -> None:
         reference = re.compile(r"^skills/[a-z0-9-]+/SKILL\.md:\d+(-\d+)?$")
         for entry in EFFECTS:
@@ -101,10 +142,10 @@ class CapabilitiesTest(unittest.TestCase):
 
 
 class DatastoreTest(unittest.TestCase):
-    def test_fourteen_unique_namespaces(self) -> None:
+    def test_fifteen_unique_namespaces(self) -> None:
         names = [entry["name"] for entry in NAMESPACES]
-        self.assertEqual(len(names), 14)
-        self.assertEqual(len(set(names)), 14)
+        self.assertEqual(len(names), 15)
+        self.assertEqual(len(set(names)), 15)
 
     def test_every_namespace_answers_the_six_axes(self) -> None:
         for entry in NAMESPACES:
@@ -168,6 +209,39 @@ class DatastoreTest(unittest.TestCase):
             with self.subTest(kind=kind):
                 self.assertIn(kind, cell)
 
+    def test_the_autonomy_namespace_answers_the_six_axes_its_own_way(self) -> None:
+        """`autonomy/` holds the owner's standing permissions and nothing else.
+
+        No writer is named because the manager skill is not in this library yet;
+        the note is what says so, the way `people/` says which kinds are
+        reserved. A namespace with an empty writers list is one no skill may
+        declare in `writes_to`, which is the fail-closed state to be in until
+        the manager lands.
+        """
+        entry = next(item for item in NAMESPACES if item["name"] == "autonomy")
+        self.assertEqual(entry["kinds"], ["autonomy-contract"])
+        self.assertEqual(entry["authority"]["writers"], [])
+        self.assertIn("interactive owner session", entry["authority"]["note"])
+        self.assertEqual(
+            entry["record_fields"]["autonomy-contract"],
+            [
+                "capability",
+                "skill-pattern",
+                "object-pattern",
+                "granted-at",
+                "expires",
+                "superseded-by",
+                "provenance",
+            ],
+        )
+        self.assertEqual(entry["pattern_grammar"], ["exact", "prefix/*", "*"])
+
+    def test_the_authority_rule_kind_left_profile_for_autonomy(self) -> None:
+        """One place holds a standing permission, and it is not `profile/`."""
+        profile = next(item for item in NAMESPACES if item["name"] == "profile")
+        self.assertNotIn("authority-rule", profile["kinds"])
+        self.assertNotIn("authority-rule", profile["actionability"])
+
     def test_conversations_is_a_separate_root(self) -> None:
         entry = next(item for item in NAMESPACES if item["name"] == "conversations")
         self.assertTrue(entry["separate_root"])
@@ -183,24 +257,24 @@ class DatastoreTest(unittest.TestCase):
                 "status",
                 "origin",
                 "session_kind",
-                "effect_state",
+                "activity_state",
             },
         )
         for name, values in enums.items():
             with self.subTest(enum=name):
                 self.assertTrue(values)
 
-    def test_effect_state_is_the_union_of_the_reporting_skills(self) -> None:
+    def test_activity_state_is_the_union_of_the_reporting_skills(self) -> None:
         """Every state a batch-5 skill reports is in the enum, and vice versa."""
-        declared = DATASTORE["enums"]["effect_state"]
-        self.assertEqual(len(declared), len(set(declared)), "effect_state has duplicates")
+        declared = DATASTORE["enums"]["activity_state"]
+        self.assertEqual(len(declared), len(set(declared)), "activity_state has duplicates")
         reported: set[str] = set()
         for skill in ("publish", "cron-scheduler", "conversation-archive"):
             path = contracts_check.ROOT / "skills" / skill / "SKILL.md"
             body = path.read_text(encoding="utf-8")
             section = body.split("## Output contract", 1)[1].split("\n## ", 1)[0]
             names = set(re.findall(r"^- `([A-Z][A-Z_]+)`", section, re.MULTILINE))
-            self.assertTrue(names, f"{skill} declares no effect_state names")
+            self.assertTrue(names, f"{skill} declares no activity_state names")
             self.assertLessEqual(
                 names, set(declared), f"{skill} reports a state the enum omits"
             )
@@ -240,7 +314,7 @@ class TemplateTest(unittest.TestCase):
 class VocabularyTest(unittest.TestCase):
     def test_terms_match_the_contract_glossary(self) -> None:
         glossary = contracts_check.glossary_terms()
-        self.assertEqual(len(glossary), 31)
+        self.assertEqual(len(glossary), 33)
         self.assertEqual([entry["term"] for entry in TERMS], glossary)
 
     def test_every_term_is_fully_declared(self) -> None:

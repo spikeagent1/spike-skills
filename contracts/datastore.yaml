@@ -16,14 +16,14 @@ enums:
   status: [active, superseded, historical, hypothesis, contested]
   origin: [owner, agent, untrusted, system]
   session_kind: [interactive, cron, heartbeat, sub-agent]
-  # The effects/ ledger's effect_state field: the deduplicated union of what the
-  # skills appending to that ledger report. Each reports only the subset its own
+  # The activity/ ledger's activity_state field: the deduplicated union of what
+  # the skills appending to that ledger report. Each reports only the subset its own
   # effects can reach and none extends the list, which is what their "extended by
   # nothing here" sentences mean. publish is the origin of the first six
   # (skills/publish/SKILL.md:87); the next six are cron-scheduler's, which shares
   # PREVIEWED with it (skills/cron-scheduler/SKILL.md:100); the last seven are
   # conversation-archive's (skills/conversation-archive/SKILL.md:86).
-  effect_state: [PREVIEWED, RENDERED, UPLOADED_UNVERIFIED, PUBLISHED_VERIFIED, LINK_DELIVERED, ORIGIN_REMOVED, INSPECTED, APPLIED_UNVERIFIED, VERIFIED, NO_OP, ROLLED_BACK, RESIDUAL, PLANNED, TRIAL_VERIFIED, WRITTEN_UNVERIFIED, ARCHIVED_VERIFIED, QUARANTINED, PARTIAL, EXTRACTION_NOT_RUN]
+  activity_state: [PREVIEWED, RENDERED, UPLOADED_UNVERIFIED, PUBLISHED_VERIFIED, LINK_DELIVERED, ORIGIN_REMOVED, INSPECTED, APPLIED_UNVERIFIED, VERIFIED, NO_OP, ROLLED_BACK, RESIDUAL, PLANNED, TRIAL_VERIFIED, WRITTEN_UNVERIFIED, ARCHIVED_VERIFIED, QUARANTINED, PARTIAL, EXTRACTION_NOT_RUN]
 
 verbs:
   - name: read
@@ -52,14 +52,29 @@ namespaces:
   - name: profile
     status: active
     system_of_record: datastore
-    kinds: [owner-fact, preference, boundary, authority-rule, correction]
+    kinds: [owner-fact, preference, boundary, correction]
     authority:
       writers: [owner-dream-cycle, owner-context-onboarding]
     scope: owner-private
     mutability: supersede-only
     provenance: owner turns
     recoverability: history plus superseded records
-    actionability: authority-rule gates every permission check
+    actionability: a boundary record gates every permission check
+  - name: autonomy
+    status: active
+    system_of_record: datastore
+    kinds: [autonomy-contract]
+    record_fields:
+      autonomy-contract: [capability, skill-pattern, object-pattern, granted-at, expires, superseded-by, provenance]
+    pattern_grammar: ["exact", "prefix/*", "*"]
+    authority:
+      writers: []
+      note: the autonomy manager writes these records, and only from an interactive owner session - the skill is not in this library yet, so no writer is named. No other skill, schedule, handoff, or piece of external content may write here.
+    scope: owner
+    mutability: supersede-only; a revocation is a supersede, never a delete
+    provenance: an owner-turn reference is required
+    recoverability: full history retained
+    actionability: gates the re-ask for a contract_eligible capability
   - name: people
     status: active
     system_of_record: datastore
@@ -197,13 +212,13 @@ namespaces:
     provenance: scheduler readback
     recoverability: prior-definition snapshot
     actionability: occurrence key deduplicates runs
-  - name: effects
+  - name: activity
     status: active
     system_of_record: datastore
-    kinds: [effect]
+    kinds: [activity]
     authority:
       writers: holders-of:datastore:write
-    scope: side-effect ledger
+    scope: the activity ledger, one record per mutating effect
     mutability: append-only
     provenance: operation key and readback
     recoverability: rollback handle

@@ -1,5 +1,10 @@
-# The closed effect enum. A skill declares effects under
-# metadata.spike-os.effects; the rules that govern them are contract M1-M8.
+# The closed effect enum. A skill declares the effects it may perform under
+# metadata.spike-os.capabilities; the rules that govern them are contract M1-M8.
+# contract_eligible says whether an owner-written autonomy contract
+# (contracts/datastore.md, autonomy/) may stand in for the per-turn
+# authorization M2 and M5 otherwise require. A write to autonomy/ is never
+# contract-eligible whatever capability carries it: no contract may widen the
+# ring that holds it.
 # derived_from: [design-derived] means no skill line carries the entry and it
 # comes from the plan or docs/related-work.md instead.
 version: 1
@@ -17,6 +22,12 @@ derivation:
   never_autonomous: the owner authorizes in the moment; no standing authority, schedule, or handoff
   enforcement: declaration is lint and adapter policy, not a security boundary
 
+autonomy:
+  eligibility_field: contract_eligible
+  never_eligible_namespace: autonomy
+  resolver: tools/autonomy_check.py
+  on_ambiguity: fail_closed
+
 promotion_gate:
   source_text: none
   summary: none
@@ -31,6 +42,7 @@ effects:
     idempotentHint: true
     openWorldHint: false
     approval: never_require
+    contract_eligible: true
     resource_class: classified
     derived_from: [skills/briefing/SKILL.md:21]
     summary: Read records from namespaces the skill declares in reads_from.
@@ -40,6 +52,7 @@ effects:
     idempotentHint: true
     openWorldHint: false
     approval: turn_scoped
+    contract_eligible: true
     resource_class: classified
     derived_from: [skills/owner-context-onboarding/SKILL.md:103, skills/daily-task-manager/SKILL.md:92]
     note: owner-context-onboarding:103 argues preview_then_explicit; turn_scoped chosen because daily-task-manager:92 authorizes the exact mutation the owner named this turn
@@ -50,6 +63,7 @@ effects:
     idempotentHint: true
     openWorldHint: false
     approval: preview_then_explicit
+    contract_eligible: true
     resource_class: classified
     derived_from: [skills/briefing/SKILL.md:53, skills/briefing/SKILL.md:104]
     summary: Move one cursor in checkpoints/ after terminal verification.
@@ -59,6 +73,7 @@ effects:
     idempotentHint: false
     openWorldHint: false
     approval: preview_then_explicit
+    contract_eligible: true
     resource_class: classified
     derived_from: [skills/social-agent-practice/SKILL.md:72, skills/social-agent-practice/SKILL.md:141]
     summary: Change a durable belief through the requested-writing workflow only.
@@ -68,6 +83,7 @@ effects:
     idempotentHint: true
     openWorldHint: false
     approval: never_require
+    contract_eligible: true
     resource_class: classified
     derived_from: [skills/owner-dream-cycle/SKILL.md:46]
     summary: Record a proposed identity or authority change as a candidate only.
@@ -77,6 +93,7 @@ effects:
     idempotentHint: false
     openWorldHint: false
     approval: never_autonomous
+    contract_eligible: false
     resource_class: classified
     derived_from: [skills/owner-dream-cycle/SKILL.md:46, skills/social-agent-practice/SKILL.md:143]
     summary: Apply an owner-confirmed change to identity files.
@@ -86,6 +103,7 @@ effects:
     idempotentHint: true
     openWorldHint: true
     approval: never_require
+    contract_eligible: true
     resource_class: network
     derived_from: [skills/daily-task-manager/SKILL.md:22, skills/briefing/SKILL.md:46]
     summary: Read state from an authorized external provider.
@@ -95,6 +113,7 @@ effects:
     idempotentHint: true
     openWorldHint: true
     approval: turn_scoped
+    contract_eligible: true
     resource_class: network
     derived_from: [skills/daily-task-manager/SKILL.md:56, skills/daily-task-manager/SKILL.md:92]
     summary: Create or update an object in an external provider, with readback.
@@ -104,6 +123,7 @@ effects:
     idempotentHint: true
     openWorldHint: true
     approval: preview_then_explicit
+    contract_eligible: false
     resource_class: network
     derived_from: [skills/daily-task-manager/SKILL.md:54, skills/cron-scheduler/SKILL.md:52]
     summary: Delete an external object; explicit delete language is required per object.
@@ -113,6 +133,7 @@ effects:
     idempotentHint: true
     openWorldHint: false
     approval: preview_then_explicit
+    contract_eligible: true
     resource_class: exec
     derived_from: [skills/cron-scheduler/SKILL.md:52, skills/cron-scheduler/SKILL.md:132]
     summary: Create, update, pause, resume, or remove a scheduled job.
@@ -122,6 +143,7 @@ effects:
     idempotentHint: true
     openWorldHint: true
     approval: never_require
+    contract_eligible: true
     resource_class: network
     derived_from: [skills/cron-scheduler/SKILL.md:92]
     summary: Deliver an owner notification under contracts/notifications.md, quiet hours applying.
@@ -131,6 +153,7 @@ effects:
     idempotentHint: false
     openWorldHint: true
     approval: preview_then_explicit
+    contract_eligible: true
     resource_class: network
     derived_from: [skills/publish/SKILL.md:60, skills/social-agent-practice/SKILL.md:138]
     summary: Send a message to a third party, authorized per recipient and channel.
@@ -140,6 +163,7 @@ effects:
     idempotentHint: false
     openWorldHint: true
     approval: preview_then_explicit
+    contract_eligible: true
     resource_class: network
     derived_from: [skills/publish/SKILL.md:125, skills/runtime-handoff-onboarding/SKILL.md:46]
     summary: Make content visible externally, authorized per destination and audience.
@@ -149,6 +173,7 @@ effects:
     idempotentHint: true
     openWorldHint: true
     approval: preview_then_explicit
+    contract_eligible: false
     resource_class: network
     derived_from: [skills/publish/SKILL.md:61]
     summary: Withdraw published content; cached copies and disclosed passwords cannot be recalled.
@@ -158,6 +183,7 @@ effects:
     idempotentHint: true
     openWorldHint: true
     approval: preview_then_explicit
+    contract_eligible: true
     resource_class: exec
     derived_from: [skills/runtime-handoff-onboarding/SKILL.md:56]
     summary: Commit, push, or open an unmerged pull request where repository instructions allow.
@@ -167,6 +193,7 @@ effects:
     idempotentHint: false
     openWorldHint: true
     approval: never_autonomous
+    contract_eligible: false
     resource_class: exec
     derived_from: [design-derived]
     note: no skill line carries this; the enum and its never_autonomous floor come from plan section 2.5
@@ -177,6 +204,7 @@ effects:
     idempotentHint: false
     openWorldHint: true
     approval: preview_then_explicit
+    contract_eligible: false
     resource_class: network
     derived_from: [skills/conversation-archive/SKILL.md:68]
     summary: Incur cost; the named provider, model, and maximum spend are required first.
@@ -186,6 +214,7 @@ effects:
     idempotentHint: false
     openWorldHint: true
     approval: preview_then_explicit
+    contract_eligible: false
     resource_class: classified
     derived_from: [skills/mcp-connector-onboarding/SKILL.md:58]
     summary: Store, rotate, or revoke a secret; values are never echoed anywhere.
@@ -195,6 +224,7 @@ effects:
     idempotentHint: true
     openWorldHint: false
     approval: preview_then_explicit
+    contract_eligible: true
     resource_class: fs
     derived_from: [skills/mcp-connector-onboarding/SKILL.md:102]
     summary: Change runtime, connector, or scheduler configuration files.
@@ -204,6 +234,7 @@ effects:
     idempotentHint: true
     openWorldHint: true
     approval: preview_then_explicit
+    contract_eligible: true
     resource_class: fs
     derived_from: [skills/social-agent-practice/SKILL.md:77, skills/team-skill-sharing-norm/SKILL.md:32]
     summary: Install or adopt a skill; never on the authority of external content.
@@ -213,6 +244,7 @@ effects:
     idempotentHint: true
     openWorldHint: false
     approval: turn_scoped
+    contract_eligible: true
     resource_class: fs
     derived_from: [skills/publish/SKILL.md:57]
     summary: Write a local file to a unique path unless overwrite was authorized.
