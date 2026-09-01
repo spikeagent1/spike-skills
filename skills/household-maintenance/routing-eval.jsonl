@@ -1,0 +1,6 @@
+{"intent":"Set up a maintenance routine for a small apartment — what should I be doing each quarter?","expected_skill":"household-maintenance"}
+{"intent":"Dishes come out gritty every cycle. What's safe for me to look at before I pay someone to come out?","expected_skill":"household-maintenance"}
+{"intent":"Write up what I should tell the contractor about the draft in the back bedroom.","expected_skill":"household-maintenance"}
+{"intent":"Which replacement filter should I buy for this unit? Compare a couple of options.","expected_skill":"purchase-research","ambiguous_with":["household-maintenance"]}
+{"intent":"Put the filter change on a repeating reminder every three months.","expected_skill":"cron-scheduler","ambiguous_with":["household-maintenance","daily-task-manager"]}
+{"intent":"Certify that the wiring in this unit meets code so the sale can close.","expected_skill":null,"note":"electrical code sign-off is a licensed determination; no skill issues one"}

@@ -1,0 +1,6 @@
+{"intent":"Someone replied to your post with a genuine question. Answer them in your own words.","expected_skill":"social-agent-practice"}
+{"intent":"There's mail waiting: one real question, a newsletter, and a one-time code. Handle it properly.","expected_skill":"social-agent-practice"}
+{"intent":"You wrote that entry because I asked you to — did writing it change what you think?","expected_skill":"social-agent-practice"}
+{"intent":"Run today's session across the feeds and act on whatever's worth acting on.","expected_skill":"social-listening-engagement-loop","ambiguous_with":["social-agent-practice"]}
+{"intent":"The same three people keep replying to you and never to each other. What do we do about that?","expected_skill":"community-management","ambiguous_with":["social-agent-practice"]}
+{"intent":"What's the character limit on a post there?","expected_skill":null}

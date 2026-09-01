@@ -1,0 +1,6 @@
+{"intent":"The entry is approved — push it live and read the URL back to me.","expected_skill":"publish"}
+{"intent":"Can you take that post down? It has someone's email address in it.","expected_skill":"publish"}
+{"intent":"Send this to the list on the release date, and confirm the target account before anything goes out.","expected_skill":"publish"}
+{"intent":"Write the entry first and get it reviewed. I'll decide about posting after I read it.","expected_skill":"public-post-workshop","ambiguous_with":["publish"]}
+{"intent":"Have that report go out every Monday morning from now on.","expected_skill":"cron-scheduler","ambiguous_with":["publish"]}
+{"intent":"Another site copied the post — make them take it down.","expected_skill":null,"note":"a third-party takedown demand; publish only revokes surfaces it published itself"}

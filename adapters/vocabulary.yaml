@@ -1,0 +1,150 @@
+# The neutral runtime vocabulary. A skill names a runtime fact only with a term
+# from this list; the adapter for the runtime it is installed into says what the
+# term resolves to. `contracts/skill-contract.md` section R is the authoritative
+# list and glosses every term; this file adds the definition, the kind, and the
+# `key` each `adapters/<runtime>/adapter.yaml` binds under. A key is the term
+# lowercased with apostrophes dropped and spaces turned into underscores.
+version: 1
+
+terms:
+  - term: owner
+    key: owner
+    kind: identity
+    meaning: The human this agent serves and the only source of standing authority.
+  - term: agent
+    key: agent
+    kind: identity
+    meaning: The assistant executing the skill in this runtime.
+  - term: owner datastore
+    key: owner_datastore
+    kind: datastore
+    meaning: The namespaced record store every skill shares (contracts/datastore.md).
+    aliases: [the brain, canonical memory surface, owner-corpus surface]
+  - term: durable memory
+    key: durable_memory
+    kind: datastore
+    meaning: The owner datastore read as long-lived memory rather than as a record set.
+  - term: task provider
+    key: task_provider
+    kind: provider
+    meaning: The external system of record for the owner's tasks.
+  - term: calendar provider
+    key: calendar_provider
+    kind: provider
+    meaning: The external system of record for the owner's events.
+  - term: mail provider
+    key: mail_provider
+    kind: provider
+    meaning: The external system of record for mail the agent or the owner reads.
+  - term: contacts provider
+    key: contacts_provider
+    kind: provider
+    meaning: The external system of record for contact cards.
+  - term: owner timezone
+    key: owner_timezone
+    kind: identity
+    meaning: The zone that fixes the owner's local day, dated record keys, and quiet hours.
+    aliases: [the local day's zone]
+  - term: scheduler
+    key: scheduler
+    kind: runtime
+    meaning: The component that runs recurring jobs and backs the jobs namespace.
+  - term: notification channel
+    key: notification_channel
+    kind: channel
+    meaning: Where a notify-owner delivery lands, in the adapter's order of preference.
+  - term: owner channel
+    key: owner_channel
+    kind: channel
+    meaning: The live conversation the owner is on right now.
+    aliases: [the owner chat channel]
+  - term: public surfaces
+    key: public_surfaces
+    kind: channel
+    meaning: Every destination a publish-external effect may reach in this runtime.
+  - term: agent's public journal
+    key: agents_public_journal
+    kind: channel
+    meaning: The agent's own published log; one of the public surfaces.
+    aliases: [the wall]
+  - term: agent community network
+    key: agent_community_network
+    kind: channel
+    meaning: The agent-to-agent network the agent holds an account on.
+  - term: agent inbox
+    key: agent_inbox
+    kind: channel
+    meaning: The mail address the agent itself receives at.
+    aliases: [inbox domain]
+  - term: durable tool paths
+    key: durable_tool_paths
+    kind: path
+    meaning: Directories whose installed binaries survive a restart or a redeploy.
+  - term: credential store
+    key: credential_store
+    kind: path
+    meaning: Where secrets live; values are used there and copied nowhere else.
+  - term: connector registry
+    key: connector_registry
+    kind: path
+    meaning: The file declaring which connectors and MCP servers this runtime has.
+  - term: runtime health check
+    key: runtime_health_check
+    kind: runtime
+    meaning: The command that reports whether connectors and the datastore answer.
+  - term: runtime reload
+    key: runtime_reload
+    kind: runtime
+    meaning: What it takes for a config or identity-file change to take effect.
+    aliases: [runtime restart]
+  - term: identity files
+    key: identity_files
+    kind: path
+    meaning: Authority documents outside the datastore, reached only through identity effects.
+  - term: skills dir
+    key: skills_dir
+    kind: path
+    meaning: Where this runtime loads installed skills from.
+  - term: activity log
+    key: activity_log
+    kind: datastore
+    meaning: The activity namespace; one append-only record per mutating effect.
+    aliases: [effects ledger]
+  - term: checkpoint store
+    key: checkpoint_store
+    kind: datastore
+    meaning: The checkpoints namespace; one cursor per skill and channel.
+  - term: autonomy contract
+    key: autonomy_contract
+    kind: datastore
+    meaning: The autonomy namespace; one owner-written standing permission per record.
+  - term: capabilities
+    key: capabilities
+    kind: governance
+    meaning: What this runtime does with the effects a skill declares.
+  - term: repo identity
+    key: repo_identity
+    kind: identity
+    meaning: The git account this runtime commits and opens pull requests as.
+    aliases: [commit identity]
+  - term: proposal workflow
+    key: proposal_workflow
+    kind: governance
+    meaning: How a change to a skill or a norm is reviewed before adoption.
+  - term: journal build toolchain
+    key: journal_build_toolchain
+    kind: runtime
+    meaning: The generator that turns journal entries into the published journal.
+  - term: entry schema
+    key: entry_schema
+    kind: governance
+    meaning: The frontmatter contract a journal entry satisfies before it builds.
+  - term: journal source branch
+    key: journal_source_branch
+    kind: runtime
+    meaning: The branch the journal is built and published from.
+    aliases: [source branch]
+  - term: norms directory
+    key: norms_directory
+    kind: path
+    meaning: Where behavior norms live; one directory per named norm.

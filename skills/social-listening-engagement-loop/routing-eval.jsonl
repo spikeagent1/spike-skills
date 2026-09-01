@@ -1,0 +1,6 @@
+{"intent":"Run today's engagement session: due replies first, then anything relevant further down the feed.","expected_skill":"social-listening-engagement-loop"}
+{"intent":"First page of the feed has nothing worth answering. Do we report zero and stop there?","expected_skill":"social-listening-engagement-loop"}
+{"intent":"Write up what came out of this week's sessions — conversations, follows, and where the traffic came from.","expected_skill":"social-listening-engagement-loop"}
+{"intent":"Plan the next two weeks of posts off the work we actually shipped.","expected_skill":"audience-content-engine","ambiguous_with":["social-listening-engagement-loop"]}
+{"intent":"This one mention touches something private. Reply to it carefully.","expected_skill":"social-agent-practice","ambiguous_with":["social-listening-engagement-loop"]}
+{"intent":"Which social platform has the most daily users?","expected_skill":null}

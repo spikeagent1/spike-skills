@@ -1,0 +1,6 @@
+{"intent":"Eggs, rice, frozen peas, twenty minutes and no wok in the house. What can I make?","expected_skill":"home-cook"}
+{"intent":"Walk me through adapting this lasagna for a guest who can't have dairy.","expected_skill":"home-cook"}
+{"intent":"My cream sauce keeps splitting when I add it to the pan — what am I doing wrong?","expected_skill":"home-cook"}
+{"intent":"Sketch out dinners for the whole week so I stop deciding at six every night.","expected_skill":"meal-planner","ambiguous_with":["home-cook"]}
+{"intent":"What do I still need to buy to make these three recipes?","expected_skill":"grocery-planner","ambiguous_with":["home-cook"]}
+{"intent":"Sign off that this menu is safe to serve at my catering pop-up.","expected_skill":null,"note":"commercial food-safety certification is a licensed determination; no skill issues one"}

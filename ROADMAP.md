@@ -37,9 +37,60 @@ For each skill:
 6. Accept only measured improvements or a documented defect removal without regression.
 7. Apply the proposal explicitly, sync to runtime, and smoke-test.
 
-## Released cohorts
+## Released cohorts — complete
 
-The evaluated audience/community, safety/state-mutation, owner-operations, research/writing, portfolio-governance, onboarding, and health/home-lifestyle packages are released. A 2026-08-24 follow-up hardening pass added the reusable public operator contract to all 20 approved non-health/home packages, strengthened validator coverage for public contracts, catalog/source parity, and adapted provenance metadata, and recorded the scorecard in `evals/reports/public-skills-followup-2026-08-24.md`. Routing-overlap and long-tail cleanup follows; unresolved candidates remain unpublished until they pass their own gates.
+**All eight cohorts are released and every one of the 31 packages is at
+`contract_version: 2`.** The audience/community, safety/state-mutation,
+owner-operations, research/writing, portfolio-governance, onboarding,
+health, and home/lifestyle packages each passed their own behavioural and
+routing gates, and each carries the canonical thirteen-section contract,
+`metadata.spike-os` declarations checked against
+`contracts/capabilities.yaml` and `contracts/datastore.md`, and a runtime
+binding that resolves for every adapter it claims.
+
+A 2026-08-24 follow-up hardening pass added the reusable public operator
+contract to the 20 approved non-health/home packages and recorded the
+scorecard in `evals/reports/public-skills-followup-2026-08-24.md`. The
+eight rewrite batches that followed are reported per cluster in
+`evals/reports/rewrite-*.md`.
+
+What is open, and where it is tracked:
+
+- **Eval fixture debt.** 72 assertions fail on the skill-loaded arm, most
+  of them asserting an action a text-only harness cannot take. The
+  standing proposals are in
+  `evals/reports/assertion-pruning-2026-08-29.md`; none has been applied,
+  and no fixture has been edited.
+- **Routing overlap.** Measured per cluster in the rewrite reports; the
+  residual null-case hijacks are in the pruning report's routing section.
+  `catalog/cohorts.yaml` carries `routing-overlap-and-long-tail` as a
+  queued cohort with no skills assigned; the launcher is its first
+  candidate. `home` routes **50%** in the committed baseline (8 of 16
+  intents, lenient and strict alike) -- the lowest file on the ballot, and
+  by design the hardest, since every intent it should win is one another
+  skill's description also fits. Raising that number is the cohort's work,
+  not a fix to one description.
+- **Effect enforcement.** The effect declaration is lint: the validator
+  greps the body for keywords and cannot see intent, and nothing at run
+  time stops an undeclared effect. The enforcement path is emitting a
+  `PreToolUse` hook from `metadata.spike-os.capabilities` so the runtime denies
+  the call rather than the repository documenting that it should not
+  happen. Nothing of it exists yet.
+- **Listing budget bound to the adapter.** `LISTING_BUDGET_CHARS` is
+  16,000 in `tools/validators/context.py`, a constant the validator owns.
+  The number it stands for is OpenClaw's `maxSkillsPromptChars`, which the
+  runtime configures and the adapter should carry, so the budget the
+  validator enforces is the budget the runtime actually applies.
+- **Rendered-frontmatter routing mode.** Every routing baseline puts the
+  portable `skills/*/SKILL.md` frontmatter on the ballot. The installed
+  form differs -- claude-code renders `disable-model-invocation: true` for
+  any skill declaring a `never_autonomous` effect, which removes it from
+  the native router's ballot -- so no measurement yet describes routing
+  over an installed library. `run_evals.py routing` needs a mode that
+  renders each ballot entry through the adapter first. No skill in the
+  library declares one today, so the two ballots currently agree.
+- **New domains.** Wealth and travel/mobility have no packages. They are
+  the next cohorts, not unfinished work in these eight.
 
 ## Cohort 2: health and home/lifestyle - released
 

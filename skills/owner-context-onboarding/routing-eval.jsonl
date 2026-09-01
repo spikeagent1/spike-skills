@@ -1,0 +1,6 @@
+{"intent":"Let's set up how you should work with me: what I want, what's off limits, and what you're allowed to remember.","expected_skill":"owner-context-onboarding"}
+{"intent":"Which parts of onboarding are still missing? We already went through my work and how blunt I want you to be.","expected_skill":"owner-context-onboarding"}
+{"intent":"I'm going to talk through what matters to me for a while. Keep the durable bits, and let me stop whenever I want.","expected_skill":"owner-context-onboarding"}
+{"intent":"Now connect my calendar account so you can actually see what's on it.","expected_skill":"mcp-connector-onboarding","ambiguous_with":["owner-context-onboarding"]}
+{"intent":"We just restarted — show me you still hold the boundaries I set yesterday.","expected_skill":"runtime-handoff-onboarding","ambiguous_with":["owner-context-onboarding"]}
+{"intent":"Write me a job description for a marketing hire.","expected_skill":null}

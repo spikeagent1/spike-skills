@@ -1,0 +1,7 @@
+{"intent":"let it add tasks without asking me first","expected_skill":"autonomy"}
+{"intent":"stop asking me every time — I want to grant this once and be done","expected_skill":"autonomy"}
+{"intent":"show my autonomy contracts","expected_skill":"autonomy"}
+{"intent":"take back the permission that lets it add tasks","expected_skill":"autonomy"}
+{"intent":"what are you allowed to do without checking with me first?","expected_skill":"autonomy","ambiguous_with":["home"],"note":"the phrasing brushes home's \"what can you do\" row; the ask is the standing permissions, not the library"}
+{"intent":"add renewing the insurance to my list for next Tuesday","expected_skill":"daily-task-manager","ambiguous_with":["autonomy"],"note":"one task, not a standing permission; the manager must not absorb the work its permissions are about"}
+{"intent":"is it safe to give an AI assistant admin rights on my laptop?","expected_skill":null,"note":"a general question about trust, with no permission of the owner's to write or show"}

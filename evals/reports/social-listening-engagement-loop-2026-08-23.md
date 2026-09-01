@@ -36,7 +36,7 @@ The scheduled loop was updated so a pending comment does not count as success an
 
 ## Remaining evaluation debt
 
-- Run the synthetic cases in `skills/social-listening-engagement-loop/evals/evals.json` with an independent runner when available.
+- Run the synthetic cases in `skills/social-listening-engagement-loop/evals/evals.json` with an independent runner when available. (moved to examples/evals.json on 2026-08-28)
 - Capture native follower, reply, repeat-relationship, wall-referral, repository-referral, and karma windows over subsequent sessions.
 - Reassess assertions that pass without the skill; remove non-discriminating checks.
 

@@ -1,552 +1,130 @@
 #!/usr/bin/env python3
-"""Validate the portable skill library contract."""
+"""Validate the portable skill library contract.
+
+The rules live in `tools/validators/`, one module per family; this file composes
+them, walks `skills/`, and prints the report. Every public name those modules
+define is re-exported here, so `tools/build_index.py`, `tools/install_skill.py`,
+`tools/check_staging.py`, and the eval runner keep importing one module.
+"""
 
 from __future__ import annotations
 
-import json
 import re
-import subprocess
 import sys
-from pathlib import Path, PurePosixPath
+import types
+from pathlib import Path
 from typing import Any
 
-try:
-    import jsonschema
-except ModuleNotFoundError:  # pragma: no cover - covered by fallback tests.
-    jsonschema = None
+# Runnable as `python3 tools/validate_repo.py` and importable as
+# `tools.validate_repo`; the rule modules are a package either way.
+_REPO_ROOT = str(Path(__file__).resolve().parents[1])
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
-ROOT = Path(__file__).resolve().parents[1]
-SKILLS = ROOT / "skills"
-EVAL_SCHEMA = ROOT / "schemas" / "skill-evals.schema.json"
+from tools.validators import context
 
-SECRET_RE = re.compile(
-    r"(api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key)"
-    r"\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}",
-    re.IGNORECASE,
+# Re-exports: the whole validator surface, so importers name one module. Every
+# rule these back is defined in `tools/validators/`.
+# ruff: noqa: F401
+from tools.validators.context import (
+    add_error, catalog_scalar, git_files, load_json
 )
-PRIVATE_PATH_RE = re.compile(
-    r"(^|/)(evals/workspaces|cache|caches|memory|memories|transcripts?|private-state|"
-    r"local-state|runtime-state|\.env)(/|$)",
-    re.IGNORECASE,
+from tools.validators.frontmatter import (
+    BLOCK_SCALAR_RE, DESCRIPTION_FORBIDDEN_RE, DESCRIPTION_MAX_CHARS, DESCRIPTION_TRIGGER_RE,
+    FRONTMATTER_ALLOWED_KEYS, FRONTMATTER_PARSE_ERRORS, FRONTMATTER_REJECTED_KEYS,
+    LISTING_BUDGET_KEY, LISTING_BUDGET_WARN_RATIO, METADATA_KEYS, METADATA_MAX_DEPTH,
+    METADATA_NS, REQUIRE_VERSION, SEMVER_RE,
+    SKILL_LISTING_MAX_CHARS, VALIDATOR_BUDGET_SOURCE, _declared_list, _frontmatter_value,
+    frontmatter, installer_module, listing_budget,
+    parse_frontmatter, rendered_listing_chars, skill_body, spike_os_block,
+    validate_description, validate_frontmatter, validate_listing_budget, validate_version
 )
-HIDDEN_DEP_RE = re.compile(
-    r"\b(spike internal|private endpoint|production database|personal transcript)\b",
-    re.IGNORECASE,
+from tools.validators.structure import (
+    CANONICAL_MANDATORY, CANONICAL_OPTIONAL, CANONICAL_ORDER, CONTRACT_LINK,
+    CROSS_FILE_DUPLICATE_EXEMPT, FORBIDDEN_SKILL_CONFIG, HIDDEN_DEP_RE, MARKDOWN_LINK_RE,
+    MARKDOWN_TABLE_ROW_RE, PLACEHOLDER_RE, PRIVATE_PATH_RE, SECRET_RE, SUPPORTING_FILE_EXEMPT,
+    normalized_body, section_body, validate_canonical_structure, validate_contract_section,
+    validate_cross_file_duplicates, validate_privacy, validate_public_section_bodies,
+    validate_skill_config, validate_supporting_files
 )
-PENDING_REVIEW_SECTIONS = (
-    "## When to use",
-    "## Required inputs",
-    "## Workflow",
-    "## Sources and freshness",
-    "## Privacy and mutations",
-    "## Safety boundaries",
-    "## Output contract",
-    "## Failure conditions",
+from tools.validators.catalog import (
+    ADAPTED_SOURCE_FIELDS, ALLOWED_CLASSIFICATIONS, CATALOG_PARITY_FIELDS, DomainEntry,
+    HEX_COMMIT_RE, IMMUTABLE_SOURCE_FIELDS, SHA256_RE, SOURCE_ENTRY_KEYS,
+    parse_catalog_inventory, parse_cohorts, parse_cohorts_text, parse_domain_lists, parse_domains,
+    parse_list_catalog, parse_routing_clusters, parse_source_entries, validate_baseline,
+    validate_catalog_index, validate_cluster_routing, validate_cohort_parity,
+    validate_provenance_artifacts, validate_source_catalog
 )
-PUBLIC_SKILL_SECTIONS = (
-    "When to use",
-    "When not to use",
-    "Required inputs",
-    "Optional inputs",
-    "Workflow",
-    "Sources and freshness",
-    "Privacy and mutations",
-    "Safety boundaries",
-    "Output contract",
-    "Failure conditions",
+from tools.validators.contracts import (
+    ACTIVITY_LEDGER_NS, ADAPTERS_DIR, ADAPTER_REQUIRED_KEYS, ADAPTER_SCHEMA, BACKTICKED_RE,
+    BACKTICKED_SPAN_RE, CAPABILITIES_CONTRACT, CAPABILITY_HINTS, CAPABILITY_HINT_RULES,
+    CLAUSE_NEGATION_RE, CLAUSE_SPLIT_RE, Contracts, DATASTORE_CONTRACT, DATASTORE_VIEW,
+    EFFECT_NEGATION_RE, EFFECT_VERBS, EM_DASH, HOLDERS_OF, NAMESPACE_BOUNDARY,
+    NEGATION_CLAUSE_SPLIT_RE, NOTIFICATIONS_NS, NOTIFY_EFFECT, PAIRED_EM_DASH_RE,
+    PROTECTED_DASH, PROTECTED_DOT, PROTECTED_SPAN_RE, QUOTED_SPAN_RE, REJECTED_CLAUSE_END_RE,
+    REJECTED_CLAUSE_RE,
+    RUNTIME_SPECIFIC_EXCLUSIONS, RUNTIME_SPECIFIC_RE, RUNTIME_SPECIFIC_TOKENS,
+    SENTENCE_SPLIT_RE, SKILL_NAME_RE, VOCABULARY_CONTRACT, Vocabulary, _is_delegation,
+    _load_contract, authority_cells, authority_summary, capability_entries,
+    contracts_check_module, declared_effects, delegated_effects, derived_hints, effect_enum,
+    load_adapters, load_capabilities, load_contracts, load_datastore_contract,
+    load_vocabulary, namespace_authority, namespace_statuses, personal_value_hits,
+    runtime_specific_hits, scannable_span, scannable_text, split_negation_clauses,
+    split_sentences,
+    validate_adapter_files, validate_authority_view, validate_effect_ledgers,
+    validate_effects, validate_namespace_authority, validate_namespaces,
+    validate_runtime_binding, vocabulary_view
 )
-CATALOG_PARITY_FIELDS = (
-    "classification",
-    "runtime_path",
-    "repository_path",
-    "status",
-    "cohort",
+from tools.validators.evals import (
+    NON_INFORMATIVE_ASSERTIONS, ROUTING_OPTIONAL_KEYS, ROUTING_REQUIRED_KEYS, eval_case_count,
+    eval_files, load_eval_schema, validate_eval_file, validate_eval_schema,
+    validate_eval_schema_fallback, validate_routing_eval
 )
-ADAPTED_SOURCE_FIELDS = (
-    "upstream",
-    "publisher",
-    "version",
-    "license",
-    "local_modifications",
+
+
+# Names a caller redirects (every test points the validator at a fixture tree by
+# assigning `validate_repo.ROOT`). The checks read them from
+# `tools.validators.context`, so the assignment has to land there rather than on
+# a shadow attribute of this module.
+_SHARED_STATE = frozenset(
+    {
+        "SOURCE_ROOT",
+        "ROOT",
+        "SKILLS",
+        "EVAL_SCHEMA",
+        "BASELINE",
+        "LISTING_BUDGET_CHARS",
+        "warnings",
+        "jsonschema",
+    }
 )
-IMMUTABLE_SOURCE_FIELDS = ("commit", "artifact_sha256", "skill_file_sha256", "digest")
-ALLOWED_CLASSIFICATIONS = {"owned", "adapted", "vendored", "runtime-only"}
-HEX_COMMIT_RE = re.compile(r"^[0-9a-fA-F]{7,64}$")
-SHA256_RE = re.compile(r"^(?:sha256:)?[0-9a-fA-F]{64}$")
-PLACEHOLDER_RE = re.compile(
-    r"\b(todo|tbd|placeholder|coming soon|fill this in|to be written)\b|^\s*(n/?a|none)\s*\.?\s*$",
-    re.IGNORECASE,
-)
-NON_INFORMATIVE_ASSERTIONS = {
-    "uses the skill",
-    "uses the named skill",
-    "meets the skill contract",
-    "follows the skill",
-    "does the task",
-}
 
 
-def frontmatter(text: str) -> dict[str, str] | None:
-    match = re.match(r"^---\n(.*?)\n---\n", text, re.DOTALL)
-    if not match:
-        return None
+class _EntryModule(types.ModuleType):
+    """This module, with the shared state forwarded to `validators.context`."""
 
-    data: dict[str, str] = {}
-    for key in ("name", "description"):
-        key_match = re.search(rf"^{key}:\s*(.+?)\s*$", match.group(1), re.MULTILINE)
-        if key_match:
-            data[key] = key_match.group(1).strip().strip("\"'")
-    return data
+    def __getattr__(self, name: str) -> Any:
+        if name in _SHARED_STATE:
+            return getattr(context, name)
+        raise AttributeError(f"module {self.__name__!r} has no attribute {name!r}")
 
-
-def add_error(errors: list[str], message: str) -> None:
-    errors.append(message)
-
-
-def load_json(path: Path, errors: list[str]) -> object | None:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001 - report every parse failure.
-        add_error(errors, f"{path.relative_to(ROOT)}: invalid JSON: {exc}")
-        return None
-
-
-def catalog_scalar(raw: str) -> str:
-    """Parse the restricted scalar subset used by the committed catalogs."""
-    value = raw.strip()
-    if value[:1] in {"\"", "\x27"} and value[-1:] == value[:1]:
-        return value[1:-1]
-    return re.split(r"\s+#", value, maxsplit=1)[0].strip()
-
-
-def load_eval_schema(errors: list[str]) -> dict[str, Any] | None:
-    data = load_json(EVAL_SCHEMA, errors)
-    if not isinstance(data, dict):
-        add_error(errors, "schemas/skill-evals.schema.json: schema must contain an object")
-        return None
-    if data.get("type") != "object" or "evals" not in data.get("required", []):
-        add_error(errors, "schemas/skill-evals.schema.json: schema must require evals object shape")
-    return data
-
-
-def validate_eval_schema_fallback(data: object, rel: Path, errors: list[str]) -> None:
-    """Validate the subset expressed by schemas/skill-evals.schema.json.
-
-    The repository intentionally avoids a package/toolchain. If the maintained
-    jsonschema package is unavailable, this mirrors the committed schema fields
-    that the repo uses so CI remains deterministic on stock Python.
-    """
-    if not isinstance(data, dict):
-        add_error(errors, f"{rel}: schema violation: root must be an object")
-        return
-
-    evals = data.get("evals")
-    if not isinstance(evals, list) or not evals:
-        add_error(errors, f"{rel}: schema violation: evals must be a non-empty array")
-        return
-
-    for key in ("skill_name", "skill", "version", "description"):
-        if key in data and (
-            not isinstance(data[key], str) or not data[key].strip()
-        ):
-            add_error(
-                errors,
-                f"{rel}: schema violation: {key} must be a non-empty string",
-            )
-
-    for index, case in enumerate(evals, 1):
-        if not isinstance(case, dict):
-            add_error(errors, f"{rel}: schema violation: eval {index} must be an object")
-            continue
-        case_id = case.get("id")
-        if case_id is None:
-            add_error(errors, f"{rel}: schema violation: eval {index} needs id")
-        elif isinstance(case_id, bool) or not isinstance(case_id, int) or case_id < 1:
-            add_error(
-                errors,
-                f"{rel}: schema violation: eval {index} id must be a positive integer",
-            )
-        has_prompt = (
-            isinstance(case.get("prompt"), str) and bool(case["prompt"].strip())
-        )
-        has_input = isinstance(case.get("input"), str) and bool(case["input"].strip())
-        if not has_prompt and not has_input:
-            add_error(errors, f"{rel}: schema violation: eval {index} needs prompt or input")
-        for key in ("name", "expected_output"):
-            if key in case and (
-                not isinstance(case[key], str) or not case[key].strip()
-            ):
-                add_error(
-                    errors,
-                    f"{rel}: schema violation: eval {index} {key} must be a non-empty string",
-                )
-        for key in ("assertions", "expectations", "expect"):
-            if key not in case:
-                continue
-            value = case[key]
-            if (
-                not isinstance(value, list)
-                or len(value) < 2
-                or not all(
-                    isinstance(item, str) and bool(item.strip()) for item in value
-                )
-            ):
-                add_error(
-                    errors,
-                    f"{rel}: schema violation: eval {index} {key} must be two or more strings",
-                )
-
-
-def validate_eval_schema(
-    data: object,
-    rel: Path,
-    schema: dict[str, Any] | None,
-    errors: list[str],
-) -> None:
-    if jsonschema is None or schema is None:
-        validate_eval_schema_fallback(data, rel, errors)
-        return
-
-    validator = jsonschema.Draft202012Validator(schema)
-    schema_errors = sorted(validator.iter_errors(data), key=lambda error: list(error.path))
-    for error in schema_errors:
-        location = ".".join(str(part) for part in error.path)
-        suffix = f" at {location}" if location else ""
-        add_error(errors, f"{rel}: schema violation{suffix}: {error.message}")
-
-
-def git_files() -> list[Path]:
-    result = subprocess.run(
-        ["git", "ls-files"],
-        cwd=ROOT,
-        check=True,
-        text=True,
-        stdout=subprocess.PIPE,
-    )
-    return [ROOT / line for line in result.stdout.splitlines() if line]
-
-
-def parse_list_catalog(path: Path, list_key: str, errors: list[str]) -> dict[str, dict[str, str]]:
-    text = path.read_text(encoding="utf-8")
-    entries: dict[str, dict[str, str]] = {}
-    current: dict[str, str] | None = None
-    rel = path.relative_to(ROOT)
-
-    for line in text.splitlines():
-        name_match = re.match(r"^\s+- name: ([a-z0-9-]+)\s*$", line)
-        if name_match:
-            name = name_match.group(1)
-            if name in entries:
-                add_error(errors, f"{rel}: duplicate skill {name}")
-            current = {"name": name}
-            entries[name] = current
-            continue
-
-        field_match = re.match(r"^\s{4}([a-z0-9_]+):\s*(.*?)\s*$", line)
-        if current is not None and field_match:
-            field = field_match.group(1)
-            if field in current:
-                add_error(errors, f"{rel}: duplicate field {field} for {current['name']}")
-            current[field] = catalog_scalar(field_match.group(2))
-
-    if not entries:
-        add_error(errors, f"{rel}: no {list_key} entries found")
-    return entries
-
-
-def parse_catalog_inventory(errors: list[str]) -> dict[str, dict[str, str]]:
-    return parse_list_catalog(ROOT / "catalog" / "approved.yaml", "skill", errors)
-
-
-def parse_source_entries(errors: list[str]) -> dict[str, dict[str, str]]:
-    text = (ROOT / "catalog" / "sources.yaml").read_text(encoding="utf-8")
-    entries: dict[str, dict[str, str]] = {}
-    current: dict[str, str] | None = None
-    current_field: str | None = None
-
-    for line in text.splitlines():
-        source_match = re.match(r"^  ([a-z0-9-]+):\s*$", line)
-        if source_match:
-            name = source_match.group(1)
-            if name in entries:
-                add_error(errors, f"catalog/sources.yaml: duplicate source {name}")
-            current = {"name": name}
-            entries[name] = current
-            current_field = None
-            continue
-
-        field_match = re.match(r"^\s{4}([a-z0-9_]+):\s*(.*?)\s*$", line)
-        if current is not None and field_match:
-            current_field = field_match.group(1)
-            if current_field in current:
-                add_error(
-                    errors,
-                    f"catalog/sources.yaml: duplicate field {current_field} for {current['name']}",
-                )
-            current[current_field] = catalog_scalar(field_match.group(2))
-            continue
-
-        continuation_match = re.match(r"^\s{6,}(.+?)\s*$", line)
-        if current is not None and current_field is not None and continuation_match:
-            current[current_field] = (
-                current[current_field] + " " + continuation_match.group(1).strip()
-            ).strip()
-
-    if not entries:
-        add_error(errors, "catalog/sources.yaml: no source entries found")
-    return entries
-
-
-def parse_domain_lists(errors: list[str]) -> tuple[set[str], set[str]]:
-    text = (ROOT / "catalog" / "domains.yaml").read_text(encoding="utf-8")
-    released: set[str] = set()
-    next_names: set[str] = set()
-    active: set[str] | None = None
-
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("released:"):
-            active = released
-            continue
-        if stripped.startswith("next:"):
-            active = next_names
-            continue
-        if active is not None and stripped.startswith("- "):
-            active.add(stripped[2:].strip())
-            continue
-        if active is not None and stripped and not stripped.startswith("- "):
-            active = None
-
-    if not released:
-        add_error(errors, "catalog/domains.yaml: no released skills found")
-    return released, next_names
-
-
-def eval_files(skill_dir: Path) -> list[Path]:
-    candidates = (
-        skill_dir / "examples" / "evals.json",
-        skill_dir / "evals" / "evals.json",
-        skill_dir / "routing-eval.jsonl",
-    )
-    return [path for path in candidates if path.exists()]
-
-
-def has_heading(text: str, heading: str) -> bool:
-    return re.search(rf"^##+\s+{re.escape(heading)}\s*$", text, re.MULTILINE) is not None
-
-
-def section_body(text: str, heading: str) -> str | None:
-    match = re.search(
-        rf"^##+\s+{re.escape(heading)}\s*$\n(.*?)(?=^##+\s+|\Z)",
-        text,
-        re.MULTILINE | re.DOTALL,
-    )
-    if match is None:
-        return None
-    return match.group(1).strip()
-
-
-def normalized_body(text: str) -> str:
-    return re.sub(r"\s+", " ", text.strip().lower())
-
-
-def validate_public_section_bodies(rel: Path, text: str, errors: list[str]) -> None:
-    seen: dict[str, str] = {}
-    for heading in PUBLIC_SKILL_SECTIONS:
-        occurrences = re.findall(
-            rf"^##+\s+{re.escape(heading)}\s*$", text, re.MULTILINE
-        )
-        if len(occurrences) > 1:
-            add_error(
-                errors,
-                f"{rel}/SKILL.md: public section {heading!r} appears "
-                f"{len(occurrences)} times; expected exactly once",
-            )
-            continue
-        body = section_body(text, heading)
-        if body is None:
-            continue
-        normalized = normalized_body(body)
-        if not normalized:
-            add_error(errors, f"{rel}/SKILL.md: public section {heading!r} is blank")
-            continue
-        if len(normalized) < 12 or PLACEHOLDER_RE.search(normalized):
-            add_error(errors, f"{rel}/SKILL.md: public section {heading!r} is placeholder text")
-        previous = seen.get(normalized)
-        if previous is not None:
-            add_error(
-                errors,
-                f"{rel}/SKILL.md: public section {heading!r} duplicates {previous!r}",
-            )
-        else:
-            seen[normalized] = heading
-
-
-def validate_source_catalog(
-    inventory: dict[str, dict[str, str]],
-    sources: dict[str, dict[str, str]],
-    skill_names: set[str],
-    errors: list[str],
-) -> None:
-    for name in sorted(skill_names - set(sources)):
-        add_error(errors, f"catalog/sources.yaml: missing source entry for {name}")
-    for name in sorted(set(sources) - skill_names - {"anthropic-skill-creator"}):
-        add_error(errors, f"catalog/sources.yaml: source {name} has no skills/{name} directory")
-
-    for name, entry in sorted(inventory.items()):
-        source = sources.get(name)
-        if source is None:
-            continue
-        for field in CATALOG_PARITY_FIELDS:
-            if not entry.get(field):
-                add_error(errors, f"catalog/approved.yaml: {name} missing required field {field}")
-            if not source.get(field):
-                add_error(errors, f"catalog/sources.yaml: {name} missing required field {field}")
-            if entry.get(field) != source.get(field):
-                add_error(
-                    errors,
-                    f"catalog/sources.yaml: {name} {field} {source.get(field)!r} "
-                    f"does not match catalog/approved.yaml {entry.get(field)!r}",
-                )
-
-        classification = source.get("classification")
-        if classification not in ALLOWED_CLASSIFICATIONS:
-            add_error(
-                errors,
-                f"catalog/sources.yaml: {name} has unknown classification {classification!r}",
-            )
-        for field in ("runtime_path", "repository_path"):
-            value = source.get(field, "")
-            parsed = PurePosixPath(value)
-            expected = f"skills/{name}"
-            if parsed.is_absolute() or ".." in parsed.parts or value != expected:
-                add_error(
-                    errors,
-                    f"catalog/sources.yaml: {name} {field} must be {expected!r}",
-                )
-
-    for name, source in sorted(sources.items()):
-        classification = source.get("classification")
-        if classification in {"adapted", "vendored"}:
-            for field in ADAPTED_SOURCE_FIELDS:
-                value = source.get(field, "")
-                if field == "local_modifications" and value.strip().lower() == "none":
-                    continue
-                if not value or PLACEHOLDER_RE.search(value):
-                    add_error(
-                        errors,
-                        f"catalog/sources.yaml: {name} {classification} source needs {field}",
-                    )
-            pins = {
-                field: source.get(field, "")
-                for field in IMMUTABLE_SOURCE_FIELDS
-                if source.get(field, "")
-            }
-            for field, value in pins.items():
-                valid = (
-                    HEX_COMMIT_RE.fullmatch(value)
-                    if field == "commit"
-                    else SHA256_RE.fullmatch(value)
-                )
-                if not valid:
-                    add_error(
-                        errors,
-                        f"catalog/sources.yaml: {name} {field} is not a valid immutable identifier",
-                    )
-            if not pins:
-                add_error(
-                    errors,
-                    f"catalog/sources.yaml: {name} {classification} source needs immutable commit or digest",
-                )
-
-
-def eval_case_count(path: Path, errors: list[str]) -> int:
-    if path.suffix == ".jsonl":
-        # Routing JSONL has no behavioral assertion schema, so it cannot satisfy
-        # the package-level synthetic behavioral-eval minimum.
-        return 0
-
-    data = load_json(path, errors)
-    if not isinstance(data, dict) or not isinstance(data.get("evals"), list):
-        return 0
-    return len(data["evals"])
-
-
-def validate_eval_file(
-    skill: str,
-    path: Path,
-    schema: dict[str, Any] | None,
-    errors: list[str],
-) -> None:
-    rel = path.relative_to(ROOT)
-
-    if path.suffix == ".jsonl":
-        lines = [
-            line
-            for line in path.read_text(encoding="utf-8").splitlines()
-            if line.strip() and not line.lstrip().startswith("//")
-        ]
-        if not lines:
-            add_error(errors, f"{rel}: routing eval file is empty")
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name in _SHARED_STATE:
+            setattr(context, name, value)
             return
-        for index, line in enumerate(lines, 1):
-            try:
-                json.loads(line)
-            except json.JSONDecodeError as exc:
-                add_error(errors, f"{rel}:{index}: invalid JSONL: {exc}")
-        return
+        super().__setattr__(name, value)
 
-    data = load_json(path, errors)
-    validate_eval_schema(data, rel, schema, errors)
-    if not isinstance(data, dict):
-        add_error(errors, f"{rel}: eval file must contain an object")
-        return
 
-    evals = data.get("evals")
-    if not isinstance(evals, list) or not evals:
-        add_error(errors, f"{rel}: missing non-empty evals array")
-        return
+sys.modules[__name__].__class__ = _EntryModule
+# Importing (or reloading) the entry point returns the validator to the real
+# repository, which is what a single-module reload used to do.
+context.reset()
 
-    declared = data.get("skill_name") or data.get("skill")
-    if declared and declared != skill:
-        add_error(errors, f"{rel}: declared skill {declared!r} does not match {skill!r}")
 
-    seen_ids: set[int] = set()
-    for index, case in enumerate(evals, 1):
-        if not isinstance(case, dict):
-            add_error(errors, f"{rel}: eval {index} must be an object")
-            continue
-        prompt = case.get("prompt") or case.get("input")
-        expectations = case.get("assertions") or case.get("expectations") or case.get("expect")
-        if not isinstance(prompt, str) or not prompt.strip():
-            add_error(errors, f"{rel}: eval {index} missing prompt/input")
-        if not isinstance(expectations, list) or len(expectations) < 2:
-            add_error(errors, f"{rel}: eval {index} needs at least two assertions/expectations")
-        elif not all(
-            isinstance(expectation, str) and bool(expectation.strip())
-            for expectation in expectations
-        ):
-            add_error(errors, f"{rel}: eval {index} assertions must be non-empty strings")
-        else:
-            for expectation in expectations:
-                normalized = re.sub(r"\s+", " ", expectation.strip().lower())
-                if normalized in NON_INFORMATIVE_ASSERTIONS:
-                    add_error(
-                        errors,
-                        f"{rel}: eval {index} uses non-informative assertion {expectation!r}",
-                    )
-
-        case_id = case.get("id")
-        if case_id is None:
-            add_error(errors, f"{rel}: eval {index} missing positive integer id")
-        elif isinstance(case_id, int) and not isinstance(case_id, bool) and case_id > 0:
-            if case_id in seen_ids:
-                add_error(errors, f"{rel}: duplicate eval id {case_id}")
-            seen_ids.add(case_id)
-
-        expected_output = case.get("expected_output")
-        if expected_output == "Meets the skill contract for this scenario.":
-            add_error(errors, f"{rel}: eval {index} uses a non-informative expected_output")
+# The catalog field a skill's contract shape is read from, and the only value it
+# may hold. Version 1 was deleted in T25; the field stays so a future bump has
+# somewhere to declare itself.
+SUPPORTED_CONTRACT_VERSION = "2"
 
 
 def validate_skill(
@@ -556,18 +134,59 @@ def validate_skill(
     next_names: set[str],
     schema: dict[str, Any] | None,
     errors: list[str],
-) -> None:
-    rel = skill_dir.relative_to(ROOT)
+    sources: dict[str, dict[str, str]] | None = None,
+    skill_names: set[str] | None = None,
+    contracts: Contracts | None = None,
+) -> tuple[str, dict[str, str], dict[str, list[str]]]:
+    """Validate one skill; returns its contract version, section bodies, and declarations.
+
+    The declarations are the `writes_to` and `capabilities` lists this run already
+    parsed, handed back so the namespace-authority rule can score every skill
+    against the contract without re-reading a single SKILL.md.
+
+    `contract_version` comes from catalog/approved.yaml and defaults to the only
+    version the validator knows. It stays a field so a future contract bump has
+    somewhere to declare itself; a value that is not that version is an error,
+    and the skill is still held to the canonical template so the report names the
+    real structural gaps alongside it.
+    """
+    rel = skill_dir.relative_to(context.ROOT)
+    skill_names = skill_names or set()
+
+    validate_skill_config(skill_dir, errors)
+
     skill_md = skill_dir / "SKILL.md"
+    no_declarations: dict[str, list[str]] = {"writes_to": [], "capabilities": []}
     if not skill_md.exists():
         add_error(errors, f"{rel}: missing SKILL.md")
-        return
+        return SUPPORTED_CONTRACT_VERSION, {}, no_declarations
 
     text = skill_md.read_text(encoding="utf-8")
-    meta = frontmatter(text)
+    meta = parse_frontmatter(text)
     if meta is None:
         add_error(errors, f"{rel}/SKILL.md: missing or invalid frontmatter")
-        return
+        return SUPPORTED_CONTRACT_VERSION, {}, no_declarations
+
+    declarations = {
+        "writes_to": _declared_list(spike_os_block(meta).get("writes_to")),
+        "capabilities": _declared_list(spike_os_block(meta).get("capabilities")),
+    }
+
+    entry = inventory.get(skill_dir.name)
+    contract_version = (
+        str((entry or {}).get("contract_version", SUPPORTED_CONTRACT_VERSION)).strip()
+        or SUPPORTED_CONTRACT_VERSION
+    )
+    if contract_version != SUPPORTED_CONTRACT_VERSION:
+        add_error(
+            errors,
+            f"catalog/approved.yaml: {skill_dir.name} has unsupported "
+            f"contract_version {contract_version!r}; the only supported version is "
+            f"{SUPPORTED_CONTRACT_VERSION}",
+        )
+        contract_version = SUPPORTED_CONTRACT_VERSION
+
+    validate_frontmatter(rel, meta, errors)
 
     name = meta.get("name")
     description = meta.get("description")
@@ -575,15 +194,39 @@ def validate_skill(
         add_error(errors, f"{rel}/SKILL.md: frontmatter name {name!r} must match directory")
     if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name):
         add_error(errors, f"{rel}/SKILL.md: name must be kebab-case")
-    if not isinstance(description, str) or len(description.strip()) < 24:
-        add_error(errors, f"{rel}/SKILL.md: description must be a useful string")
-    if "dependencies" not in text.lower():
-        add_error(errors, f"{rel}/SKILL.md: must explicitly declare dependencies")
-    if "provenance" not in text.lower():
-        add_error(errors, f"{rel}/SKILL.md: must include provenance/attribution")
+
+    validate_description(rel, description, errors)
+    validate_contract_section(
+        rel, text, skill_dir, (sources or {}).get(skill_dir.name), errors
+    )
+    # Each rule is skipped when its contract failed to load, so a missing
+    # contract reports once instead of cascading through every skill.
+    capabilities = (
+        effect_enum(contracts.capabilities)
+        if contracts is not None and contracts.capabilities
+        else None
+    )
+    if contracts is not None and contracts.datastore:
+        validate_namespaces(
+            rel, meta, text, namespace_statuses(contracts.datastore), errors, capabilities
+        )
+    if capabilities is not None:
+        validate_effects(rel, meta, text, capabilities, errors)
+    if contracts is not None and contracts.adapters and contracts.vocabulary:
+        validate_runtime_binding(
+            rel,
+            meta,
+            text,
+            contracts.adapters,
+            vocabulary_view(contracts.vocabulary),
+            errors,
+        )
+    if REQUIRE_VERSION:
+        validate_version(rel, meta, entry, errors)
     if HIDDEN_DEP_RE.search(text):
         add_error(errors, f"{rel}/SKILL.md: contains suspicious hidden/private dependency language")
-    entry = inventory.get(skill_dir.name)
+
+    section_bodies: dict[str, str] = {}
     if entry is None:
         add_error(errors, f"{rel}: missing catalog/approved.yaml entry")
     else:
@@ -592,20 +235,13 @@ def validate_skill(
         if status not in {"approved", "pending-review"}:
             add_error(errors, f"{rel}: catalog status must be approved or pending-review")
         if status == "approved":
-            if skill_dir.name != "skill-library-ops" and skill_dir.name not in released:
+            if skill_dir.name not in released:
                 add_error(errors, f"{rel}: approved skill must be in catalog/domains.yaml released")
             if skill_dir.name in next_names:
                 add_error(
                     errors,
                     f"{rel}: approved skill must not remain in catalog/domains.yaml next",
                 )
-            for heading in PUBLIC_SKILL_SECTIONS:
-                if not has_heading(text, heading):
-                    add_error(
-                        errors,
-                        f"{rel}/SKILL.md: approved skill missing public section {heading!r}",
-                    )
-            validate_public_section_bodies(rel, text, errors)
         if status == "pending-review":
             if skill_dir.name in released:
                 add_error(
@@ -622,12 +258,11 @@ def validate_skill(
                     errors,
                     f"{rel}: pending-review skill must have a real workshop_proposal ID",
                 )
-            for heading in PENDING_REVIEW_SECTIONS:
-                if not has_heading(text, heading.removeprefix("## ")):
-                    add_error(
-                        errors,
-                        f"{rel}/SKILL.md: pending-review skill missing section {heading!r}",
-                    )
+
+        if status in {"approved", "pending-review"}:
+            headings = validate_canonical_structure(rel, text, errors)
+            section_bodies = validate_public_section_bodies(rel, text, headings, errors)
+            validate_supporting_files(skill_dir, text, errors)
 
     files = eval_files(skill_dir)
     if not files:
@@ -640,52 +275,49 @@ def validate_skill(
                 f"{rel}: needs at least 4 synthetic eval cases, found {total_eval_cases}",
             )
     for path in files:
-        validate_eval_file(skill_dir.name, path, schema, errors)
+        validate_eval_file(skill_dir.name, path, schema, errors, skill_names)
+    return contract_version, section_bodies, declarations
 
 
-def validate_privacy(errors: list[str]) -> None:
-    ignored = (ROOT / ".gitignore").read_text(encoding="utf-8")
-    for required in ("evals/workspaces/", ".env", "*.skill"):
-        if required not in ignored:
-            add_error(
-                errors,
-                f".gitignore: missing local/private generated-state pattern {required!r}",
-            )
+def main(argv: list[str] | None = None) -> int:
+    arguments = list(argv or [])
+    unknown = [argument for argument in arguments if argument != "--require-baseline"]
+    if unknown:
+        print(f"usage: validate_repo.py [--require-baseline] (unknown: {' '.join(unknown)})")
+        return 2
+    require_baseline = "--require-baseline" in arguments
 
-    for path in git_files():
-        rel = path.relative_to(ROOT).as_posix()
-        if PRIVATE_PATH_RE.search(rel):
-            add_error(errors, f"{rel}: private/generated local-state path is tracked")
-            continue
-        if path.suffix.lower() not in {
-            ".md",
-            ".json",
-            ".jsonl",
-            ".yaml",
-            ".yml",
-            ".py",
-            ".txt",
-            ".gitignore",
-            "",
-        }:
-            continue
-        text = path.read_text(encoding="utf-8", errors="ignore")
-        for line_no, line in enumerate(text.splitlines(), 1):
-            if SECRET_RE.search(line):
-                add_error(errors, f"{rel}:{line_no}: possible secret or credential")
-
-
-def main() -> int:
+    context.warnings.clear()
     errors: list[str] = []
     schema = load_eval_schema(errors)
     inventory = parse_catalog_inventory(errors)
     released, next_names = parse_domain_lists(errors)
     sources = parse_source_entries(errors)
-    skill_dirs = sorted(path for path in SKILLS.iterdir() if path.is_dir())
+    cohorts = parse_cohorts(errors)
+    clusters = parse_routing_clusters(errors)
+    tracked_paths = git_files()
+    # Every skill is held to the canonical contract, so the contracts are always
+    # required.
+    contracts = load_contracts(errors, True)
+    skill_dirs = sorted(path for path in context.SKILLS.iterdir() if path.is_dir())
     skill_names = {path.name for path in skill_dirs}
 
+    canonical_bodies: dict[str, dict[str, str]] = {}
+    declarations: dict[str, dict[str, list[str]]] = {}
     for skill_dir in skill_dirs:
-        validate_skill(skill_dir, inventory, released, next_names, schema, errors)
+        _contract_version, section_bodies, declared = validate_skill(
+            skill_dir,
+            inventory,
+            released,
+            next_names,
+            schema,
+            errors,
+            sources,
+            skill_names,
+            contracts,
+        )
+        canonical_bodies[skill_dir.name] = section_bodies
+        declarations[skill_dir.name] = declared
 
     for name in sorted(set(inventory) - skill_names):
         add_error(errors, f"catalog/approved.yaml: {name} has no skills/{name} directory")
@@ -697,18 +329,38 @@ def main() -> int:
         )
 
     validate_source_catalog(inventory, sources, skill_names, errors)
-
-    validate_privacy(errors)
+    validate_cross_file_duplicates(canonical_bodies, errors)
+    validate_cohort_parity(inventory, cohorts, errors)
+    validate_cluster_routing(clusters, canonical_bodies, errors)
+    if contracts.datastore:
+        validate_namespace_authority(contracts.datastore, declarations, errors)
+        validate_authority_view(contracts.datastore, errors)
+    validate_adapter_files(contracts, errors)
+    validate_listing_budget(inventory, errors, context.warnings, contracts.adapters)
+    validate_catalog_index(errors)
+    validate_provenance_artifacts(sources, errors)
+    validate_baseline(errors, require_baseline)
+    validate_privacy(errors, tracked_paths)
 
     if errors:
         print("Validation failed:")
         for error in errors:
             print(f"- {error}")
+        print_warnings()
         return 1
 
     print(f"Validation passed: {len(skill_dirs)} skills checked.")
+    print_warnings()
     return 0
 
 
+def print_warnings() -> None:
+    if not context.warnings:
+        return
+    print(f"Warnings: {len(context.warnings)}")
+    for warning in context.warnings:
+        print(f"- {warning}")
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

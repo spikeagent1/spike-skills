@@ -1,73 +1,95 @@
 ---
-name: "home-cook"
-description: "Help plan, adapt, and troubleshoot home cooking from ingredients, equipment, skill level, and food-safety constraints."
+name: home-cook
+description: "Use when someone is cooking one thing now: what to make from what is in the kitchen, running a recipe, adapting it for an allergy or missing equipment, a technique that keeps failing, or whether an ingredient is still safe. Not for a week of meals (meal-planner) or what to buy (grocery-planner)."
+metadata:
+  spike-os:
+    version: 2.0.0
+    runtime: [openclaw, claude-code]
+    reads_from: [profile]
+    writes_to: []
+    capabilities: [datastore:read]
 ---
 
 # Home Cook
 
-## Purpose
+## Overview
 
-Turn available ingredients, preferences, equipment, time, and skill level into practical cooking plans. Adapt recipes without pretending to know pantry state or current safety recalls unless sources are checked.
-
-## Dependencies
-
-Optional pantry notes, grocery list, recipe files, timer, or source lookup when authorized. Current food safety, recall, or product claims require authoritative current sources or uncertainty. No hidden hosted dependency, shared user database, or cross-skill private storage.
-
-## Provenance
-
-Owned by Spike. Based on general home cook workflow patterns and repository privacy constraints; no upstream skill was copied.
+Produces one cooking session: the dish, ordered steps with times and cues, the substitutions, and what happens to what is left. Food safety and allergies are hard constraints, never traded to salvage an ingredient. A dish named without its recipe is adapted against a labelled standard version this turn, never after the recipe arrives.
 
 ## When to use
 
-Use this skill for recipe planning, adaptation, sequencing, substitutions, and cooking troubleshooting. If the request reveals unsafe food or a serious allergy risk, trigger the safety path and offer a safe alternative instead of continuing the recipe.
+- "What can I make with these ingredients, in twenty minutes, without a wok"
+- Running a recipe: order of operations, timings, doneness cues, what goes in parallel
+- Adapting a dish for an allergy, a missing ingredient, or missing equipment
+- A technique that keeps going wrong — a sauce that splits, a bake that sinks
+- Whether an ingredient is still safe to use, and what to cook instead when it is not
+- Keeping, reheating, or repurposing what one session leaves over
 
 ## When not to use
 
-Do not use this skill to make professional medical, legal, financial, structural, electrical, gas, fire-safety, or other high-stakes determinations; to bypass urgent escalation; or to mutate records without explicit authorization.
+- Several days of meals, prep-ahead, or where leftovers land across a week → use `meal-planner`
+- What to buy, quantities against the pantry, aisle order, or a budget → use `grocery-planner`
+- Which food causes a reaction, or whether a diet treats a condition → no professional determination is made here (S1); name the clinician, then cook to the stated constraints
+- Signing a menu off as safe to serve commercially → a legal determination with an inspection and a licence behind it (S1); no skill here issues one, and the cooking help still stands
+- Acute symptoms after eating → escalation path only, routine work stops (S2)
 
-## Required inputs
+## Inputs
 
-- available ingredients and confirmed pantry staples
-- allergies, dietary constraints, servings, and preferences
-- time, equipment, and cooking confidence
-- ingredient condition or storage history when safety is relevant
+| Input | Required | If missing |
+|---|---|---|
+| The dish, or the ingredients on hand | yes | ask once, in the same turn as a session on the named dish's standard version, labelled |
+| Allergies, intolerances, dietary pattern | yes | ask once, in the same turn as a version on the strictest safe assumption; never infer them (P1, P2) |
+| Recipe text, when a dish is adapted | no | adapt a named standard version, marked as the assumption, and say which line to correct (X3) |
+| Condition and storage history, whenever anything is questionable | yes | ask how warm and how long; give a version that does not use it (X1) |
+| Servings, time, equipment, confidence | no | assume one portion, a stovetop and an oven, labelled |
 
-Ask a focused question only when missing information changes safety or feasibility. Otherwise continue with labeled assumptions and make them easy to correct.
-
-## Optional inputs
-
-Optional inputs include preferences, budget, schedule, location, authorized connector data, prior attempts, and desired output format. Missing optional inputs remain unknown and must not be invented.
+**Dependencies:** none beyond the contract; dietary boundaries already in the `profile` namespace are read when present, and no other namespace is touched (P3).
 
 ## Workflow
 
-1. Resolve allergy and food-safety constraints before choosing a dish.
-2. Separate supplied ingredients from optional additions and substitutions.
-3. Choose a method that fits the equipment, time, and skill level.
-4. Give ordered steps with sensory cues, temperatures, and parallel timing where useful.
-5. End with storage, leftover, and uncertainty notes.
-
-## Sources and freshness
-
-Browse authoritative current sources for recalls or changing food-safety questions. Prefer regulator guidance and manufacturer notices. Do not claim an ingredient is safe from a date label alone or invent recall status.
-
-## Privacy and mutations
-
-Use only data the user supplied in this request or an explicitly authorized connector. Do not infer private facts from memory or read another skill's files. Minimize sensitive details. Before writing a file, calendar, note, list, or connector record, show the proposed change and obtain explicit authorization; then report the destination and result. Do not persist data unless the user asks.
-
-## Safety boundaries
-
-Do not suggest tasting or cooking obviously spoiled food to make it safe. Treat serious allergies and cross-contact as hard constraints. If ingredient history is too uncertain for a safe answer, recommend discarding it and offer an alternative.
+1. Write the session into this message before asking anything — the dish, its steps, its substitutions, on labelled assumptions; a question about the recipe, the equipment, or a constraint rides alongside it, never in place of it, and "I'll adapt it once you send the recipe" is not adapting it (O2).
+2. Resolve allergy and food-safety constraints before choosing a dish; a hard constraint is never traded to salvage an ingredient.
+3. Separate what the owner confirmed having from optional additions; never assume a staple is in the kitchen (X3).
+4. Choose a method that fits the equipment, time, and stated confidence, and say what it gives up.
+5. Give ordered steps with times, temperatures, sensory cues, and what runs in parallel.
+6. Attach each substitution to the ingredient it replaces, with the label or cross-contact check it needs.
+7. Close with how long what is left keeps, how to reheat it, and what is still uncertain.
 
 ## Output contract
 
-- dish choice and assumptions
-- confirmed and optional ingredients
-- ordered steps with timing and doneness cues
-- substitutions and equipment adaptations
-- allergy, storage, and source notes
+The session is in this message, not promised for the next one: the dish written out, not a description of how it would be written and not a request for the inputs that would produce it. In order: whatever must be answered before cooking is safe (O1); the dish and its assumptions, kept visibly apart from confirmed facts (O2); confirmed ingredients and optional additions; ordered steps with times and doneness cues; each substitution against the ingredient it replaces, with its label check; keeping, reheating, and leftover notes.
 
-Keep facts, assumptions, estimates, and sourced current claims visibly distinct. Prefer a compact answer that the user can act on or correct.
+Report the session as **as written**, **adapted** (a labelled substitution or assumption stands in), or **blocked** (a safety answer is missing) — never a later state than reached (O3). **Blocked** still carries the session: the dish, its steps, and its substitutions written out on the strictest safe assumption, with the missing answer named beside them and the line it would change. It is a label on a delivered session, never an empty reply.
+
+## Sources and freshness
+
+A recall status or a food-safety fact the session turns on comes from the regulator's or the manufacturer's own current notice — never from memory, a date label alone, or a cached page (F2, P2) — timestamped beside the claim (F3). Labelling the uncertainty is not a substitute for that lookup (F1): with none available this turn, name the identifiers one needs — brand, product name, lot or UPC, best-before — and give the version of the session that does not turn on the answer.
+
+## Privacy and mutations
+
+Read-only. Kitchen contents, health facts, and household details come from this turn or from owner-stated preferences in the `profile` namespace — never from memory (P2), never from another skill's files (P1, D3). Saving a recipe into a file or a note is not an effect declared here (M8): write the adapted text out in full in this message — on the labelled standard version of the dish when no recipe was supplied — name the destination path, proposing one when the owner has not, and show the change against what is there, then take explicit authorization for that exact action (M2, M6). Asking for the path, or promising the preview once the recipe arrives, is a deferral rather than a preview. An overwrite is previewed against what it replaces, which it destroys; only the state read back is reported (M4, O3).
+
+## Safety boundaries
+
+- Spoilage is a stop, not a problem to cook around: an off smell, colour, or texture, or unknown hours in the danger zone, means the food is discarded rather than used — no cooking step makes it safe again.
+- Serious allergies carry cross-contact — shared pans, boards, oil, water — and label reading; neither is dropped for convenience.
+- Every blocked ingredient leaves with a named alternative dish or swap, so the session still happens.
+- No therapeutic diet or medication advice (S1); the cooking help is still delivered to the stated constraints.
 
 ## Failure conditions
 
-Fail the skill invocation if it ignores a hard constraint, fabricates personal or current facts, presents an estimate as verified, hides material uncertainty, mutates state without explicit authorization, reads another skill's storage, or crosses the safety boundary above.
+Fail closed — name what is missing, then give the part of the session that is safe without it — when an allergy or medical restriction is unstated or ambiguous (X1, X2); when an ingredient's condition or storage history is unknown and safety turns on it (X1); when a recall status, temperature, or time would have to be invented (X3); or when writing over an existing file lacks authorization for that exact action this turn (X4).
+
+## Common mistakes
+
+| Mistake | Why wrong | Do instead |
+|---|---|---|
+| Promising to adapt the dish once the recipe arrives, or listing generic swap examples | The adapted dish is the deliverable; a guest's allergy is not addressed by an illustration of a swap | Adapt a labelled standard version this turn, naming each ingredient taken out, its replacement, and the label check |
+| Describing the file preview instead of showing it | A change nobody can see cannot be authorized, and an overwrite destroys what it replaces (M2) | Show the exact text and destination this turn, then wait for explicit authorization |
+| Planning the week's meals, or what to buy, here | `meal-planner` and `grocery-planner` own those | Cook the one session; hand the week or the buying to the sibling that owns it |
+
+## Contract
+
+Follows [contracts/skill-contract.md](../../contracts/skill-contract.md) v1.
+
+- Provenance: repo-owned

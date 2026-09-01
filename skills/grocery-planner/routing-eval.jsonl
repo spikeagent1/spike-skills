@@ -1,0 +1,7 @@
+{"intent":"Here's the week's dinner plan — turn it into a shopping list grouped by section of the store.","expected_skill":"grocery-planner"}
+{"intent":"Can you check this list against what I told you is already in the pantry so I don't buy rice again?","expected_skill":"grocery-planner"}
+{"intent":"We're capping the shop at sixty dollars this week. Trim the list and tell me what you cut.","expected_skill":"grocery-planner"}
+{"intent":"What snacks can go on the list for a kid who can't have peanuts?","expected_skill":"grocery-planner"}
+{"intent":"I haven't decided what we're eating yet. Sort the week's dinners out first.","expected_skill":"meal-planner","ambiguous_with":["grocery-planner"]}
+{"intent":"Now that the fennel is in the basket, how do I actually cook it?","expected_skill":"home-cook","ambiguous_with":["grocery-planner"]}
+{"intent":"Book me a flight to Denver for the second week of next month.","expected_skill":null}

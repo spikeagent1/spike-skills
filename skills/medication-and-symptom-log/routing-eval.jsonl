@@ -1,0 +1,6 @@
+{"intent":"I start a new medication tomorrow. How should I keep track of doses and how I feel over the first fortnight?","expected_skill":"medication-and-symptom-log"}
+{"intent":"Add today: nausea in the morning, mild rash by evening, took both doses.","expected_skill":"medication-and-symptom-log"}
+{"intent":"Summarize the last month of entries — what shows up most often, and when?","expected_skill":"medication-and-symptom-log"}
+{"intent":"Turn these entries into questions for my appointment on Tuesday.","expected_skill":"health-appointment-prep","ambiguous_with":["medication-and-symptom-log"]}
+{"intent":"I want to track my training load and see whether the soreness lines up with it.","expected_skill":"fitness-coach","ambiguous_with":["medication-and-symptom-log"]}
+{"intent":"Decide whether I should halve tonight's dose after that reaction.","expected_skill":null,"note":"a dosing decision belongs to a clinician; no skill makes one"}

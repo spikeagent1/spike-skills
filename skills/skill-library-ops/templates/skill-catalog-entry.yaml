@@ -1,20 +1,57 @@
-name: example-skill
-path: skills/example-skill
-version: 0.1.0
-owner: spike
-classification: owned
-status: experimental
-runtime: [openclaw]
-provenance:
-  source: local
-  upstream_url: null
-  upstream_commit: null
-  license: private
-validation:
-  last_commit: null
-  last_run: null
-  evaluator: null
-  pass_rate: null
-  report: null
-privacy:
-  contains_private_fixtures: false
+# Reference shape for a new skill's catalog/approved.yaml and
+# catalog/sources.yaml entries. Copy the relevant block(s) into the real
+# catalog files. No tool reads this file: it is the shape, not the source of
+# truth, and the two catalogs are validated against each other by
+# tools/validate_repo.py.
+
+# catalog/approved.yaml entry (every skill, owned or adapted):
+- name: example-skill
+  classification: owned                # owned | adapted | vendored | runtime-only
+  runtime_path: skills/example-skill
+  repository_path: skills/example-skill
+  status: approved                     # approved | pending-review
+  cohort: <cohort-name>                # must name a catalog/cohorts.yaml cohort that lists this skill
+  workshop_proposal: example-skill-<yyyymmdd>-<10-char-id>
+  contract_version: 2                  # 2 = contracts/SKILL.template.md; 1 is the pre-rewrite shape
+  version: 2.0.0                       # must equal metadata.spike-os.version in SKILL.md
+                                        # and the sources.yaml entry's version
+
+# catalog/sources.yaml entry, owned skill:
+example-skill:
+  classification: owned
+  runtime_path: skills/example-skill
+  repository_path: skills/example-skill
+  status: approved
+  cohort: <cohort-name>
+  provenance: repo-owned
+  version: 2.0.0                       # must equal the approved.yaml entry's version
+
+# catalog/sources.yaml entry, adapted skill. The upstream install artifacts
+# (`_meta.json`, `origin.json`) live under catalog/provenance/<skill>/, not
+# in-skill (V3); validate_repo.py checks their sha256 fields against
+# artifact_sha256 and skill_file_sha256, and their installedVersion against
+# upstream_version where it is present and version otherwise:
+example-adapted-skill:
+  classification: adapted
+  runtime_path: skills/example-adapted-skill
+  repository_path: skills/example-adapted-skill
+  status: approved
+  cohort: <cohort-name>
+  upstream: https://<registry>/<publisher>/skills/<skill>
+  publisher: <publisher>
+  version: 2.0.0                       # this repository's own version; must equal
+                                        # the approved.yaml entry's version
+  upstream_version: <upstream-version>  # the version the installer recorded, once a
+                                        # rewrite has moved version off that number
+  artifact_sha256: <sha256>            # must equal catalog/provenance/<skill>/origin.json artifact.sha256
+  skill_file_sha256: <sha256>          # must equal catalog/provenance/<skill>/origin.json skillFile.sha256
+  license: <SPDX id>                   # must equal the license: line in SKILL.md frontmatter
+  license_source: <exactly what page or file was checked, and when>
+  local_modifications: >-
+    <what changed from upstream, and why>
+
+# validation:
+#   Not a hand-authored catalog field. Pass rate, discriminating-assertion
+#   counts, and staleness are populated from evals/baseline.json by
+#   `python3 tools/run_evals.py baseline update` and read back with
+#   `python3 tools/run_evals.py baseline check`.

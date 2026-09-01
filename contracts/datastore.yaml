@@ -1,0 +1,250 @@
+# Machine-readable form of contracts/datastore.md. Namespace names are bare here
+# and in frontmatter; prose writes them with a trailing slash.
+version: 1
+
+envelope:
+  required: [id, namespace, kind, title, created, updated, provenance, claim_class, visibility, confidence, status]
+  optional: [supersedes, derived_from, valid_at, invalid_at, expires, expiry_rationale, sync]
+
+provenance_fields: [source_ids, source_span, local_date, recorded_by, runtime, origin, session_kind]
+sync_fields: [provider, external_id, version_token, last_synced_with, semantic_key, state, dirty, deleted, last_readback]
+
+enums:
+  claim_class: [owner-stated, agent-inference, unresolved, public-fact, private-context, proposed-change]
+  visibility: [public, personal, confidential, restricted]
+  confidence: [high, medium, low]
+  status: [active, superseded, historical, hypothesis, contested]
+  origin: [owner, agent, untrusted, system]
+  session_kind: [interactive, cron, heartbeat, sub-agent]
+  # The activity/ ledger's activity_state field: the deduplicated union of what
+  # the skills appending to that ledger report. Each reports only the subset its own
+  # effects can reach and none extends the list, which is what their "extended by
+  # nothing here" sentences mean. publish is the origin of the first six
+  # (skills/publish/SKILL.md:87); the next six are cron-scheduler's, which shares
+  # PREVIEWED with it (skills/cron-scheduler/SKILL.md:103); the last seven are
+  # conversation-archive's (skills/conversation-archive/SKILL.md:86).
+  activity_state: [PREVIEWED, RENDERED, UPLOADED_UNVERIFIED, PUBLISHED_VERIFIED, LINK_DELIVERED, ORIGIN_REMOVED, INSPECTED, APPLIED_UNVERIFIED, VERIFIED, NO_OP, ROLLED_BACK, RESIDUAL, PLANNED, TRIAL_VERIFIED, WRITTEN_UNVERIFIED, ARCHIVED_VERIFIED, QUARANTINED, PARTIAL, EXTRACTION_NOT_RUN]
+
+verbs:
+  - name: read
+    mutating: false
+    readback: false
+  - name: search
+    mutating: false
+    readback: false
+  - name: list
+    mutating: false
+    readback: false
+  - name: timeline
+    mutating: false
+    readback: false
+  - name: write
+    mutating: true
+    readback: true
+  - name: append_timeline
+    mutating: true
+    readback: true
+  - name: supersede
+    mutating: true
+    readback: true
+
+namespaces:
+  - name: profile
+    status: active
+    system_of_record: datastore
+    kinds: [owner-fact, preference, boundary, correction]
+    authority:
+      writers: [owner-dream-cycle, owner-context-onboarding]
+    scope: owner-private
+    mutability: supersede-only
+    provenance: owner turns
+    recoverability: history plus superseded records
+    actionability: a boundary record gates every permission check
+  - name: autonomy
+    status: active
+    system_of_record: datastore
+    kinds: [autonomy-contract]
+    record_fields:
+      autonomy-contract: [capability, skill-pattern, object-pattern, granted-at, expires, superseded-by, provenance]
+    required_fields:
+      autonomy-contract: [capability, skill-pattern, object-pattern, granted-at, expires]
+    object_form: "<namespace>[/<path>]"
+    pattern_grammar: ["exact", "prefix/*", "*"]
+    authority:
+      writers: [autonomy]
+      note: the autonomy manager skill writes these records only from an interactive owner session, and never on its own initiative. No other skill, scheduled run, handoff, or piece of external content may write here.
+    scope: owner
+    mutability: supersede-only; a revocation is a supersede, never a delete
+    provenance: an owner-turn reference is required
+    recoverability: full history retained
+    actionability: gates the re-ask for a contract_eligible capability
+  - name: people
+    status: active
+    system_of_record: datastore
+    kinds: [person, relationship-context, voice-profile, contact-card]
+    reserved_kinds: [person, relationship-context, contact-card]
+    authority:
+      writers: [draft-in-voice]
+      note: draft-in-voice writes voice-profile records and nothing else. person, relationship-context, and contact-card are reserved kinds - declared and readable, with no writer yet - the calendar/inbox rule applied to a kind rather than to a namespace.
+    scope: one slug per human or org
+    mutability: supersede-only
+    provenance: owner-stated or agent-inference
+    recoverability: history
+    actionability: consent required before quoting
+    sync:
+      kind: contact-card
+      provider_role: contacts provider
+      semantic_key: [display_name, primary_email]
+      readback_fields: [display_name, emails, phones, organization]
+      conflict_policy: reserved; vdirsyncer semantics when a conduit exists
+  - name: agents
+    status: active
+    system_of_record: datastore
+    kinds: [agent-identity, account-state, roster-entry, connector-state]
+    authority:
+      writers: [mcp-connector-onboarding, runtime-handoff-onboarding, social-agent-onboarding, social-agent-practice, team-skill-sharing-norm]
+    scope: the agent and its accounts
+    mutability: explicit state transitions
+    provenance: verified probes
+    recoverability: re-probe the provider
+    actionability: gates connector and account use
+  - name: projects
+    status: active
+    system_of_record: datastore
+    kinds: [brief, status, handoff]
+    authority:
+      writers: holders-of:datastore:write
+    scope: one page per project slug
+    mutability: append status, supersede brief
+    provenance: session handoffs
+    recoverability: history
+    actionability: read before resuming work
+  - name: decisions
+    status: active
+    system_of_record: datastore
+    kinds: [decision, commitment]
+    authority:
+      writers: [owner-dream-cycle]
+    scope: dated owner choices
+    mutability: supersede-only
+    provenance: corpus span and local date
+    recoverability: history
+    actionability: cited in briefings
+  - name: journal
+    status: active
+    system_of_record: datastore
+    kinds: [dream-report, candidate-ledger, reflection-cycle, run-report, health-log]
+    authority:
+      writers: holders-of:datastore:write
+    scope: dated run artifacts
+    mutability: append-only per run key
+    provenance: run identity
+    recoverability: rerun is idempotent
+    actionability: run artifacts are candidates only, never authority; health-log entries are owner records, authoritative for what was recorded, never for clinical truth
+  - name: conversations
+    status: active
+    system_of_record: datastore
+    separate_root: true
+    kinds: [transcript, manifest]
+    authority:
+      writers: [conversation-archive]
+    scope: imported external transcripts
+    mutability: create-only; quarantine on hash change
+    provenance: untrusted origin, always
+    recoverability: manifest replay
+    actionability: evidence only
+  - name: tasks
+    status: active
+    system_of_record: provider
+    kinds: [task, id-map]
+    authority:
+      writers: [daily-task-manager]
+    scope: owner tasks mirrored from the task provider
+    mutability: provider-led, mirror follows
+    provenance: provider readback
+    recoverability: reconcile from provider
+    actionability: the mirror is never provider truth
+    sync:
+      kind: task
+      provider_role: task provider
+      semantic_key: [normalized_description, target_project, due, owner_account]
+      readback_fields: [account, project, content, status, priority, due, timezone, recurrence, labels]
+      conflict_policy: provider-wins unless the owner named the datastore; divergence surfaces as a ConflictSet
+  - name: calendar
+    status: reserved
+    system_of_record: provider
+    kinds: [event, id-map]
+    authority:
+      writers: []
+    scope: owner events
+    mutability: read-only until a conduit exists
+    provenance: provider readback
+    recoverability: resync
+    actionability: read through provider:read
+    sync:
+      kind: event
+      provider_role: calendar provider
+      semantic_key: [uid]
+      readback_fields: [start, end, timezone, attendees, status, location, provider_id]
+      conflict_policy: reserved; vdirsyncer and RFC 6578 semantics when a conduit exists
+  - name: inbox
+    status: reserved
+    system_of_record: provider
+    kinds: [thread, message-ref, id-map]
+    authority:
+      writers: []
+    scope: refs and triage state, never bodies
+    mutability: read-only until a conduit exists
+    provenance: provider readback
+    recoverability: resync
+    actionability: never store message bodies
+    sync:
+      kind: message-ref
+      provider_role: mail provider
+      semantic_key: [message_id]
+      readback_fields: [thread_id, message_id, labels, triage_state]
+      conflict_policy: reserved; provider-wins when a conduit exists
+  - name: jobs
+    status: active
+    system_of_record: scheduler
+    kinds: [job-spec, occurrence]
+    authority:
+      writers: [cron-scheduler]
+    scope: scheduled work the owner can see
+    mutability: update by stable job key
+    provenance: scheduler readback
+    recoverability: prior-definition snapshot
+    actionability: occurrence key deduplicates runs
+  - name: activity
+    status: active
+    system_of_record: datastore
+    kinds: [activity]
+    authority:
+      writers: holders-of:datastore:write
+    scope: the activity ledger, one record per mutating effect
+    mutability: append-only
+    provenance: operation key and readback
+    recoverability: rollback handle
+    actionability: consulted before any retry
+  - name: checkpoints
+    status: active
+    system_of_record: datastore
+    kinds: [cursor]
+    authority:
+      writers: holders-of:checkpoint:advance
+    scope: one cursor per skill and channel
+    mutability: advance only after terminal verification
+    provenance: last verified item
+    recoverability: replay from prior cursor
+    actionability: never advanced by a read
+  - name: notifications
+    status: active
+    system_of_record: datastore
+    kinds: [delivery, held]
+    authority:
+      writers: holders-of:notify:owner
+    scope: one record per delivery key
+    mutability: state transitions only
+    provenance: channel readback
+    recoverability: held digest replay
+    actionability: retry on the same key is a no-op

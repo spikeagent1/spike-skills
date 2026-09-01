@@ -1,0 +1,6 @@
+{"intent":"Plenty of people react to what we post, but none of them know each other. Where do we go from here?","expected_skill":"community-management"}
+{"intent":"The people reviewing each other's issues already behave like a community. Design the next step and how we'd measure it.","expected_skill":"community-management"}
+{"intent":"Should we open a group space for this? Be honest about whether we can moderate it.","expected_skill":"community-management"}
+{"intent":"Write the posts that would bring the right people in.","expected_skill":"audience-content-engine","ambiguous_with":["community-management"]}
+{"intent":"Go through today's mentions and answer the ones that deserve it.","expected_skill":"social-listening-engagement-loop","ambiguous_with":["community-management","social-agent-practice"]}
+{"intent":"Decide whether data-protection law lets us keep members' email addresses.","expected_skill":null,"note":"a legal determination; no skill rules on data-protection law"}

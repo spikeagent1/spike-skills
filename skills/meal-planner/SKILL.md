@@ -1,73 +1,86 @@
 ---
-name: "meal-planner"
-description: "Create practical meal plans from dietary constraints, schedule, budget, and nutrition goals without medical diet claims."
+name: meal-planner
+description: "Use when someone wants meals planned for several days or a week: 'what should we eat this week', meal prep, leftovers, cooking around allergies, budget, or schedule. Not for a single recipe or cooking session (home-cook) or a shopping list from an existing plan (grocery-planner)."
+metadata:
+  spike-os:
+    version: 2.0.0
+    runtime: [openclaw, claude-code]
+    reads_from: [profile]
+    writes_to: []
+    capabilities: [datastore:read]
 ---
 
 # Meal Planner
 
-## Purpose
+## Overview
 
-Plan meals, prep blocks, leftovers, and shopping needs around user constraints. It does not prescribe medical diets, treat illness, or override a clinician or registered dietitian.
-
-## Dependencies
-
-Optional calendar, pantry notes, grocery list, or recipe sources when authorized. Current nutrition, recall, or food safety claims need authoritative sources or uncertainty. No hidden hosted dependency, shared user database, or cross-skill private storage.
-
-## Provenance
-
-Owned by Spike. Based on general meal planner workflow patterns and repository privacy constraints; no upstream skill was copied.
+Produces a multi-day meal plan: what to eat each day, what to cook ahead, where leftovers land. Allergies and medically required restrictions are hard constraints, never preferences traded against time or budget. A missing input becomes a labelled assumption, not a reason to withhold the plan.
 
 ## When to use
 
-Use this skill for meal schedules, prep plans, leftovers, and grocery needs. Treat allergy, food-safety, and medical-nutrition risk as constraints or escalation paths; do not diagnose, treat, or prescribe a therapeutic diet.
+- "What should we eat this week", "plan our dinners", "meal prep for the week"
+- Several days of meals to fit around evenings out, work hours, or short cooking windows
+- Cooking around allergies, intolerances, a dietary pattern, or foods someone refuses
+- Feeding a household to a budget, or cutting waste by planning leftovers
 
 ## When not to use
 
-Do not use this skill to make professional medical, legal, financial, structural, electrical, gas, fire-safety, or other high-stakes determinations; to bypass urgent escalation; or to mutate records without explicit authorization.
+- One recipe, one technique, or tonight's single session → use `home-cook`
+- Meals already chosen and the ask is a shopping list, aisle grouping, pantry check, or budget total → use `grocery-planner`
+- Which food causes a reaction, or whether a diet treats a condition → no professional determination is made here (S1); name the clinician or registered dietitian, then plan general balanced meals anyway
+- Acute symptoms after eating → escalation path only, routine work stops (S2)
 
-## Required inputs
+## Inputs
 
-- people and meals covered
-- dietary pattern, allergies, intolerances, and disliked foods
-- budget, time, equipment, cooking confidence, and leftover preferences
-- user-confirmed pantry items and nutrition goals
+| Input | Required | If missing |
+|---|---|---|
+| Who eats, which meals are covered | yes | ask once; plan the stated household only |
+| Allergies, intolerances, dietary pattern, dislikes | yes | ask once, in the same turn as a plan built on the strictest safe assumption; never infer them (P1, P2) |
+| Days covered, cooking time per day | no | assume the coming week, labelled |
+| Budget, equipment, leftover appetite | no | continue; mark every figure an estimate (O2) |
+| Owner-confirmed pantry items | no | plan as if nothing is on hand; never invent stock (X3) |
 
-Ask a focused question only when missing information changes safety or feasibility. Otherwise continue with labeled assumptions and make them easy to correct.
-
-## Optional inputs
-
-Optional inputs include preferences, budget, schedule, location, authorized connector data, prior attempts, and desired output format. Missing optional inputs remain unknown and must not be invented.
+**Dependencies:** none beyond the contract; dietary boundaries already in the `profile` namespace are read when present, and no other namespace is touched (P3).
 
 ## Workflow
 
-1. Treat allergies and medically required restrictions as hard constraints.
-2. Separate confirmed pantry contents and preferences from assumptions.
-3. Choose repeatable components and plan leftovers before adding variety.
-4. Check time, storage, and food-safety feasibility; add substitutions for constrained ingredients.
-5. Produce the meal schedule, prep sequence, and deduplicated grocery list.
-
-## Sources and freshness
-
-Browse authoritative sources for current food recalls, medical nutrition claims, or changing food-safety guidance. Use sourced labels or user-provided data for calories and macros; otherwise give approximate, non-clinical guidance and say it is approximate.
-
-## Privacy and mutations
-
-Use only data the user supplied in this request or an explicitly authorized connector. Do not infer private facts from memory or read another skill's files. Minimize sensitive details. Before writing a file, calendar, note, list, or connector record, show the proposed change and obtain explicit authorization; then report the destination and result. Do not persist data unless the user asks.
-
-## Safety boundaries
-
-Do not prescribe a therapeutic diet, promise disease reversal, or recommend changing medication. For allergies, preserve label and cross-contact checks. Redirect medical nutrition questions to a qualified clinician or registered dietitian.
+1. Split hard constraints — allergy, medical restriction — from soft ones; a hard constraint is never traded.
+2. Keep confirmed facts apart from assumptions; ask only what changes safety or feasibility, and plan on labelled assumptions rather than waiting for an answer (O2).
+3. Pick repeating components first — a grain, a sauce, a protein — and vary how they combine.
+4. Place meals across the days, longest cook where the most time is, each leftover routed into a named later meal.
+5. Check feasibility: time per day, refrigerator and freezer room, how long each cooked component keeps.
+6. Substitute for every constrained ingredient, then hand shopping to `grocery-planner`.
 
 ## Output contract
 
-- constraints and assumptions
-- meal-by-meal schedule with leftover use
-- prep blocks and storage notes
-- grouped grocery list with quantities
-- substitutions, safety notes, and source status
+In order: whatever must be answered before the plan is safe (O1); constraints, split into confirmed and assumed (O2); the plan day by day, each meal named and each leftover pointed at the meal that eats it; prep blocks with how long each component keeps; substitutions; a current authoritative source beside any recall or food-safety claim, where labelled uncertainty is not an accepted substitute, and a source or labelled uncertainty beside any other nutrition claim (F1, F3); and the ingredients the plan needs, grouped by category. Aisle order, quantities to buy against the pantry, and the budget total belong to `grocery-planner`.
 
-Keep facts, assumptions, estimates, and sourced current claims visibly distinct. Prefer a compact answer that the user can act on or correct.
+Report each day as **planned**, **assumed** (a labelled assumption stands in for an input), or **blocked** (a safety or allergy answer is missing) — never a later state than reached (O3).
+
+## Privacy and mutations
+
+Read-only. Pantry contents, health facts, and household details come from this turn or from owner-stated preferences in the `profile` namespace — never from memory (P2), never from another skill's files (D3). Saving the plan into a file, note, or list is not an effect declared here (M8): show the exact text that would land, in this turn, and take explicit authorization before any skill writes it (M2).
+
+## Safety boundaries
+
+- Allergy work includes cross-contact and label reading; neither is dropped for time or budget.
+- No therapeutic diet, disease-reversal claim, or medication advice (S1); the general balanced plan is still delivered, with the clinical targets left to the clinician.
+- Food of unknown temperature history: ask how warm and how long, and offer a plan that does not use it (X1).
 
 ## Failure conditions
 
-Fail the skill invocation if it ignores a hard constraint, fabricates personal or current facts, presents an estimate as verified, hides material uncertainty, mutates state without explicit authorization, reads another skill's storage, or crosses the safety boundary above.
+Fail closed — name what is missing and give the part that is safe without it — when an allergy or medical restriction is unstated or ambiguous (X1, X2); when pantry contents, prices, or nutrient values would have to be invented (X3); when a food-safety fact the plan depends on is unknown (X1); or when honoring one stated constraint would quietly drop another (X2).
+
+## Common mistakes
+
+| Mistake | Why wrong | Do instead |
+|---|---|---|
+| Producing the shopping list — aisle order, quantities to buy, pantry math, budget total | `grocery-planner`'s deliverable; two of them means two lists to reconcile | List what the plan needs, grouped, and hand the shopping to `grocery-planner` |
+| Naming the food behind a reaction | Diagnosis from symptom patterns is a clinical determination no skill here owns (S1) | Refuse it, give the clinician path, and plan the meals that are safe to plan |
+| Planning around food of unknown temperature history | Optimizes waste ahead of safety | Ask how warm and how long; plan without it if either is unknown |
+
+## Contract
+
+Follows [contracts/skill-contract.md](../../contracts/skill-contract.md) v1.
+
+- Provenance: repo-owned

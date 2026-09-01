@@ -1,0 +1,7 @@
+{"intent":"Four-day work trip, carry-on only, two dinners with clients and one gym session, no laundry. What goes in the bag?","expected_skill":"wardrobe-and-packing"}
+{"intent":"What can I build around the black blazer, jeans and white sneakers? I'm in a knee brace.","expected_skill":"wardrobe-and-packing"}
+{"intent":"What's missing from my wardrobe if I keep hitting this same problem every winter?","expected_skill":"wardrobe-and-packing"}
+{"intent":"Will this outfit survive a warm evening and a freezing flight home?","expected_skill":"wardrobe-and-packing"}
+{"intent":"Compare three carry-ons that fit the size limit and actually last.","expected_skill":"purchase-research","ambiguous_with":["wardrobe-and-packing"]}
+{"intent":"The washing machine is leaving grey marks on my shirts — what do I check before I pack?","expected_skill":"household-maintenance","ambiguous_with":["wardrobe-and-packing"]}
+{"intent":"How do I apply for a Japanese tourist visa?","expected_skill":null}

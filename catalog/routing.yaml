@@ -1,0 +1,22 @@
+version: 1
+clusters:
+  - name: food
+    skills: [meal-planner, grocery-planner, home-cook]
+  - name: health
+    skills: [health-appointment-prep, medication-and-symptom-log, sleep-review, fitness-coach]
+  - name: onboarding
+    skills: [owner-context-onboarding, mcp-connector-onboarding, runtime-handoff-onboarding, social-agent-onboarding]
+  - name: day
+    skills: [briefing, daily-task-manager]
+  - name: release
+    skills: [public-post-workshop, publish]
+  - name: evidence
+    skills: [fact-check, literature-review]
+  - name: governance
+    skills: [skill-library-ops, team-skill-sharing-norm]
+  - name: social
+    skills: [social-agent-practice, social-listening-engagement-loop, audience-content-engine, community-management]
+  - name: household
+    skills: [household-maintenance, wardrobe-and-packing, purchase-research]
+  - name: datastore-readers
+    skills: [conversation-archive, owner-dream-cycle, briefing]

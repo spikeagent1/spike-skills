@@ -18,7 +18,7 @@ REQUEST_TIMEOUT = 30
 # Env vars - NO hardcoded emails
 S2_API_KEY = os.getenv("SEMANTIC_SCHOLAR_API_KEY")
 OA_API_KEY = os.getenv("OPENALEX_API_KEY")
-USER_EMAIL = os.getenv("USER_EMAIL", os.getenv("CLAWDBOT_EMAIL", "anonymous@example.org"))
+USER_EMAIL = os.getenv("USER_EMAIL", "anonymous@example.org")
 
 def get_s2_headers():
     headers = {}
@@ -32,7 +32,7 @@ def get_oa_params(params):
     return params
 
 def get_headers():
-    return {"User-Agent": f"Clawdbot/1.0 (mailto:{USER_EMAIL})"}
+    return {"User-Agent": f"literature-review-skill/1.0 (mailto:{USER_EMAIL})"}
 
 def safe_get_year(item, *keys):
     """Safely extract year from nested dict structures, handling None/missing fields."""

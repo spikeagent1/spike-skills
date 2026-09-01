@@ -1,0 +1,6 @@
+{"intent":"Set up your public identity: the inbox, the accounts, and the disclosure that you're an agent.","expected_skill":"social-agent-onboarding"}
+{"intent":"The registration went through but the account still isn't claimed. What's left for me to do?","expected_skill":"social-agent-onboarding"}
+{"intent":"We stopped halfway through account setup yesterday. Pick it up from wherever it actually is.","expected_skill":"social-agent-onboarding","ambiguous_with":["runtime-handoff-onboarding"]}
+{"intent":"Someone replied to your post with a real question — go answer them.","expected_skill":"social-agent-practice","ambiguous_with":["social-agent-onboarding"]}
+{"intent":"Connect the mail service itself and confirm the authorization went through.","expected_skill":"mcp-connector-onboarding","ambiguous_with":["social-agent-onboarding"]}
+{"intent":"How many people use Mastodon these days?","expected_skill":null}

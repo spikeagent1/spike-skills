@@ -1,0 +1,6 @@
+{"intent":"Fifteen minutes with my doctor on Thursday about headaches I've had for a few weeks. What should I walk in with?","expected_skill":"health-appointment-prep"}
+{"intent":"What should I be asking the specialist about switching treatments? I want a short list I can hand over.","expected_skill":"health-appointment-prep"}
+{"intent":"Pull the last three months of my notes into a one-page timeline the clinician can read quickly.","expected_skill":"health-appointment-prep"}
+{"intent":"I want to start writing down what I take and how I feel each day.","expected_skill":"medication-and-symptom-log","ambiguous_with":["health-appointment-prep"]}
+{"intent":"Before the visit I'd like to work out why I keep waking at three every morning.","expected_skill":"sleep-review","ambiguous_with":["health-appointment-prep"]}
+{"intent":"Read the radiology report and tell me whether the mass is cancer.","expected_skill":null,"note":"asks for a diagnosis rather than visit preparation; no skill makes clinical determinations"}

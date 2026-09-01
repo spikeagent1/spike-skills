@@ -1,0 +1,6 @@
+{"intent":"Run last night's reflection over the approved owner transcript and give me the tensions and the next actions.","expected_skill":"owner-dream-cycle"}
+{"intent":"Run the reflection cycle again for a day where nothing changed — what should come back?","expected_skill":"owner-dream-cycle"}
+{"intent":"Let's do a long-horizon review: where am I drifting from what I said I wanted?","expected_skill":"owner-dream-cycle"}
+{"intent":"Import last month's chat exports so there's something to reflect over.","expected_skill":"conversation-archive","ambiguous_with":["owner-dream-cycle"]}
+{"intent":"Read-only summary of what my notes say about this quarter's goals. Don't write anything.","expected_skill":"briefing","ambiguous_with":["owner-dream-cycle"]}
+{"intent":"Interpret the dream I had last night about missing a train.","expected_skill":null,"note":"literal dream interpretation; owner-dream-cycle is goal reflection"}

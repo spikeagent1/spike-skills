@@ -62,9 +62,45 @@ cohorts:
       - produce an explicit completion state and remaining blockers
       - include synthetic regression cases suitable for reuse
 
+  - name: launcher
+    status: completed
+    rationale: >-
+      The routing baseline measured the native router answering many owner intents
+      with no skill at all, and dropping specific phrasings even where the owning
+      skill's description named them. A dispatcher that consults a rule table and
+      the generated index is the architectural answer: it belongs to no life
+      domain's cohort because it routes to all of them.
+    skills:
+      - home
+    acceptance:
+      - a precedence table carrying every intent the routing baseline measured as lost
+      - the index read from disk at run time, never a remembered list of skills
+      - exactly one skill routed with the intent restated, or exactly one question
+      - no task performed and no answer improvised in the launcher's own turn
+      - a routing fixture that fails when the launcher absorbs an unambiguous intent
+
   - name: routing-overlap-and-long-tail
     status: queued
     skills: []
+
+  - name: autonomy
+    status: completed
+    rationale: >-
+      The week-in audit found the approval ladder frozen in prose: no tool read it,
+      no owner could relax it, and the record kind designed to carry a standing
+      permission was written by nobody. A manager skill is the owner's surface onto
+      that ring -- it writes the permissions, shows what stands, ends them, and
+      counts the repeated approvals that argue for one. It belongs to no life
+      domain's cohort because the permissions it keeps are about every domain.
+    skills:
+      - autonomy
+    acceptance:
+      - every contract previewed as an exact record and written only on the owner's authorization
+      - creation refused outside an interactive owner turn, and on the skill's own initiative
+      - a capability outside the eligible ring refused by name, never narrowed into a contract
+      - no contract written for a write to the autonomy namespace itself
+      - an ending supersedes and keeps the history readable
+      - repeated approvals surfaced as a suggestion the owner may act on, never as a record
 
   - name: health-and-home-lifestyle
     status: completed
