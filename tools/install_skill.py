@@ -56,6 +56,14 @@ _REPO_ROOT = str(Path(__file__).resolve().parents[1])
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+# The floor, before the first import of ours: an interpreter below it reads the
+# version it needs rather than whatever construct happens to fail first.
+from tools.python_floor import require_python  # noqa: E402
+
+_TOO_OLD = require_python()
+if _TOO_OLD:
+    raise SystemExit(_TOO_OLD)
+
 from tools.installer import cli, io, render  # noqa: E402,F401
 
 # Re-exports: the whole installer surface, so importers name one module.
