@@ -10,11 +10,19 @@ read a namespace.
 
 The grammar is `contracts/datastore.md`'s and no other: `skill-pattern` and
 `object-pattern` are each an exact string, a `prefix/*`, or `*`, never a regular
-expression. Everything that could widen autonomy fails closed instead
-(`contracts/capabilities.yaml`, `on_ambiguity: fail_closed`):
+expression. The object they are matched against has one form too -- the same
+contract's `object_form`, `<namespace>[/<path>]` -- and it is parsed before any
+pattern is applied to it. Everything that could widen autonomy fails closed
+instead (`contracts/capabilities.yaml`, `on_ambiguity: fail_closed`):
 
+- an object outside `object_form` is refused, so `Autonomy/x`, `./autonomy/x` and
+  `projects/../autonomy/x` are non-matches rather than spellings that slip past
+  the exclusion below;
 - a pattern that is neither form parses to nothing, so its record matches nothing;
-- a record past its `expires`, superseded, or not `active` never matches;
+- a record missing any of `required_fields` -- `expires` above all, since M5
+  authorizes an *unexpired* contract -- never matches;
+- a record past its `expires`, before its `granted-at`, superseded, or not
+  `active` never matches;
 - a capability whose `contract_eligible` flag is false, or that the enum does not
   name at all, is refused before any record is read;
 - a mutating capability aimed at `autonomy/` itself is always refused: no
@@ -177,9 +185,58 @@ def never_eligible_namespace(root: Path | None = None) -> str:
     return str(value or "autonomy")
 
 
-def _in_namespace(obj: str, namespace: str) -> bool:
-    """Whether an object string names a record in `namespace`."""
-    return obj == namespace or obj.startswith(namespace + "/")
+def _namespace_entries(root: Path | None = None) -> list[dict[str, Any]]:
+    """`contracts/datastore.yaml`'s namespace list."""
+    datastore = contracts_check.load_datastore(root or ROOT)
+    return [entry for entry in datastore.get("namespaces") or [] if isinstance(entry, dict)]
+
+
+def known_namespaces(root: Path | None = None) -> frozenset[str]:
+    """Every namespace name the datastore contract declares, reserved ones included.
+
+    A reserved namespace may still be read about, so its name is a legal object
+    root; what may be *written* is the `writes_to` lint's question, not this one.
+    """
+    return frozenset(
+        str(entry["name"]).strip()
+        for entry in _namespace_entries(root)
+        if str(entry.get("name") or "").strip()
+    )
+
+
+def required_fields(root: Path | None = None) -> tuple[str, ...]:
+    """`required_fields.autonomy-contract`: what a live contract must carry."""
+    for entry in _namespace_entries(root):
+        if str(entry.get("name") or "").strip() != "autonomy":
+            continue
+        block = entry.get("required_fields")
+        fields = (block or {}).get(KIND) if isinstance(block, dict) else None
+        if isinstance(fields, list) and fields:
+            return tuple(str(field) for field in fields)
+    return ()
+
+
+def parse_object(obj: object, namespaces: Iterable[str] | None = None,
+                 *, root: Path | None = None) -> str | None:
+    """The namespace an object string names, or None when it is not one at all.
+
+    `contracts/datastore.md`'s `object_form`: a declared namespace, alone or
+    followed by `/` and the store's own id path. No leading `/` or `./`, no `.`
+    or `..` segment, no empty segment, no backslash, no whitespace. The parse is
+    total and never repairs: a string outside the form names nothing, which is
+    what keeps the `autonomy/` exclusion out of the caller's spelling.
+    """
+    if not isinstance(obj, str) or not obj:
+        return None
+    if obj != obj.strip() or any(character.isspace() for character in obj):
+        return None
+    if "\\" in obj:
+        return None
+    segments = obj.split("/")
+    if any(segment in ("", ".", "..") for segment in segments):
+        return None
+    names = known_namespaces(root) if namespaces is None else frozenset(namespaces)
+    return segments[0] if segments[0] in names else None
 
 
 def _record_id(record: dict[str, Any]) -> str:
@@ -202,8 +259,14 @@ def _is_contract(record: dict[str, Any]) -> bool:
     return namespace in ("", "autonomy")
 
 
-def _live(record: dict[str, Any], now: datetime) -> str:
-    """Why a contract record is not live, or `""` when it is."""
+def _live(record: dict[str, Any], now: datetime, required: Sequence[str] = ()) -> str:
+    """Why a contract record is not live, or `""` when it is.
+
+    `required` is `contracts/datastore.yaml`'s `required_fields`: a record
+    missing one of them is not a contract the resolver can read, and `expires`
+    is the one that matters most -- M5 authorizes an unexpired contract, so a
+    record that names no end names no bound the owner set (review I3).
+    """
     status = str(record.get("status") or "").strip()
     if not status:
         return "no status field, so nothing says it is live"
@@ -212,8 +275,19 @@ def _live(record: dict[str, Any], now: datetime) -> str:
     superseded_by = record.get("superseded-by")
     if status == "superseded" or (isinstance(superseded_by, str) and superseded_by.strip()):
         return "superseded"
+    for field in required:
+        value = record.get(field)
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return f"no {field}, which contracts/datastore.yaml requires"
+    granted = record.get("granted-at")
+    if granted is not None:
+        instant = _instant(granted)
+        if instant is None:
+            return f"granted-at {granted!r} is not a readable date"
+        if instant > now:
+            return f"not yet live: granted-at is {granted}"
     expires = record.get("expires")
-    if expires is None or (isinstance(expires, str) and not expires.strip()):
+    if expires is None:
         return ""
     instant = _instant(expires)
     if instant is None:
@@ -235,8 +309,10 @@ def match(
     """Whether an owner-written contract covers this action, and which one to cite.
 
     `records` are `autonomy/` pages as their frontmatter mappings; anything else
-    in the iterable is passed over. `now` is an ISO-8601 instant -- an unreadable
-    one is refused rather than assumed, since every expiry is judged against it.
+    in the iterable is passed over. `obj` is parsed against `object_form` before
+    any record is read, so an object outside the form is refused rather than
+    matched. `now` is an ISO-8601 instant -- an unreadable one is refused rather
+    than assumed, since every expiry is judged against it.
     """
     entries = capability_entries(root)
     entry = entries.get(capability)
@@ -251,8 +327,17 @@ def match(
             f"{capability} is not contract_eligible in contracts/capabilities.yaml",
         )
 
+    namespace = parse_object(obj, root=root)
+    if namespace is None:
+        return Decision(
+            None,
+            f"{obj!r} is not an object: contracts/datastore.md writes one as "
+            f"<namespace>[/<path>], and nothing is matched against a string "
+            f"outside that form",
+        )
+
     excluded = never_eligible_namespace(root)
-    if not entry.get("readOnlyHint") and _in_namespace(obj, excluded):
+    if not entry.get("readOnlyHint") and namespace == excluded:
         return Decision(
             None,
             f"a write to {excluded}/ is never covered by a contract",
@@ -262,13 +347,14 @@ def match(
     if instant is None:
         return Decision(None, f"the current instant {now!r} is not a readable date")
 
+    required = required_fields(root)
     matches: list[tuple[int, str]] = []
     skipped: list[str] = []
     for record in records:
         if not isinstance(record, dict) or not _is_contract(record):
             continue
         record_id = _record_id(record)
-        not_live = _live(record, instant)
+        not_live = _live(record, instant, required)
         if not_live:
             skipped.append(f"{record_id}: {not_live}")
             continue
@@ -385,7 +471,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--capability", required=True, help="An effect name from contracts/capabilities.yaml."
     )
     parser.add_argument("--skill", required=True, help="The skill about to act.")
-    parser.add_argument("--object", required=True, dest="obj", help="What it would act on.")
+    parser.add_argument(
+        "--object", required=True, dest="obj",
+        help="What it would act on, written as <namespace>[/<path>].",
+    )
     parser.add_argument(
         "--now",
         help="ISO-8601 instant expiries are judged against (default: now, UTC).",

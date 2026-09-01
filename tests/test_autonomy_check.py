@@ -28,7 +28,7 @@ def contract(
     capability: str = "datastore:write",
     skill: str = "daily-task-manager",
     obj: str = "tasks/*",
-    expires: object = None,
+    expires: object = "2026-12-31",
     superseded_by: object = None,
     status: str = "active",
     kind: str = "autonomy-contract",
@@ -110,7 +110,7 @@ class MatchTest(unittest.TestCase):
     def test_a_skill_prefix_pattern_covers_the_family(self) -> None:
         record = contract("family", skill="social/*", obj="*")
         decision = autonomy_check.match(
-            [record], "datastore:write", "social/listening", "anything", NOW
+            [record], "datastore:write", "social/listening", "tasks/inbox", NOW
         )
         self.assertEqual(decision.contract_id, "family")
 
@@ -244,7 +244,7 @@ class EligibilityTest(unittest.TestCase):
             with self.subTest(capability=capability):
                 record = contract("wide", capability=capability, skill="*", obj="*")
                 decision = autonomy_check.match(
-                    [record], capability, "daily-task-manager", "anything", NOW
+                    [record], capability, "daily-task-manager", "tasks/inbox", NOW
                 )
                 self.assertIsNone(decision.contract_id)
                 self.assertIn("contract_eligible", decision.reason)
@@ -252,7 +252,7 @@ class EligibilityTest(unittest.TestCase):
     def test_an_unknown_capability_fails_closed(self) -> None:
         record = contract("wide", capability="datastore:incinerate", skill="*", obj="*")
         decision = autonomy_check.match(
-            [record], "datastore:incinerate", "daily-task-manager", "anything", NOW
+            [record], "datastore:incinerate", "daily-task-manager", "tasks/inbox", NOW
         )
         self.assertIsNone(decision.contract_id)
         self.assertIn("contracts/capabilities.yaml", decision.reason)
@@ -275,12 +275,149 @@ class EligibilityTest(unittest.TestCase):
         )
         self.assertEqual(decision.contract_id, "view")
 
-    def test_a_namespace_that_merely_starts_with_the_letters_is_not_autonomy(self) -> None:
+    def test_a_namespace_that_merely_starts_with_the_letters_is_no_object_at_all(
+        self,
+    ) -> None:
+        """The self-exclusion no longer prefix-tests, so a lookalike is refused.
+
+        `autonomyish` is not a namespace `contracts/datastore.md` names, so the
+        object does not parse and nothing is matched against it -- a refusal
+        rather than the cover the raw prefix test used to give it.
+        """
         record = contract("wide", skill="*", obj="*")
         decision = autonomy_check.match(
             [record], "datastore:write", "daily-task-manager", "autonomyish/x", NOW
         )
-        self.assertEqual(decision.contract_id, "wide")
+        self.assertIsNone(decision.contract_id)
+        self.assertIn("autonomyish", decision.reason)
+
+
+class ObjectConventionTest(unittest.TestCase):
+    """`contracts/datastore.md`: an object is `<namespace>[/<path>]`, or nothing.
+
+    The object is parsed before any pattern is matched against it, so the
+    `autonomy/` exclusion holds on the shape of the string rather than on the
+    caller spelling it the one way the exclusion recognizes (review I1).
+    """
+
+    def refuse(self, obj: str) -> autonomy_check.Decision:
+        """The widest possible contract, against one object string."""
+        record = contract("wide", skill="*", obj="*")
+        return autonomy_check.match(
+            [record], "datastore:write", "daily-task-manager", obj, NOW
+        )
+
+    def test_an_object_rooted_in_a_known_namespace_parses(self) -> None:
+        for obj in ("tasks", "tasks/inbox", "activity/2026-09-01--a1b2c3d4"):
+            with self.subTest(obj=obj):
+                self.assertEqual(autonomy_check.parse_object(obj), obj.split("/")[0])
+
+    def test_every_spelling_that_reached_autonomy_is_now_a_refusal(self) -> None:
+        """The nine bypasses the review found, under a `*`/`*` contract."""
+        for obj in (
+            "Autonomy/x",
+            "AUTONOMY/x",
+            "/autonomy/x",
+            "./autonomy/x",
+            "ops/autonomy/x",
+            "~/Tapan-Brain/autonomy/x",
+            " autonomy/x",
+            "autonomy\\x",
+            "projects/../autonomy/x",
+        ):
+            with self.subTest(obj=obj):
+                self.assertIsNone(autonomy_check.parse_object(obj))
+                self.assertIsNone(self.refuse(obj).contract_id)
+
+    def test_the_refusal_names_the_convention_rather_than_the_patterns(self) -> None:
+        decision = self.refuse("lists/inbox")
+        self.assertIsNone(decision.contract_id)
+        self.assertIn("lists/inbox", decision.reason)
+        self.assertIn("<namespace>", decision.reason)
+
+    def test_an_empty_or_non_string_object_parses_to_nothing(self) -> None:
+        for obj in ("", "   ", "/", "tasks/", "tasks//inbox", None, 42):
+            with self.subTest(obj=obj):
+                self.assertIsNone(autonomy_check.parse_object(obj))
+
+    def test_the_canonical_autonomy_write_is_still_the_named_refusal(self) -> None:
+        """A parsing object in `autonomy/` is refused for the ring, not the shape."""
+        decision = self.refuse("autonomy/add-tasks-2026-09")
+        self.assertIsNone(decision.contract_id)
+        self.assertIn("autonomy/", decision.reason)
+
+
+class RequiredFieldsTest(unittest.TestCase):
+    """`required_fields` in `contracts/datastore.yaml`: no field, no contract."""
+
+    def test_a_contract_with_no_expiry_is_never_live(self) -> None:
+        """M5 authorizes an *unexpired* contract, so an endless one is none (I3)."""
+        for expires in (None, "", "   "):
+            with self.subTest(expires=expires):
+                record = contract("endless", expires=expires)
+                decision = autonomy_check.match(
+                    [record], "datastore:write", "daily-task-manager", "tasks/inbox", NOW
+                )
+                self.assertIsNone(decision.contract_id)
+                self.assertTrue(any("expires" in note for note in decision.skipped))
+
+    def test_a_contract_missing_the_expiry_field_entirely_is_never_live(self) -> None:
+        record = contract("endless")
+        del record["expires"]
+        decision = autonomy_check.match(
+            [record], "datastore:write", "daily-task-manager", "tasks/inbox", NOW
+        )
+        self.assertIsNone(decision.contract_id)
+        self.assertTrue(any("endless" in note for note in decision.skipped))
+
+    def test_every_required_field_is_checked_the_same_way(self) -> None:
+        for field in ("capability", "skill-pattern", "object-pattern", "granted-at"):
+            with self.subTest(field=field):
+                record = contract("partial")
+                del record[field]
+                decision = autonomy_check.match(
+                    [record], "datastore:write", "daily-task-manager", "tasks/inbox", NOW
+                )
+                self.assertIsNone(decision.contract_id)
+                self.assertTrue(any(field in note for note in decision.skipped))
+
+    def test_the_required_list_is_the_contracts_own(self) -> None:
+        self.assertEqual(
+            autonomy_check.required_fields(),
+            ("capability", "skill-pattern", "object-pattern", "granted-at", "expires"),
+        )
+
+
+class NotYetValidTest(unittest.TestCase):
+    """`granted-at` is read, not just stored (review M3)."""
+
+    def test_a_contract_granted_in_the_future_does_not_cover_today(self) -> None:
+        record = contract("premature")
+        record["granted-at"] = "2099-01-01"
+        decision = autonomy_check.match(
+            [record], "datastore:write", "daily-task-manager", "tasks/inbox", NOW
+        )
+        self.assertIsNone(decision.contract_id)
+        self.assertTrue(any("not yet" in note for note in decision.skipped))
+
+    def test_the_grant_instant_itself_is_live(self) -> None:
+        record = contract("today")
+        record["granted-at"] = NOW
+        self.assertEqual(
+            autonomy_check.match(
+                [record], "datastore:write", "daily-task-manager", "tasks/inbox", NOW
+            ).contract_id,
+            "today",
+        )
+
+    def test_an_unreadable_grant_date_fails_closed(self) -> None:
+        record = contract("garbled-grant")
+        record["granted-at"] = "sometime"
+        decision = autonomy_check.match(
+            [record], "datastore:write", "daily-task-manager", "tasks/inbox", NOW
+        )
+        self.assertIsNone(decision.contract_id)
+        self.assertTrue(any("garbled-grant" in note for note in decision.skipped))
 
 
 class RecordLoadingTest(unittest.TestCase):
@@ -309,17 +446,33 @@ class RecordLoadingTest(unittest.TestCase):
             "skill-pattern: daily-task-manager\n"
             "object-pattern: tasks/*\n"
             "granted-at: 2026-08-01\n"
-            "expires: null\n"
+            "expires: 2026-12-31\n"
             "---\n\nThe owner wrote this on 2026-08-01.\n",
         )
         records = autonomy_check.load_records(self.records)
         self.assertEqual([record["id"] for record in records], ["add-tasks"])
-        self.assertIsNone(records[0]["expires"])
+        self.assertEqual(records[0]["expires"], "2026-12-31")
         self.assertEqual(
             autonomy_check.match(
                 records, "datastore:write", "daily-task-manager", "tasks/inbox", NOW
             ).contract_id,
             "add-tasks",
+        )
+
+    def test_a_record_file_with_a_null_expiry_loads_and_covers_nothing(self) -> None:
+        self.write(
+            "endless.md",
+            "---\nid: endless\nnamespace: autonomy\nkind: autonomy-contract\n"
+            "status: active\ncapability: datastore:write\n"
+            "skill-pattern: daily-task-manager\nobject-pattern: tasks/*\n"
+            "granted-at: 2026-08-01\nexpires: null\n---\n",
+        )
+        records = autonomy_check.load_records(self.records)
+        self.assertIsNone(records[0]["expires"])
+        self.assertIsNone(
+            autonomy_check.match(
+                records, "datastore:write", "daily-task-manager", "tasks/inbox", NOW
+            ).contract_id
         )
 
     def test_the_id_falls_back_to_the_file_name(self) -> None:
@@ -355,6 +508,8 @@ class CommandLineTest(unittest.TestCase):
             "capability: datastore:write\n"
             "skill-pattern: daily-task-manager\n"
             "object-pattern: tasks/*\n"
+            "granted-at: 2026-08-01\n"
+            "expires: 2026-12-31\n"
             "---\n",
             encoding="utf-8",
         )
