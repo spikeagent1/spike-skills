@@ -815,6 +815,12 @@
   "unassigned": [],
   "reserved_namespaces": [
     {
+      "name": "autonomy",
+      "status": "reserved",
+      "system_of_record": "datastore",
+      "authority": "none yet"
+    },
+    {
       "name": "calendar",
       "status": "reserved",
       "system_of_record": "provider",

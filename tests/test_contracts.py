@@ -214,14 +214,18 @@ class DatastoreTest(unittest.TestCase):
 
         No writer is named because the manager skill is not in this library yet;
         the note is what says so, the way `people/` says which kinds are
-        reserved. A namespace with an empty writers list is one no skill may
-        declare in `writes_to`, which is the fail-closed state to be in until
-        the manager lands.
+        reserved. The namespace is reserved for the same reason -- an empty
+        writers list plus `reserved` is the fail-closed pair, and the manager's
+        own task flips both in one edit when it lands.
         """
         entry = next(item for item in NAMESPACES if item["name"] == "autonomy")
         self.assertEqual(entry["kinds"], ["autonomy-contract"])
         self.assertEqual(entry["authority"]["writers"], [])
         self.assertIn("interactive owner session", entry["authority"]["note"])
+        # Reserved, not active: a namespace no skill may write yet is the one
+        # thing `reserved` means, and the manager's task is what activates it.
+        self.assertEqual(entry["status"], "reserved")
+        self.assertIn("activates it", entry["authority"]["note"])
         self.assertEqual(
             entry["record_fields"]["autonomy-contract"],
             [

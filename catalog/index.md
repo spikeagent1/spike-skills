@@ -80,6 +80,7 @@ _No skills released yet in this domain._
 
 | namespace | status | system of record | authority |
 | --- | --- | --- | --- |
+| `autonomy` | reserved | datastore | none yet |
 | `calendar` | reserved | provider | none yet |
 | `inbox` | reserved | provider | none yet |
 

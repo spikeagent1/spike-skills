@@ -4,11 +4,22 @@
 The rename is record-level, never a directory move: a record names its namespace
 in its own frontmatter, and the index is rebuilt from the Markdown afterwards.
 So this walks the Markdown, rewrites the three fields the rename touches -- the
-namespace field (`namespace`, or whatever `datastore.field_map.namespace` in the
-runtime's adapter calls it), `kind`, and `effect_state` -- and prints what has to
-happen next. Nothing else in the file is read or written: the body is left byte
-for byte as it was, and a record whose frontmatter does not name the old ledger
-is not rewritten at all.
+namespace field, `kind`, and `effect_state` -- and prints what has to happen
+next. Nothing else in the file is read or written: the body is left byte for byte
+as it was, and a record whose frontmatter does not name the old ledger is not
+rewritten at all.
+
+The namespace field is read from *every* adapter's `datastore.field_map`, not
+only the selected runtime's: gbrain names it `type` (`gbrain list --type
+<namespace>`), the claude-code adapter's field map says so, and the openclaw
+adapter -- the default runtime, over the same gbrain -- declares no map at all.
+Reading one adapter left `type: effects` behind while `kind` and the state moved,
+which is a half-migrated record reported as a success.
+
+The other half of that guard is failing closed: a record whose frontmatter
+carries `kind: effect` or `effect_state` but no namespace field naming the old or
+the new ledger cannot be migrated by this tool, so the run refuses -- naming the
+record and writing nothing at all, rather than moving two fields out of three.
 
 A run is a preview unless `--apply` is passed. It is idempotent: a second run
 over a migrated vault reports no file to change.
@@ -52,19 +63,44 @@ class FileChange(NamedTuple):
     text: str
 
 
-def namespace_fields(adapter: dict[str, Any] | None) -> tuple[str, ...]:
-    """The frontmatter keys that can carry a record's namespace, contract first.
-
-    Both are always rewritten: one vault may hold records written before an
-    adapter's field map was applied, and a key that is not there is a no-op.
-    """
+def adapter_namespace_field(adapter: dict[str, Any] | None) -> str:
+    """What one adapter's `datastore.field_map` calls the namespace field, or `""`."""
     mapped = str(
         ((adapter or {}).get("datastore") or {}).get("field_map", {}).get(NAMESPACE_FIELD)
         or ""
     ).strip()
+    return "" if mapped == NAMESPACE_FIELD else mapped
+
+
+def adapter_namespace_fields(root: Path | None = None) -> tuple[str, ...]:
+    """Every runtime's name for the namespace field, not only the selected one's.
+
+    An adapter that declares no field map contributes nothing, and one that
+    declares the same name as another contributes it once. Reading only the
+    selected runtime's map is what let an openclaw record keep `type: effects`
+    while its `kind` moved: that adapter has no map, and the same gbrain names
+    the field `type` on both runtimes.
+    """
+    mapped: list[str] = []
+    for runtime in contracts_check.RUNTIMES:
+        try:
+            adapter = contracts_check.load_adapter(runtime, root or ROOT)
+        except (OSError, contracts_check.ContractParseError):
+            continue
+        field = adapter_namespace_field(adapter)
+        if field and field not in mapped:
+            mapped.append(field)
+    return tuple(mapped)
+
+
+def namespace_fields(mapped: Sequence[str] = ()) -> tuple[str, ...]:
+    """The frontmatter keys that can carry a record's namespace, contract first.
+
+    Every one is rewritten: a vault may hold records written on either side of an
+    adapter's field map, and a key that is not there is a no-op.
+    """
     fields = [NAMESPACE_FIELD]
-    if mapped and mapped != NAMESPACE_FIELD:
-        fields.append(mapped)
+    fields.extend(name for name in mapped if name and name not in fields)
     return tuple(fields)
 
 
@@ -125,6 +161,58 @@ def plan(vault: Path, fields: Sequence[str]) -> list[FileChange]:
         if changes:
             planned.append(FileChange(path, changes, rewritten))
     return planned
+
+
+LEDGER_KIND_RE = re.compile(rf"^\s*kind:\s*[\"']?{OLD_KIND}[\"']?\s*$", re.MULTILINE)
+LEDGER_STATE_RE = re.compile(rf"^\s*{OLD_STATE_FIELD}:", re.MULTILINE)
+
+
+def unmigratable(text: str, fields: Sequence[str]) -> str:
+    """Why this record cannot be migrated, or `""` when it can.
+
+    A record that says `kind: effect` or carries an `effect_state` field is a
+    ledger record; if none of the known namespace fields names the old ledger or
+    the new one, this tool has nothing to move it to, and moving the other two
+    fields would leave the record half-renamed. That is the case to refuse.
+    """
+    match = FRONTMATTER_RE.match(text)
+    if match is None:
+        return ""
+    block = match.group(1)
+    if not (LEDGER_KIND_RE.search(block) or LEDGER_STATE_RE.search(block)):
+        return ""
+    for field in fields:
+        found = re.search(
+            rf"^\s*{re.escape(field)}:\s*[\"']?([^\"'\s]+)[\"']?\s*$", block, re.MULTILINE
+        )
+        if found is None:
+            continue
+        if found.group(1) in (OLD_NAMESPACE, NEW_NAMESPACE):
+            return ""
+        return (
+            f"is a ledger record ({OLD_KIND}/{OLD_STATE_FIELD}) whose {field} says "
+            f"{found.group(1)!r}, neither {OLD_NAMESPACE!r} nor {NEW_NAMESPACE!r}"
+        )
+    return (
+        f"is a ledger record ({OLD_KIND}/{OLD_STATE_FIELD}) with no namespace field "
+        f"({', '.join(fields)}) to rewrite"
+    )
+
+
+def refusals(vault: Path, fields: Sequence[str]) -> list[tuple[Path, str]]:
+    """Every record under `vault` this migration refuses to touch, in path order."""
+    found: list[tuple[Path, str]] = []
+    for path in sorted(vault.rglob("*.md")):
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        reason = unmigratable(text, fields)
+        if reason:
+            found.append((path, reason))
+    return found
 
 
 def body_mentions(vault: Path) -> list[Path]:
@@ -203,7 +291,17 @@ def main(argv: Iterable[str] | None = None) -> int:
         print(f"migrate_activity.py: adapters/{args.runtime}: {exc}", file=sys.stderr)
         return 2
 
-    fields = namespace_fields(adapter)
+    fields = namespace_fields(adapter_namespace_fields())
+    refused = refusals(vault, fields)
+    if refused:
+        print(
+            "migrate_activity.py: refusing to migrate; nothing was written",
+            file=sys.stderr,
+        )
+        for path, reason in refused:
+            print(f"- {path} {reason}", file=sys.stderr)
+        return 1
+
     planned = plan(vault, fields)
     verb = "rewrote" if args.apply else "would rewrite"
     for change in planned:

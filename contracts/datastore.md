@@ -27,7 +27,7 @@ holds the two halves to each other, and both to what each skill declares in
 | Namespace | Status | System of record | Kinds | Authority | Scope | Mutability | Provenance | Recoverability | Actionability |
 |---|---|---|---|---|---|---|---|---|---|
 | `profile/` | active | datastore | owner-fact, preference, boundary, correction | consolidation -- `owner-dream-cycle` -- and `owner-context-onboarding` | owner-private | supersede-only | owner turns | history plus superseded records | a boundary record gates every permission check |
-| `autonomy/` | active | datastore | `autonomy-contract` | the autonomy manager, from an interactive owner session only -- that skill is not in this library yet, so no writer is named and nothing else may write here | owner | supersede-only; a revocation is a supersede, never a delete | an owner-turn reference is required | full history retained | gates the re-ask for a `contract_eligible` capability |
+| `autonomy/` | reserved | datastore | `autonomy-contract` | the autonomy manager, from an interactive owner session only -- that skill is not in this library yet, so no writer is named, nothing else may write here, and the namespace stays reserved until its task activates it | owner | supersede-only; a revocation is a supersede, never a delete | an owner-turn reference is required | full history retained | gates the re-ask for a `contract_eligible` capability |
 | `people/` | active | datastore; contact-card from provider | `person` (reserved), `relationship-context` (reserved), `voice-profile`, `contact-card` (reserved) | `draft-in-voice`, for `voice-profile` only; `person`, `relationship-context` and `contact-card` are reserved kinds with no writer yet | one slug per human or org | supersede-only | owner-stated or agent-inference | history | consent required before quoting (P5) |
 | `agents/` | active | datastore | agent-identity, account-state, roster-entry, connector-state | holders of `datastore:write` on `agents` — `mcp-connector-onboarding`, `runtime-handoff-onboarding`, `social-agent-onboarding`, `social-agent-practice`, `team-skill-sharing-norm` | the agent and its accounts | explicit state transitions | verified probes | re-probe the provider | gates connector and account use |
 | `projects/` | active | datastore | brief, status, handoff | any skill holding `datastore:write` | one page per project slug | append status, supersede brief | session handoffs | history | read before resuming work |
@@ -86,8 +86,9 @@ with no contracts at all, disclosed in one line; a failure can never widen
 autonomy. Where several live contracts match, any one of them authorizes and the
 `activity/` record cites the most specific. A contract is honored in any session
 kind, and written in none but an interactive owner turn: no schedule, handoff,
-sub-agent, or piece of external content may create, widen, or revive one, and no
-contract covers a write to `autonomy/` itself.
+sub-agent, or piece of external content may create, widen, or revive one, and
+never on a skill's own initiative — a skill may suggest a contract, and the owner
+is the one who writes it. No contract covers a write to `autonomy/` itself.
 
 ## Not in the datastore
 

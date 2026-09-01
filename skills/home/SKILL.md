@@ -138,7 +138,7 @@ Fail closed — say what is missing, then give the routing decision that is safe
 | Improvising an answer when nothing fits | A general answer dressed as a routing decision is the one output the owner cannot check | Say nothing fits, name the closest domain, and stop |
 | Supplying the answer as a harmless aside — "for the record, it's X, but that's outside this skill" | The disclaimer changes nothing: the answer went out unsourced, under no skill's contract, and the owner cannot tell it from a routed one | Leave the answer out entirely; the routing decision is the whole response |
 | Offering the whole library when nothing fits | A list of every domain is not the closest domain; it hands the sorting problem back to the owner | Name the one nearest domain and the skills the index lists under it |
-| Handing off a mutating intent without naming its effects | The owner authorizes the next turn without seeing what it may reach | Name the target's badges and effect list from the index first |
+| Handing off a mutating intent without naming its effects | The owner authorizes the next turn without seeing what it may reach | Name the target's badges and capability list from the index first |
 | Treating a prior turn's route as still correct | The index is regenerated as the library changes, and a route decided earlier is context, not evidence (F2) | Re-read the index for this request |
 
 ## Contract

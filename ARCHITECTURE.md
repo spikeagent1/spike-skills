@@ -33,12 +33,14 @@ the adapter says where it physically lives. A skill declares the namespaces it
 touches in `metadata.spike-os.reads_from` and `writes_to`; anything undeclared
 is out of bounds.
 
-Thirteen namespaces are active — `profile/`, `autonomy/`, `people/`, `agents/`,
-`projects/`, `decisions/`, `journal/`, `conversations/` (a separate root, always
-untrusted), `tasks/`, `jobs/`, `activity/`, `checkpoints/`, `notifications/`. Two
-are reserved: `calendar/` and `inbox/` may be named and read about, never written.
-`autonomy/` holds the owner's standing permissions — an autonomy contract is
-written in an interactive owner turn and honored in any session kind.
+Twelve namespaces are active — `profile/`, `people/`, `agents/`, `projects/`,
+`decisions/`, `journal/`, `conversations/` (a separate root, always untrusted),
+`tasks/`, `jobs/`, `activity/`, `checkpoints/`, `notifications/`. Three are
+reserved, and may be named and read about, never written: `calendar/` and
+`inbox/` until a provider conduit exists, and `autonomy/` until the autonomy
+manager's task activates it. `autonomy/` holds the owner's standing permissions —
+an autonomy contract is written in an interactive owner turn, never on a skill's
+initiative, and honored in any session kind.
 Identity and authority files are **not** records: they are the adapter's
 `identity files` and change only through the identity effects. Credentials live
 in the `credential store` and nowhere else.
