@@ -1556,6 +1556,45 @@ class InstallSkillTest(unittest.TestCase):
             (self.dest / "fixture-launcher" / "references" / "detail.md").is_file()
         )
 
+    def test_the_pre_digest_refusal_names_what_the_re_install_costs(self) -> None:
+        """The only escape it offers destroys exactly what it is protecting."""
+        self._install_launcher()
+        stamp_file = self.dest / "fixture-launcher" / ".spike-os.json"
+        stamp = json.loads(stamp_file.read_text(encoding="utf-8"))
+        stamp.pop("files")
+        stamp_file.write_text(json.dumps(stamp, indent=2, sort_keys=True), encoding="utf-8")
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("replaces the whole directory", out)
+        self.assertIn("copy", out)
+
+    def test_overwrite_says_how_much_of_your_copy_it_discarded(self) -> None:
+        """The destructive run printed the least of any run."""
+        self._install_launcher()
+        detail = self.dest / "fixture-launcher" / "references" / "detail.md"
+        detail.write_text("mine\nand mine\n", encoding="utf-8")
+        self._repo_detail("a second edition\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update", "--overwrite")
+
+        self.assertEqual(code, 0, out)
+        self.assertIn("2 installed lines discarded", out)
+
+    def test_a_deleted_file_is_not_printed_back_as_a_whole_diff(self) -> None:
+        self._write(
+            "skills/fixture-launcher/references/detail.md", "alpha\nbeta\ngamma\n"
+        )
+        self._install_launcher()
+        (self.dest / "fixture-launcher" / "references" / "detail.md").unlink()
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("3 lines would be restored", out)
+        self.assertNotIn("+gamma", out)
+
     def test_update_refuses_a_pre_digest_stamp_rather_than_guessing(self) -> None:
         """Without per-file digests an edit of yours reads exactly like a stale render."""
         self._install_launcher()

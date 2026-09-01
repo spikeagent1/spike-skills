@@ -394,6 +394,14 @@ def write_blocker(directory: Path, rel: str, recorded: dict[str, str]) -> str | 
     return None
 
 
+def discarded(path: Path) -> str:
+    """What an overwrite costs the owner, in the only unit the run still knows."""
+    try:
+        return f"{len(path.read_bytes().splitlines())} installed lines discarded"
+    except OSError:
+        return "nothing was installed at that path"
+
+
 def print_file_diff(rel: str, installed: bytes, rendered: bytes) -> None:
     """Your copy against what the update would have written in its place."""
     if b"\0" in installed or b"\0" in rendered:
@@ -463,10 +471,13 @@ def report_skill(
                 f"    ({linked.relative_to(directory).as_posix()} -> "
                 f"{os.readlink(linked)}; neither read nor written)"
             )
+        elif not path.exists():
+            # A file the owner removed: the diff would be the whole render as
+            # additions, which says less than one line about what is missing.
+            lines = len(planned[rel].data.splitlines())
+            print(f"    (deleted from the install; {lines} lines would be restored)")
         else:
-            print_file_diff(
-                rel, path.read_bytes() if path.is_file() else b"", planned[rel].data
-            )
+            print_file_diff(rel, path.read_bytes(), planned[rel].data)
     if blocked:
         print(
             f"  {len(blocked)} file(s) skipped -- what is installed is yours. To take "
@@ -504,7 +515,8 @@ def update_one(
     if recorded is None:
         refusals.append(
             f"{name}: {PRE_DIGEST_NOTE}. Until it is, an edit of yours reads exactly "
-            "like a stale render, so nothing here was rewritten"
+            "like a stale render, so nothing here was rewritten -- and that re-install "
+            "replaces the whole directory, so copy anything of yours out of it first"
         )
         finish_skill()
         return
@@ -613,7 +625,8 @@ def update_one(
             blocked[rel] = reason
     notes.extend(
         f"{name}: {rel} {reason}; --overwrite "
-        f"{'would replace' if args.dry_run else 'replaced'} it"
+        f"{'would replace' if args.dry_run else 'replaced'} it "
+        f"({discarded(directory / rel)})"
         for rel, reason in promoted.items()
         if rel in write
     )
