@@ -1326,6 +1326,61 @@ class InstallSkillTest(unittest.TestCase):
         code, out = self._run("--runtime", "claude-code", "--check")
         self.assertEqual(code, 0, out)
 
+    def test_check_reports_a_bundled_file_edited_in_place(self) -> None:
+        """Per-file digests are what made a supporting file auditable at all."""
+        self._run("--runtime", "claude-code", "fixture-launcher")
+        (self.dest / "fixture-launcher" / "references" / "detail.md").write_text(
+            "tampered\n", encoding="utf-8"
+        )
+        code, out = self._run("--runtime", "claude-code", "--check")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("references/detail.md", out)
+        self.assertIn("edited in place", out)
+
+    def test_check_reports_a_recorded_file_deleted_from_the_install(self) -> None:
+        self._run("--runtime", "claude-code", "fixture-launcher")
+        (self.dest / "fixture-launcher" / "scripts" / "run.sh").unlink()
+        code, out = self._run("--runtime", "claude-code", "--check")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("scripts/run.sh", out)
+        self.assertIn("missing", out)
+
+    def test_check_reports_a_file_the_stamp_never_recorded(self) -> None:
+        """The stamp is the manifest, so a file nobody recorded is the drift.
+
+        A directory this installer owns holding a file no install wrote is
+        exactly what a declared-vs-actual pass exists to find; it is never
+        deleted, only reported.
+        """
+        self._run("--runtime", "claude-code", "fixture-launcher")
+        stray = self.dest / "fixture-launcher" / "scripts" / "stray.sh"
+        stray.write_text("echo surprise\n", encoding="utf-8")
+        code, out = self._run("--runtime", "claude-code", "--check")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("scripts/stray.sh", out)
+        self.assertIn("not recorded by the stamp", out)
+        self.assertTrue(stray.is_file())
+
+    def test_check_degrades_on_a_stamp_written_before_per_file_digests(self) -> None:
+        """An old stamp is read, not rejected: it says less, and says so."""
+        self._run("--runtime", "claude-code", "fixture-launcher")
+        stamp_file = self.dest / "fixture-launcher" / ".spike-os.json"
+        stamp = json.loads(stamp_file.read_text(encoding="utf-8"))
+        stamp.pop("files")
+        stamp_file.write_text(json.dumps(stamp, indent=2, sort_keys=True), encoding="utf-8")
+        (self.dest / "fixture-launcher" / "references" / "detail.md").write_text(
+            "tampered\n", encoding="utf-8"
+        )
+        code, out = self._run("--runtime", "claude-code", "--check")
+
+        self.assertEqual(code, 0, out)
+        self.assertIn("no per-file digests recorded (pre-digest stamp)", out)
+        self.assertIn("re-install to upgrade the stamp", out)
+        self.assertNotIn("drift:", out)
+
     def test_check_reports_a_rendered_file_edited_in_place(self) -> None:
         self._run("--runtime", "claude-code", "fixture-notes")
         path = self.dest / "fixture-notes" / "SKILL.md"

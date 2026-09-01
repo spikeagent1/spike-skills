@@ -25,10 +25,18 @@ from .render import (
     unconfirmed_term
 )
 from .io import (
-    check_adapter_template, default_dest, install_adapter, local_overrides_path,
-    print_diff, read_stamp, stamp_path, stamped_installs, write_skill
+    check_adapter_template, default_dest, install_adapter, installed_digests,
+    local_overrides_path, print_diff, read_stamp, stamp_path, stamped_installs,
+    write_skill
 )
 from . import io
+
+# What a stamp written before per-file digests can still be asked. It is read
+# rather than rejected: the install it describes is ours, it just says less.
+PRE_DIGEST_NOTE = (
+    "no per-file digests recorded (pre-digest stamp); re-install to upgrade the stamp"
+)
+
 
 @dataclass(frozen=True)
 class Context:
@@ -104,6 +112,42 @@ def install_statuses(context: Context, rendering: Sequence[str]) -> dict[str, st
         else:
             statuses[name] = STATUS_NOT_INSTALLED
     return statuses
+
+
+def recorded_digests(stamp: dict[str, Any]) -> dict[str, str] | None:
+    """The stamp's per-file record, or None where it was written without one."""
+    files = stamp.get("files")
+    if not isinstance(files, dict) or not files:
+        return None
+    return {str(key): str(value) for key, value in files.items()}
+
+
+def file_drift(name: str, directory: Path, recorded: dict[str, str]) -> list[str]:
+    """Every installed file that is not the file the stamp recorded.
+
+    SKILL.md is left out: the stamp's own `sha256` reports it, in the words
+    `--check` has always used. A file the stamp never recorded is drift too --
+    the stamp is the manifest of what this installer wrote, and a directory it
+    owns holding anything else is exactly what a declared-vs-actual pass exists
+    to find. Nothing here removes a file.
+    """
+    actual = installed_digests(directory)
+    problems: list[str] = []
+    for rel, digest in sorted(recorded.items()):
+        if rel == "SKILL.md":
+            continue
+        if rel not in actual:
+            problems.append(
+                f"{name}: {rel} is recorded by the stamp and missing from the install"
+            )
+        elif actual[rel] != digest:
+            problems.append(f"{name}: {rel} sha256 differs from the stamp; edited in place")
+    for rel in sorted(set(actual) - set(recorded)):
+        problems.append(
+            f"{name}: {rel} is not recorded by the stamp; no install wrote it, and "
+            "nothing here removes it"
+        )
+    return problems
 
 
 def do_install(context: Context, names: Sequence[str], args: argparse.Namespace) -> int:
@@ -267,6 +311,11 @@ def do_check(context: Context, names: Sequence[str]) -> int:
         actual = (directory / "SKILL.md").read_text(encoding="utf-8")
         if sha256_text(actual) != stamp.get("sha256"):
             report.drift.append(f"{name}: SKILL.md sha256 differs from the stamp; edited in place")
+        recorded = recorded_digests(stamp)
+        if recorded is None:
+            report.notes.append(f"{name}: {PRE_DIGEST_NOTE}")
+        else:
+            report.drift.extend(file_drift(name, directory, recorded))
         if stamp.get("adapter_version") != context.adapter.get("version"):
             report.drift.append(
                 f"{name}: stamp adapter_version {stamp.get('adapter_version')} but "

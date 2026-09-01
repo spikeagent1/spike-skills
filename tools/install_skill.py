@@ -104,8 +104,8 @@ from tools.installer.io import (
     write_planned, write_skill, write_stamp, write_text_atomically
 )
 from tools.installer.cli import (
-    Context, build_context, do_check, do_install, do_list, do_uninstall, finish, main,
-    parse_args, runtime_skills, undefined_terms
+    Context, PRE_DIGEST_NOTE, build_context, do_check, do_install, do_list, do_uninstall,
+    file_drift, finish, main, parse_args, recorded_digests, runtime_skills, undefined_terms
 )
 
 
