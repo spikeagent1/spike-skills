@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import importlib
 import shutil
 import sys
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -21,13 +23,13 @@ from .render import (
     COMMIT_DISPLAY_CHARS, COPY_DIRS, InstallError, OS_NAME, RUNTIMES, Rendered, Report,
     STAMP_NAME, STATUS_INSTALLED, STATUS_NOT_INSTALLED, TERM_SHAPED_RE, adapter_for,
     declared, degraded_notes, display_path, expand, fallback_warnings, load_contract,
-    read_skill, render_skill, repo_root, sha256_text, unconfirmed_refusals,
+    read_skill, render_skill, repo_root, sha256_bytes, sha256_text, unconfirmed_refusals,
     unconfirmed_term
 )
 from .io import (
     check_adapter_template, default_dest, install_adapter, installed_digests,
-    local_overrides_path, print_diff, read_stamp, stamp_path, stamped_installs,
-    write_skill
+    local_overrides_path, planned_files, print_diff, read_stamp, stamp_path,
+    stamped_installs, write_planned, write_skill, write_stamp
 )
 from . import io
 
@@ -36,6 +38,14 @@ from . import io
 PRE_DIGEST_NOTE = (
     "no per-file digests recorded (pre-digest stamp); re-install to upgrade the stamp"
 )
+
+
+# An update's diff is there to be read, not scrolled: past this many lines it
+# names the file and stops, because the file itself is the better place to look.
+DIFF_PREVIEW_LINES = 40
+
+
+CHANGELOG_MAX = 10
 
 
 @dataclass(frozen=True)
@@ -298,6 +308,271 @@ def finish(context: Context, report: Report, args: argparse.Namespace) -> int:
     return 1 if report.refused else 0
 
 
+def classify(
+    planned: dict[str, Any], recorded: dict[str, str], actual: dict[str, str]
+) -> tuple[list[str], dict[str, str]]:
+    """Split this render's files into the ones to write and the ones that are yours.
+
+    Three readings of every path -- what the stamp recorded, what is installed
+    now, and what this repository would render -- and only one combination is
+    safe to write: the install still holds what we put there, and the repository
+    has moved since. Anything else is the owner's, and is named rather than
+    replaced.
+    """
+    write: list[str] = []
+    blocked: dict[str, str] = {}
+    for rel, item in planned.items():
+        want = sha256_bytes(item.data)
+        have = actual.get(rel)
+        was = recorded.get(rel)
+        if have is None and was is None:
+            write.append(rel)  # new in this render, never installed
+        elif have is None:
+            blocked[rel] = "recorded by the stamp and missing from the install"
+        elif was is None:
+            blocked[rel] = "in the install and recorded by no stamp"
+        elif have != was:
+            blocked[rel] = "edited in the install since it was written"
+        elif want != have:
+            write.append(rel)  # the repository moved and the install did not
+    return write, blocked
+
+
+def print_file_diff(rel: str, installed: bytes, rendered: bytes) -> None:
+    """Your copy against what the update would have written in its place."""
+    if b"\0" in installed or b"\0" in rendered:
+        print(
+            f"    (binary: {len(installed)} bytes installed, {len(rendered)} rendered)"
+        )
+        return
+    lines = list(
+        difflib.unified_diff(
+            installed.decode("utf-8", "replace").splitlines(keepends=True),
+            rendered.decode("utf-8", "replace").splitlines(keepends=True),
+            fromfile=f"a/{rel} (installed)",
+            tofile=f"b/{rel} (this repository)",
+        )
+    )
+    for line in lines[:DIFF_PREVIEW_LINES]:
+        print(f"    {line.rstrip(chr(10))}")
+    if len(lines) > DIFF_PREVIEW_LINES:
+        print(f"    ... {len(lines) - DIFF_PREVIEW_LINES} more diff lines")
+
+
+def print_changelog(name: str, commit: str, runtime: str) -> None:
+    """What landed in this skill between the stamp's commit and HEAD."""
+    paths = [f"skills/{name}", f"adapters/{runtime}"]
+    entries, problem = io.changes_since(commit, paths)
+    where = ", ".join(paths)
+    if problem:
+        print(f"  {problem}")
+        return
+    if not entries:
+        print(f"  no commit since {commit[:COMMIT_DISPLAY_CHARS]} touches {where}")
+        return
+    print(f"  changes since {commit[:COMMIT_DISPLAY_CHARS]} in {where}:")
+    for line in entries[:CHANGELOG_MAX]:
+        print(f"    {line}")
+    if len(entries) > CHANGELOG_MAX:
+        print(f"    ... {len(entries) - CHANGELOG_MAX} more commits")
+
+
+def update_one(
+    context: Context,
+    directory: Path,
+    statuses: dict[str, str],
+    args: argparse.Namespace,
+    report: Report,
+) -> None:
+    """Bring one stamped install up to this tree, file by file."""
+    name = directory.name
+    stamp = read_stamp(directory) or {}
+    print(f"\n--- {name} ---")
+    notes: list[str] = []
+    refusals: list[str] = []
+
+    def finish_skill() -> None:
+        for note in notes:
+            print(f"  note: {note}")
+        for refusal in refusals:
+            print(f"  refused: {refusal}")
+        report.refused.extend(refusals)
+
+    recorded = recorded_digests(stamp)
+    if recorded is None:
+        refusals.append(
+            f"{name}: {PRE_DIGEST_NOTE}. Until it is, an edit of yours reads exactly "
+            "like a stale render, so nothing here was rewritten"
+        )
+        finish_skill()
+        return
+    try:
+        meta, body, _ = read_skill(name)
+    except InstallError as exc:
+        refusals.append(str(exc))
+        finish_skill()
+        return
+    if context.runtime not in declared(meta, "runtime"):
+        refusals.append(
+            f"{name}: metadata.{OS_NAME}.runtime is {declared(meta, 'runtime')}, "
+            f"which excludes {context.runtime}"
+        )
+        finish_skill()
+        return
+    unconfirmed = unconfirmed_refusals(
+        name, meta, body, context.adapter, context.datastore, context.vocabulary
+    )
+    if unconfirmed:
+        refusals.extend(unconfirmed)
+        finish_skill()
+        return
+    notes.extend(
+        f"degraded: {note}"
+        for note in degraded_notes(
+            name, meta, body, context.adapter, context.datastore, context.vocabulary
+        )
+    )
+    try:
+        rendered = render_skill(
+            name,
+            context.runtime,
+            context.adapter,
+            context.capabilities,
+            context.commit,
+            context.vocabulary,
+            context.datastore,
+        )
+    except InstallError as exc:
+        refusals.append(str(exc))
+        finish_skill()
+        return
+
+    skipped: list[str] = []
+    planned = planned_files(rendered, statuses, skipped)
+    notes.extend(
+        f"{name}: {entry} is neither a rendered file, a copied directory "
+        f"({', '.join(COPY_DIRS)}), nor excluded by name; not installed"
+        for entry in skipped
+    )
+    actual = installed_digests(directory)
+    write, blocked = classify(planned, recorded, actual)
+    for rel in sorted(set(recorded) - set(planned)):
+        notes.append(
+            f"{name}: {rel} is recorded by the stamp and no longer part of this "
+            "skill; left in place, never deleted"
+        )
+    for rel in sorted(set(actual) - set(planned) - set(recorded)):
+        notes.append(
+            f"{name}: {rel} is not recorded by the stamp; left in place, never "
+            "deleted -- --check reads it as drift"
+        )
+    if args.overwrite:
+        # The explicit choice, taken: the files the run would otherwise have
+        # left alone are written, and the stamp records what landed.
+        write = [rel for rel in planned if rel in set(write) | set(blocked)]
+        for rel in blocked:
+            notes.append(f"{name}: {rel} {blocked[rel]}; --overwrite replaced it")
+        blocked = {}
+    for note in notes:
+        print(f"  note: {note}")
+    for rel, reason in blocked.items():
+        refusal = f"{name}: {rel} {reason}; not overwritten"
+        refusals.append(refusal)
+        print(f"  refused: {refusal}")
+        path = directory / rel
+        print_file_diff(rel, path.read_bytes() if path.is_file() else b"", planned[rel].data)
+    if blocked:
+        print(
+            f"  {len(blocked)} file(s) skipped -- what is installed is yours. To take "
+            "this repository's render instead, discarding the above:"
+        )
+        print(
+            f"    python3 tools/install_skill.py --runtime {context.runtime} "
+            f"--update --overwrite {name}"
+        )
+    report.refused.extend(refusals)
+
+    if write or blocked:
+        print_changelog(name, str(stamp.get("commit") or ""), context.runtime)
+    if not write:
+        if not blocked:
+            print("  no change: every recorded file matches this tree")
+        return
+    if args.dry_run:
+        for rel in write:
+            print(f"  would write {directory / rel}")
+        report.installed.append(name)
+        return
+    for path in write_planned(directory, planned, only=write):
+        print(f"  wrote {path}")
+    update_stamp(context, directory, stamp, rendered, planned, recorded, write)
+    report.installed.append(name)
+
+
+def update_stamp(
+    context: Context,
+    directory: Path,
+    stamp: dict[str, Any],
+    rendered: Rendered,
+    planned: dict[str, Any],
+    recorded: dict[str, str],
+    write: Sequence[str],
+) -> None:
+    """Record what this run actually wrote, and nothing it did not.
+
+    A refused file keeps the digest the install gave it, so the next `--check`
+    reports the edit again rather than blessing it. The stamp's `commit` follows
+    SKILL.md alone, because the commit is written into that file's trailer: a
+    run that could not replace the body has not moved the install to HEAD.
+    """
+    digests = dict(recorded)
+    digests.update({rel: sha256_bytes(planned[rel].data) for rel in write})
+    stamp["files"] = digests
+    stamp["installed_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    if "SKILL.md" in write:
+        stamp.update(
+            {
+                "name": rendered.name,
+                "version": rendered.version,
+                "commit": context.commit,
+                "adapter": context.runtime,
+                "adapter_version": context.adapter.get("version"),
+                "sha256": sha256_text(rendered.text),
+                "capabilities": list(rendered.capabilities),
+                "hints": rendered.hints,
+            }
+        )
+    write_stamp(directory, stamp)
+
+
+def do_update(context: Context, names: Sequence[str], args: argparse.Namespace) -> int:
+    """Bring every stamped install up to this tree, refusing per file, never per run."""
+    report = Report()
+    installs = stamped_installs(context.dest)
+    if names:
+        wanted = set(names)
+        present = {path.name for path in installs}
+        installs = [path for path in installs if path.name in wanted]
+        for name in sorted(wanted - present):
+            report.refused.append(
+                f"{name}: {context.dest / name} carries no {STAMP_NAME}; --update reads "
+                "what this installer wrote, so install it before updating it"
+            )
+    print(f"{context.runtime}: updating {len(installs)} stamped install(s) in {context.dest}")
+
+    statuses = install_statuses(context, [path.name for path in installs])
+    for directory in installs:
+        update_one(context, directory, statuses, args, report)
+
+    print()
+    if report.installed:
+        verb = "would update" if args.dry_run else "updated"
+        print(f"{verb}: {', '.join(report.installed)}")
+    for refusal in report.refused:
+        print(f"refused: {refusal}")
+    return 1 if report.refused else 0
+
+
 def do_check(context: Context, names: Sequence[str]) -> int:
     report = Report()
     installs = stamped_installs(context.dest)
@@ -470,6 +745,16 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--dest", help="override the runtime's default destination")
     parser.add_argument("--all", action="store_true", help="every skill the runtime carries")
     parser.add_argument("--check", action="store_true", help="declared-vs-actual; exit 1 on drift")
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help="re-render what this tree changed in every stamped install (or NAME...)",
+    )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="with --update: take this tree's render over a file edited in the install",
+    )
     parser.add_argument("--uninstall", action="store_true", help="remove stamped installs")
     parser.add_argument("--list", action="store_true", dest="list_", help="read the stamps")
     parser.add_argument("--dry-run", action="store_true", help="print, write nothing")
@@ -485,9 +770,12 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv or [])
-    actions = [args.check, args.uninstall, args.list_]
+    actions = [args.check, args.uninstall, args.list_, args.update]
     if sum(bool(action) for action in actions) > 1:
-        print("usage: --check, --uninstall and --list are mutually exclusive")
+        print("usage: --check, --update, --uninstall and --list are mutually exclusive")
+        return 2
+    if args.overwrite and not args.update:
+        print("usage: --overwrite is read only with --update")
         return 2
     installing = not any(actions)
     if installing and not args.names and not args.all:
@@ -495,7 +783,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     try:
-        if installing or args.check:
+        if installing or args.check or args.update:
             code = io.run_validator()
             if code != 0:
                 print(f"refused: tools/validate_repo.py exited {code}; the library is not valid")
@@ -506,6 +794,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             names = runtime_skills(args.runtime)
         if args.check:
             return do_check(context, names)
+        if args.update:
+            return do_update(context, names, args)
         if args.uninstall:
             return do_uninstall(context, names, args)
         if args.list_:

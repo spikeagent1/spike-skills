@@ -30,6 +30,17 @@ discloses that the object is mirror-only" -- so such a skill installs, and the
 run prints a `degraded:` note naming the term. `--check` reports it the same
 way: a note, never drift.
 
+`--update` is the same rules applied to an install that already exists. The
+stamp records a digest per installed file, so the three readings of every path
+-- what the stamp recorded, what is installed now, what this tree renders --
+answer the only question that matters: a file the install still holds as we
+wrote it, and the repository has since changed, is re-rendered; a file the owner
+edited, deleted, or dropped in themselves is refused by name, with the diff of
+what would have replaced it and the `--overwrite` line that would take it. A
+refusal exits nonzero and the run continues to the next skill. Nothing is ever
+deleted, and a stamp written before per-file digests is refused rather than
+guessed at -- there, an edit and a stale render are the same bytes.
+
 One more nonzero exit is not a refusal to install but a refusal to call the
 host configured: a run whose rendered ADAPTER.md still carries a `${NAME}`
 literal has left the file every installed skill resolves its terms against
@@ -42,6 +53,9 @@ Usage:
   python3 tools/install_skill.py --runtime {claude-code,openclaw} [options] [NAME...]
     --all                 every skill the runtime carries
     --check               declared-vs-actual over every stamped install; exit 1 on drift
+    --update              re-render what this tree changed, per file, in every
+                          stamped install (or NAME...); refuses a file you edited
+    --overwrite           with --update: take this tree's render over that file
     --uninstall           remove stamped installs (NAME... or --all)
     --list                read the stamps
     --dry-run             print what an install would write, and write nothing
@@ -95,7 +109,8 @@ from tools.installer.render import (
 )
 from tools.installer.io import (
     repo_commit, run_validator,
-    Planned, adapter_template, apply_identity_import, bind_identity_file,
+    CHANGELOG_UNKNOWN, Planned, adapter_template, apply_identity_import,
+    bind_identity_file, changes_since,
     check_adapter_template, default_dest, file_digests, git_ignored, install_adapter,
     inside_git_work_tree, installed_digests, local_overrides_path,
     local_overrides_template, locate_block, marker_block, marker_lines, placeholder_names,
@@ -104,8 +119,10 @@ from tools.installer.io import (
     write_planned, write_skill, write_stamp, write_text_atomically
 )
 from tools.installer.cli import (
-    Context, PRE_DIGEST_NOTE, build_context, do_check, do_install, do_list, do_uninstall,
-    file_drift, finish, main, parse_args, recorded_digests, runtime_skills, undefined_terms
+    CHANGELOG_MAX, Context, DIFF_PREVIEW_LINES, PRE_DIGEST_NOTE, build_context, classify,
+    do_check, do_install, do_list, do_uninstall, do_update, file_drift, finish, main,
+    parse_args, print_changelog, print_file_diff, recorded_digests, runtime_skills,
+    undefined_terms, update_one, update_stamp
 )
 
 

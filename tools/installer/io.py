@@ -26,10 +26,14 @@ except ImportError:  # pragma: no cover - one of the two branches always runs.
     import validate_repo  # type: ignore[no-redef]
 
 from .render import (
-    COPY_DIRS, EXCLUDED_NAMES, InstallError, LAUNCHER_INDEX, OS_NAME, PLACEHOLDER_RE,
-    Rendered, Report, STAMP_NAME, annotate_index, declared, display_path, expand,
-    repo_root, sha256_bytes, sha256_text
+    COMMIT_DISPLAY_CHARS, COPY_DIRS, EXCLUDED_NAMES, InstallError, LAUNCHER_INDEX, OS_NAME,
+    PLACEHOLDER_RE, Rendered, Report, STAMP_NAME, annotate_index, declared, display_path,
+    expand, repo_root, sha256_bytes, sha256_text
 )
+
+
+# A changelog nobody can derive says why, rather than printing an empty list.
+CHANGELOG_UNKNOWN = "changes unknown"
 
 
 def repo_commit() -> str:
@@ -44,6 +48,39 @@ def repo_commit() -> str:
     except OSError:
         return ""
     return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def changes_since(commit: str, paths: Sequence[str]) -> tuple[list[str], str]:
+    """`git log` from a stamp's commit to HEAD over `paths`, or why there is none.
+
+    Returns the one-line log entries and an empty string, or an empty list and
+    the reason nobody can derive them -- a stamp written before the field
+    existed, a commit this clone does not have, no git at all. An update that
+    cannot say what changed says that, rather than printing nothing and letting
+    it read as "nothing changed".
+    """
+    if not str(commit or "").strip():
+        return [], f"{CHANGELOG_UNKNOWN} -- pre-commit stamp"
+    try:
+        result = subprocess.run(
+            [
+                "git", "-C", str(repo_root()), "log", "--oneline", "--no-decorate",
+                f"{commit}..HEAD", "--", *paths,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        return [], f"{CHANGELOG_UNKNOWN} -- git could not be run here ({exc})"
+    if result.returncode != 0:
+        stderr = (result.stderr or "").strip().splitlines()
+        return [], (
+            f"{CHANGELOG_UNKNOWN} -- git could not read "
+            f"{commit[:COMMIT_DISPLAY_CHARS]}..HEAD "
+            f"({stderr[0] if stderr else 'no output'})"
+        )
+    return [line for line in result.stdout.splitlines() if line.strip()], ""
 
 
 def inside_git_work_tree(path: Path) -> bool:

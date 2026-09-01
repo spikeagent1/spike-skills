@@ -1446,6 +1446,308 @@ class InstallSkillTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("task provider", out)
 
+    # -- update --------------------------------------------------------
+
+    def _install_launcher(self) -> None:
+        """A clean install of the one fixture that carries every file kind."""
+        self._configure()
+        code, out = self._run("--runtime", "claude-code", "fixture-launcher")
+        self.assertEqual(code, 0, out)
+
+    def _repo_detail(self, text: str) -> None:
+        self._write("skills/fixture-launcher/references/detail.md", text)
+
+    def test_update_re_renders_only_what_the_repository_changed(self) -> None:
+        """The point of the digests: rewrite the changed file, not the directory."""
+        self._install_launcher()
+        self._repo_detail("a second edition\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 0, out)
+        installed = self.dest / "fixture-launcher"
+        self.assertEqual(
+            (installed / "references" / "detail.md").read_text(encoding="utf-8"),
+            "a second edition\n",
+        )
+        wrote = [line.strip() for line in out.splitlines() if line.strip().startswith("wrote ")]
+        self.assertEqual(wrote, [f"wrote {installed / 'references' / 'detail.md'}"], out)
+
+    def test_update_leaves_an_install_that_matches_this_tree_alone(self) -> None:
+        self._install_launcher()
+        before = self._stamp("fixture-launcher")
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 0, out)
+        self.assertIn("no change", out)
+        self.assertEqual(self._stamp("fixture-launcher"), before)
+
+    def test_update_refuses_a_file_you_edited_and_shows_what_it_would_have_written(
+        self,
+    ) -> None:
+        """B7's binding line: it refuses nothing silently, and overwrites nothing."""
+        self._install_launcher()
+        detail = self.dest / "fixture-launcher" / "references" / "detail.md"
+        detail.write_text("my own notes\n", encoding="utf-8")
+        self._repo_detail("a second edition\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 1, out)
+        self.assertEqual(detail.read_text(encoding="utf-8"), "my own notes\n")
+        self.assertIn("references/detail.md", out)
+        self.assertIn("edited in the install", out)
+        self.assertIn("-my own notes", out)
+        self.assertIn("+a second edition", out)
+        self.assertIn("--overwrite", out)
+
+    def test_update_overwrite_replaces_exactly_the_file_it_refused(self) -> None:
+        self._install_launcher()
+        detail = self.dest / "fixture-launcher" / "references" / "detail.md"
+        detail.write_text("my own notes\n", encoding="utf-8")
+        self._repo_detail("a second edition\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update", "--overwrite")
+
+        self.assertEqual(code, 0, out)
+        self.assertEqual(detail.read_text(encoding="utf-8"), "a second edition\n")
+        self.assertEqual(
+            self._stamp("fixture-launcher")["files"]["references/detail.md"],
+            install_skill.sha256_bytes(b"a second edition\n"),
+        )
+
+    def test_update_refuses_a_recorded_file_you_deleted_rather_than_restoring_it(
+        self,
+    ) -> None:
+        self._install_launcher()
+        (self.dest / "fixture-launcher" / "scripts" / "run.sh").unlink()
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("scripts/run.sh", out)
+        self.assertIn("missing from the install", out)
+        self.assertFalse((self.dest / "fixture-launcher" / "scripts" / "run.sh").exists())
+
+    def test_update_reports_a_file_the_stamp_never_recorded_and_never_deletes_it(
+        self,
+    ) -> None:
+        self._install_launcher()
+        stray = self.dest / "fixture-launcher" / "references" / "scratch.md"
+        stray.write_text("mine\n", encoding="utf-8")
+        self._repo_detail("a second edition\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 0, out)
+        self.assertIn("references/scratch.md", out)
+        self.assertIn("never deleted", out)
+        self.assertTrue(stray.is_file())
+
+    def test_update_reports_a_file_the_repository_no_longer_carries(self) -> None:
+        self._install_launcher()
+        (self.root / "skills" / "fixture-launcher" / "references" / "detail.md").unlink()
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 0, out)
+        self.assertIn("no longer part of this skill", out)
+        self.assertTrue(
+            (self.dest / "fixture-launcher" / "references" / "detail.md").is_file()
+        )
+
+    def test_update_refuses_a_pre_digest_stamp_rather_than_guessing(self) -> None:
+        """Without per-file digests an edit of yours reads exactly like a stale render."""
+        self._install_launcher()
+        detail = self.dest / "fixture-launcher" / "references" / "detail.md"
+        detail.write_text("my own notes\n", encoding="utf-8")
+        stamp_file = self.dest / "fixture-launcher" / ".spike-os.json"
+        stamp = json.loads(stamp_file.read_text(encoding="utf-8"))
+        stamp.pop("files")
+        stamp_file.write_text(json.dumps(stamp, indent=2, sort_keys=True), encoding="utf-8")
+        self._repo_detail("a second edition\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("pre-digest stamp", out)
+        self.assertEqual(detail.read_text(encoding="utf-8"), "my own notes\n")
+
+    def test_update_refuses_one_skill_and_carries_on_to_the_next(self) -> None:
+        """The error registry's row: nonzero, and every other skill still updated."""
+        self._configure()
+        code, out = self._run(
+            "--runtime", "claude-code", "fixture-launcher", "fixture-notes"
+        )
+        self.assertEqual(code, 0, out)
+        (self.dest / "fixture-launcher" / "references" / "detail.md").write_text(
+            "my own notes\n", encoding="utf-8"
+        )
+        self._repo_detail("a second edition\n")
+        self._write(
+            "skills/fixture-notes/SKILL.md",
+            self._skill_md(
+                "fixture-notes",
+                description="Use when notes are read from the vault. Not for tasks.",
+                capabilities=("datastore:read",),
+                reads_from=("profile",),
+                body_extra=" Reads the `owner datastore` twice.",
+            ),
+        )
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("refused: fixture-launcher", out)
+        self.assertIn("twice", self._installed("fixture-notes"))
+        self.assertIn("updated: fixture-notes", out)
+
+    def test_update_names_a_skill_that_is_not_installed_here(self) -> None:
+        self._install_launcher()
+        code, out = self._run("--runtime", "claude-code", "--update", "fixture-notes")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("fixture-notes", out)
+        self.assertIn(".spike-os.json", out)
+
+    def test_update_refuses_a_skill_the_adapter_can_no_longer_attest(self) -> None:
+        """The install-time refusal is not one an update may walk past."""
+        self._configure()
+        self._write_adapters(task_provider_marker="DEGRADED")
+        code, out = self._run("--runtime", "claude-code", "fixture-tasks")
+        self.assertEqual(code, 0, out)
+        self._write_adapters(task_provider_marker="UNCONFIRMED")
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("UNCONFIRMED", out)
+
+    def test_update_writes_nothing_on_a_dry_run(self) -> None:
+        self._install_launcher()
+        self._repo_detail("a second edition\n")
+        before = self._stamp("fixture-launcher")
+
+        code, out = self._run("--runtime", "claude-code", "--update", "--dry-run")
+
+        self.assertEqual(code, 0, out)
+        self.assertIn("would write", out)
+        self.assertEqual(
+            (self.dest / "fixture-launcher" / "references" / "detail.md").read_text(
+                encoding="utf-8"
+            ),
+            "detail\n",
+        )
+        self.assertEqual(self._stamp("fixture-launcher"), before)
+
+    def test_update_leaves_the_stamp_describing_what_it_actually_wrote(self) -> None:
+        self._install_launcher()
+        detail = self.dest / "fixture-launcher" / "references" / "detail.md"
+        detail.write_text("my own notes\n", encoding="utf-8")
+        self._repo_detail("a second edition\n")
+        self._write("skills/fixture-launcher/scripts/run.sh", "echo two\n")
+        before = self._stamp("fixture-launcher")
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 1, out)
+        stamp = self._stamp("fixture-launcher")
+        # Written: the stamp records what landed. Refused: it still records what
+        # the install put there, so the next --check reports the edit again.
+        self.assertEqual(
+            stamp["files"]["scripts/run.sh"], install_skill.sha256_bytes(b"echo two\n")
+        )
+        self.assertEqual(
+            stamp["files"]["references/detail.md"], before["files"]["references/detail.md"]
+        )
+
+    def test_check_agrees_with_the_state_an_update_leaves(self) -> None:
+        self._install_launcher()
+        detail = self.dest / "fixture-launcher" / "references" / "detail.md"
+        detail.write_text("my own notes\n", encoding="utf-8")
+        (self.dest / "fixture-launcher" / "references" / "scratch.md").write_text(
+            "mine\n", encoding="utf-8"
+        )
+        self._write("skills/fixture-launcher/scripts/run.sh", "echo two\n")
+        self._run("--runtime", "claude-code", "--update")
+
+        code, out = self._run("--runtime", "claude-code", "--check")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("references/detail.md sha256 differs", out)
+        self.assertIn("references/scratch.md is not recorded", out)
+        self.assertNotIn("scripts/run.sh", out)
+
+    def _git(self, *args: str) -> str:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.root),
+                "-c",
+                "user.email=fixture@example.com",
+                "-c",
+                "user.name=fixture",
+                *args,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    def test_update_prints_what_changed_between_the_stamped_commit_and_head(self) -> None:
+        """The stamp records a commit; `git log` is what makes it mean something."""
+        self._configure()
+        self._git("init", "-q", "-b", "main")
+        self._git("add", "-A")
+        self._git("commit", "-q", "-m", "first")
+        first = self._git("rev-parse", "HEAD")
+        with mock.patch.object(install_skill, "repo_commit", return_value=first):
+            self._run("--runtime", "claude-code", "fixture-launcher")
+        self._repo_detail("a second edition\n")
+        self._git("add", "-A")
+        self._git("commit", "-q", "-m", "feat(fixture-launcher): a second edition")
+        head = self._git("rev-parse", "HEAD")
+
+        with mock.patch.object(install_skill, "repo_commit", return_value=head):
+            code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 0, out)
+        self.assertIn(f"changes since {first[:8]}", out)
+        self.assertIn("feat(fixture-launcher): a second edition", out)
+
+    def test_update_says_so_when_the_stamp_records_no_commit(self) -> None:
+        self._install_launcher()
+        stamp_file = self.dest / "fixture-launcher" / ".spike-os.json"
+        stamp = json.loads(stamp_file.read_text(encoding="utf-8"))
+        stamp["commit"] = ""
+        stamp_file.write_text(json.dumps(stamp, indent=2, sort_keys=True), encoding="utf-8")
+        self._repo_detail("a second edition\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 0, out)
+        self.assertIn("changes unknown -- pre-commit stamp", out)
+
+    def test_update_says_so_when_git_cannot_read_the_stamped_commit(self) -> None:
+        self._install_launcher()
+        self._repo_detail("a second edition\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update")
+
+        self.assertEqual(code, 0, out)
+        self.assertIn("changes unknown", out)
+
+    def test_overwrite_without_update_is_a_usage_error(self) -> None:
+        code, out = self._run("--runtime", "claude-code", "--overwrite", "fixture-notes")
+        self.assertEqual(code, 2, out)
+        self.assertIn("--update", out)
+
+    def test_update_is_exclusive_with_the_other_actions(self) -> None:
+        code, out = self._run("--runtime", "claude-code", "--update", "--check")
+        self.assertEqual(code, 2, out)
+
     # -- list, uninstall, dry-run --------------------------------------
 
     def test_list_reads_the_stamps(self) -> None:
