@@ -21,10 +21,9 @@ def floor_message(found):
     have = "%d.%d" % (found[0], found[1])
     return (
         "spike-os needs Python %s or newer; this interpreter is Python %s.\n"
-        "  The installer, the validator, the eval runner and tools/bootstrap.py\n"
-        "  are all written against %s -- the version CI pins in\n"
-        "  .github/workflows/validate.yml. Install it and re-run, for example\n"
-        "  `python%s tools/bootstrap.py`.\n" % (want, have, want, want)
+        "  tools/install_skill.py and tools/bootstrap.py enforce %s -- the one\n"
+        "  version CI attests in .github/workflows/validate.yml. Install it and\n"
+        "  re-run, for example `python%s tools/bootstrap.py`.\n" % (want, have, want, want)
     )
 
 
