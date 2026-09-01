@@ -858,6 +858,60 @@ class InstallSkillTest(unittest.TestCase):
         for call in run.call_args_list:
             self.assertNotIn("commit", call.args[0])
 
+    def test_the_notes_lead_the_install_output(self) -> None:
+        """A note about the host is read before the render dump, not after it.
+
+        The placeholder and degraded notes are what a first install has to act
+        on; printed under a hundred lines of frontmatter they were the last
+        thing a reader reached, and the first thing they missed.
+        """
+        _, out = self._run("--runtime", "claude-code", "fixture-notes")
+        lines = out.splitlines()
+        notes = [index for index, line in enumerate(lines) if line.startswith("note: ")]
+        destination = [
+            index for index, line in enumerate(lines)
+            if line.startswith("claude-code: destination")
+        ]
+        self.assertTrue(notes, out)
+        self.assertTrue(destination, out)
+        self.assertLess(notes[0], destination[0], out)
+        placeholder = [index for index in notes if "placeholder" in lines[index]]
+        self.assertTrue(placeholder, out)
+        self.assertLess(placeholder[0], destination[0], out)
+
+    def test_one_note_carries_the_overrides_path_and_every_unfilled_key(self) -> None:
+        """The file to edit and the keys to edit in it were two notes apart."""
+        _, out = self._run("--runtime", "claude-code", "fixture-notes")
+        notes = [line for line in out.splitlines() if line.startswith("note: ")]
+        placeholder = [note for note in notes if "placeholder" in note]
+        self.assertEqual(len(placeholder), 1, notes)
+        self.assertIn("unfilled placeholders", placeholder[0])
+        self.assertIn("claude-code.local.yaml", placeholder[0])
+        for key in ("AGENT_INBOX", "QUIET_END", "QUIET_START", "VAULT_ROOT"):
+            with self.subTest(key=key):
+                self.assertIn(key, placeholder[0])
+
+    def test_a_note_raised_after_the_write_still_prints(self) -> None:
+        """The lead block prints what is known before writing; the rest follows."""
+        self._write("catalog/approved.yaml", "packages: []\n")
+        self._write(
+            "skills/fixture-notes/SKILL.md",
+            self._skill_md(
+                "fixture-notes",
+                body_extra=" See [approved](../../catalog/approved.yaml).",
+            ),
+        )
+        _, out = self._run("--runtime", "claude-code", "fixture-notes")
+        lines = out.splitlines()
+        dangling = [
+            index for index, line in enumerate(lines)
+            if "not declared on the Dependencies line" in line
+        ]
+        wrote = [index for index, line in enumerate(lines) if line.strip().startswith("wrote ")]
+        self.assertTrue(dangling, out)
+        self.assertTrue(wrote, out)
+        self.assertGreater(dangling[0], wrote[0], out)
+
     def _claude_md(self, text: str) -> Path:
         path = self.home / ".claude" / "CLAUDE.md"
         path.parent.mkdir(parents=True, exist_ok=True)

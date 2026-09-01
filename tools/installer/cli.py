@@ -176,6 +176,13 @@ def do_install(context: Context, names: Sequence[str], args: argparse.Namespace)
             "no skill rendered; the adapter files and the identity file are untouched"
         )
 
+    # The notes lead: a placeholder left literal or a binding running DEGRADED is
+    # what this run needs the reader to act on, and under the render dump it was
+    # the last thing printed. `finish` prints whatever the write loop adds after.
+    for note in report.notes:
+        print(f"note: {note}")
+    report.printed_notes = len(report.notes)
+
     print(f"{context.runtime}: destination {context.dest}")
     for path in written:
         print(f"  {'would write' if args.dry_run else 'wrote'} {path}")
@@ -220,7 +227,7 @@ def finish(context: Context, report: Report, args: argparse.Namespace) -> int:
     if report.installed:
         verb = "would install" if args.dry_run else "installed"
         print(f"{verb}: {', '.join(report.installed)}")
-    for note in report.notes:
+    for note in report.notes[report.printed_notes:]:
         print(f"note: {note}")
     for refusal in report.refused:
         print(f"refused: {refusal}")

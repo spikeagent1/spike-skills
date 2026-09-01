@@ -186,6 +186,46 @@ def substitute(text: str, values: dict[str, str]) -> str:
     )
 
 
+def placeholder_note(
+    overrides_path: Path,
+    names: Sequence[str],
+    absent: Sequence[str],
+    unfilled: Sequence[str],
+    created: bool,
+    dry_run: bool,
+) -> list[str]:
+    """One note, or none: the file to edit and the keys to edit in it.
+
+    They were two notes -- one naming the path, one listing the keys -- so the
+    reader who found the key list had to hunt upwards for the file it belonged
+    to. Everything about the local values now says its piece once.
+    """
+    display = display_path(str(overrides_path))
+    fix = ". Fill them there and re-run, or run python3 tools/bootstrap.py"
+    if not names:
+        return []
+    if created:
+        # The template this run writes names every key with an empty value, so
+        # `absent` describes nothing by the time the note is read.
+        return [
+            f"{'would create' if dry_run else 'created'} {display} with {len(names)} "
+            f"placeholder keys; {len(names)} unfilled placeholders, left literal in "
+            f"the render: {', '.join(names)}{fix}"
+        ]
+    if not unfilled:
+        return []
+    clauses = [
+        f"{display}: {len(unfilled)} of {len(names)} unfilled placeholders, left "
+        f"literal in the render: {', '.join(unfilled)}"
+    ]
+    if absent:
+        clauses.append(
+            f"{len(absent)} of them named nowhere in that file, to be added as "
+            + "; ".join(f"{name}: ''" for name in absent)
+        )
+    return ["; ".join(clauses) + fix]
+
+
 def default_dest(adapter: dict[str, Any]) -> Path:
     """`~/.claude/skills` for a host runtime; the staging tree for a shipped one."""
     adapter_file = str(adapter["adapter_file"])
@@ -382,28 +422,15 @@ def install_adapter(
     values = read_local_overrides(overrides_path)
     written: list[Path] = []
 
-    if not overrides_path.is_file():
-        report.notes.append(
-            f"{'would create' if dry_run else 'created'} {overrides_path} with "
-            f"{len(names)} placeholder keys"
-        )
+    created = not overrides_path.is_file()
+    if created:
         written.append(overrides_path)
         if not dry_run:
             overrides_path.parent.mkdir(parents=True, exist_ok=True)
             overrides_path.write_text(local_overrides_template(runtime, names), encoding="utf-8")
-    else:
-        absent = [name for name in names if name not in values]
-        if absent:
-            report.notes.append(
-                f"{overrides_path} names no key for {', '.join(absent)}; add "
-                + "; ".join(f"{name}: ''" for name in absent)
-            )
-
+    absent = [name for name in names if name not in values]
     unfilled = [name for name in names if not values.get(name)]
-    if unfilled:
-        report.notes.append(
-            f"unfilled placeholders (left literal in the render): {', '.join(unfilled)}"
-        )
+    report.notes.extend(placeholder_note(overrides_path, names, absent, unfilled, created, dry_run))
 
     adapter_md = expand(str(adapter["adapter_file"]))
     resolved = adapter_md.parent / "adapter.resolved.yaml"

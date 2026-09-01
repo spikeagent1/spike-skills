@@ -207,6 +207,9 @@ class Report:
     refused: list[str] = field(default_factory=list)
     drift: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    # How many leading notes a caller has already printed, so the summary prints
+    # the rest rather than repeating the block that led the run.
+    printed_notes: int = 0
     # (identity file, before, after) when this run changes it -- set once, on the
     # guarded path, so a dry run previews exactly what a real run would do.
     identity_change: tuple[Path, str, str] | None = None
