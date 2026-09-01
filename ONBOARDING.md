@@ -151,13 +151,17 @@ longer matches the digest the stamp recorded, a file no install wrote, a stamp
 older than the adapter, a declaration that no longer matches this repository. It
 is not a health check — it says nothing about whether a skill works.
 
-`--update` is what resolves drift when you have edited something and want to
-keep it. It rewrites only the files you have not touched and this repository has
-changed, prints what changed in each from `git log`, and names — never
-overwrites — anything of yours, with the diff and the `--overwrite` line that
-would take the repository's version instead. It exits nonzero on such a refusal
-and carries on to the next skill, and it deletes nothing. Re-installing is still
-the other option, and it replaces the whole directory.
+`--update` is what resolves the *rest* of the drift when you have edited
+something and want to keep it. It rewrites only the files you have not touched
+and this repository has changed, prints what changed in each from `git log`, and
+names — never overwrites — anything of yours, with the diff and the `--overwrite`
+line that would take the repository's version instead. It exits nonzero on such a
+refusal and carries on to the next skill, and it deletes nothing.
+
+So the drift on your own files stays: an edited file is drift until you take the
+repository's version or re-install, and a file you added is drift for as long as
+you keep it — no `--update` removes it. Re-installing is the other option, and it
+replaces the whole directory, so copy anything of yours out of it first.
 
 ## The four onboarding skills
 

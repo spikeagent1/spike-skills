@@ -41,6 +41,12 @@ refusal exits nonzero and the run continues to the next skill. Nothing is ever
 deleted, and a stamp written before per-file digests is refused rather than
 guessed at -- there, an edit and a stale render are the same bytes.
 
+So `--update` does not clear the drift it refuses: an edited file stays drift
+until `--overwrite` or a re-install takes the repository's version, and a file
+the owner added is drift for as long as they keep it, since no update removes
+one. Neither action re-renders `ADAPTER.md` either; both report it when the file
+on the host is not what this tree renders, or still carries a `${NAME}` literal.
+
 One more nonzero exit is not a refusal to install but a refusal to call the
 host configured: a run whose rendered ADAPTER.md still carries a `${NAME}`
 literal has left the file every installed skill resolves its terms against

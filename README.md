@@ -126,6 +126,12 @@ stamp's commit and HEAD. Nothing is ever deleted. A stamp written before
 per-file digests is refused rather than guessed at, and says which re-install
 upgrades it.
 
+What `--update` cannot clear is the drift it refuses to touch. A file you edited
+stays drift until you take the repository's version (`--overwrite`) or re-install;
+a file you added yourself is drift for as long as it is there, and no `--update`
+will ever remove it — that is the point. `--check` will keep reporting both, which
+is the honest reading of an install that is partly yours.
+
 `make stage-openclaw` stages every eligible skill into `dist/` for
 [OpenClaw](docs/openclaw-handoff.md), the second runtime — a hosted agent on a
 Railway volume rather than a CLI on your Mac. Its handoff note is also the
