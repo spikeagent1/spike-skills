@@ -78,17 +78,49 @@ reach. Adding a state is a change to this enum, never a local extension
 An `autonomy/` record is one standing permission the owner wrote: `capability`
 (a name from `contracts/capabilities.yaml`, and only one whose
 `contract_eligible` is true), `skill-pattern`, `object-pattern`, `granted-at`,
-`expires`, `superseded-by`, and the usual `provenance`. Both patterns are
+`expires`, `superseded-by`, and the usual `provenance`. All five in
+`required_fields` are required, `expires` above all: a record with no `expires`,
+a null one, or one that does not read as a date is **never live**, because M5
+authorizes an *unexpired* contract and a permission with no end is not one the
+owner can be shown to have bounded. A `granted-at` still in the future is not
+live either — not yet, rather than never. Both instants carry an offset or are
+read as UTC, and the record block that renders them says which. Both patterns are
 matched by one grammar and no other: an exact string, a `prefix/*`, or `*` —
-never a regular expression. A pattern matching nothing, a contract past its
-`expires`, and an ambiguous match all fail closed to the behavior of a library
-with no contracts at all, disclosed in one line; a failure can never widen
-autonomy. Where several live contracts match, any one of them authorizes and the
-`activity/` record cites the most specific. A contract is honored in any session
-kind, and written in none but an interactive owner turn: no schedule, handoff,
-sub-agent, or piece of external content may create, widen, or revive one, and
-never on a skill's own initiative — a skill may suggest a contract, and the owner
-is the one who writes it. No contract covers a write to `autonomy/` itself.
+never a regular expression. A pattern matching nothing, a missing or unreadable
+required field, a contract past its `expires` or before its `granted-at`, and an
+ambiguous match all fail closed to the behavior of a library with no contracts at
+all, disclosed in one line; a failure can never widen autonomy. Where several live
+contracts match, any one of them authorizes and the `activity/` record cites the
+most specific. A contract is honored in any session kind, and written in none but
+an interactive owner turn: no schedule, handoff, sub-agent, or piece of external
+content may create, widen, or revive one, and never on a skill's own initiative —
+a skill may suggest a contract, and the owner is the one who writes it. No
+contract covers a write to `autonomy/` itself.
+
+**What an object is.** One string in one form — the `object_form`
+`contracts/datastore.yaml` carries: a namespace this contract names, alone or
+followed by `/` and the store's own id path — `tasks/inbox`,
+`activity/2026-09-01--a1b2c3d4`. No leading `/` or `./`, no `.` or `..`
+segment, no empty segment, no backslash, no whitespace anywhere, and no
+display name standing in for an id. A skill whose objects live in a provider
+names them under the namespace that mirrors it (`contracts/sync.md`), so every
+object is namespace-rooted whichever system of record holds it. The resolver
+parses the object **before** it matches any pattern and refuses one that does not
+parse, naming the reason: that is what makes the exclusion above a property of
+the string rather than of the caller's spelling, since `Autonomy/x`,
+`./autonomy/x`, and `projects/../autonomy/x` are all refusals under this rule and
+none of them is a spelling to be repaired into a match.
+
+**What `superseded-by` names.** Where the owner narrowed a permission, it names
+the successor `autonomy-contract`, and the two records are written together.
+Where the owner ended one outright there is no successor, and it names the
+`activity/` record of the turn that ended it — the ledger entry M7 already
+requires, so the ending is citable without putting a contract that authorizes
+nothing into `autonomy/`. Either way the ended record keeps its content and gains
+`status: superseded`, and either signal alone is enough to kill it: nothing
+dereferences the pointer to decide liveness. The envelope's `supersedes: []` is
+the forward link on a successor record; for `autonomy/` the back link on the
+ended record is the authoritative one, and a narrowing writes both.
 
 ## Not in the datastore
 
@@ -165,7 +197,7 @@ the fact, never in a validator run before it.
 | `timeline(ns, id, range)` | no | Explicit range always; never "since last run" (`skills/briefing/SKILL.md:21`). |
 | `write(ns, record)` | yes | Put, then read back and compare envelope and body hash before claiming success. |
 | `append_timeline(ns, id, entry)` | yes | Append one provenance event; never rewrites an earlier entry. |
-| `supersede(ns, old, new)` | yes | Write both records; the old one keeps its content and gains `status: superseded`. |
+| `supersede(ns, old, new)` | yes | Write both records; the old one keeps its content and gains `status: superseded`. Where there is no successor record — an `autonomy/` contract the owner ended outright — `new` is the `activity/` record of the ending turn, and the old one is still written with `status: superseded` and `superseded-by` pointing at it. |
 
 No verb advances a cursor. Cursor movement is a `write` to `checkpoints/` under
 `checkpoint:advance` (`skills/briefing/SKILL.md:53`).

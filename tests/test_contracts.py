@@ -236,6 +236,25 @@ class DatastoreTest(unittest.TestCase):
         )
         self.assertEqual(entry["pattern_grammar"], ["exact", "prefix/*", "*"])
 
+    def test_an_autonomy_contract_names_its_required_fields_and_its_object_form(
+        self,
+    ) -> None:
+        """The two shapes a resolver checks before it honors anything.
+
+        `required_fields` is what a live contract must carry: a record missing
+        one of them -- an `expires` above all, since M5 authorizes only an
+        unexpired contract -- is never live. `object_form` is the string an
+        `object-pattern` is matched against: an object that does not parse as
+        `<namespace>[/<path>]` is refused rather than prefix-tested, which is
+        what keeps the `autonomy/` exclusion out of the caller's hands.
+        """
+        entry = next(item for item in NAMESPACES if item["name"] == "autonomy")
+        self.assertEqual(
+            entry["required_fields"]["autonomy-contract"],
+            ["capability", "skill-pattern", "object-pattern", "granted-at", "expires"],
+        )
+        self.assertEqual(entry["object_form"], "<namespace>[/<path>]")
+
     def test_the_authority_rule_kind_left_profile_for_autonomy(self) -> None:
         """One place holds a standing permission, and it is not `profile/`."""
         profile = next(item for item in NAMESPACES if item["name"] == "profile")

@@ -66,6 +66,9 @@ namespaces:
     kinds: [autonomy-contract]
     record_fields:
       autonomy-contract: [capability, skill-pattern, object-pattern, granted-at, expires, superseded-by, provenance]
+    required_fields:
+      autonomy-contract: [capability, skill-pattern, object-pattern, granted-at, expires]
+    object_form: "<namespace>[/<path>]"
     pattern_grammar: ["exact", "prefix/*", "*"]
     authority:
       writers: [autonomy]
