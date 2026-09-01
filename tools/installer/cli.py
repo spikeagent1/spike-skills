@@ -133,6 +133,14 @@ def recorded_digests(stamp: dict[str, Any]) -> dict[str, str] | None:
     return {str(key): str(value) for key, value in files.items()}
 
 
+# The install root reached through a link is not this installer's directory,
+# whatever it points at -- the same refusal `install` makes, in the same words.
+LINKED_ROOT = (
+    "is a symlink; refusing to follow it to whatever it points at, and never "
+    "writing through it"
+)
+
+
 UNREADABLE = "could not be read"
 
 
@@ -507,7 +515,6 @@ def update_one(
 ) -> None:
     """Bring one stamped install up to this tree, file by file."""
     name = directory.name
-    stamp = read_stamp(directory) or {}
     print(f"\n--- {name} ---")
     notes: list[str] = []
     refusals: list[str] = []
@@ -519,6 +526,14 @@ def update_one(
             print(f"  refused: {refusal}")
         report.refused.extend(refusals)
 
+    if directory.is_symlink():
+        # The one component the containment walk cannot reach from inside: the
+        # install root. `install` refuses this shape by name, and this is the
+        # same shape.
+        refusals.append(f"{name}: {directory} {LINKED_ROOT}")
+        finish_skill()
+        return
+    stamp = read_stamp(directory) or {}
     recorded = recorded_digests(stamp)
     if recorded is None:
         refusals.append(
@@ -777,6 +792,9 @@ def do_check(context: Context, names: Sequence[str], args: argparse.Namespace) -
 def check_one(context: Context, directory: Path, report: Report) -> None:
     """One stamped install, declared against actual."""
     name = directory.name
+    if directory.is_symlink():
+        report.drift.append(f"{name}: {directory} {LINKED_ROOT}")
+        return
     stamp = read_stamp(directory) or {}
     actual = (directory / "SKILL.md").read_text(encoding="utf-8")
     if sha256_text(actual) != stamp.get("sha256"):

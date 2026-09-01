@@ -126,7 +126,7 @@ from tools.installer.io import (
 )
 from tools.installer.cli import (
     CHANGELOG_MAX, Context, DIFF_PREVIEW_LINES, PRE_DIGEST_NOTE, build_context, classify,
-    UNREADABLE, UNWRITABLE, check_one, do_check, do_install, do_list, do_uninstall,
+    LINKED_ROOT, UNREADABLE, UNWRITABLE, check_one, do_check, do_install, do_list, do_uninstall,
     discarded, do_update, file_drift, finish,
     linked_component, main,
     parse_args, print_changelog, print_file_diff, recorded_digests, report_skill,

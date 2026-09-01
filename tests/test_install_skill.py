@@ -2012,6 +2012,31 @@ class InstallSkillTest(unittest.TestCase):
         self.assertNotIn("references/detail.md is recorded by the stamp and missing", out)
         self.assertIn("fixture-notes: SKILL.md sha256 differs", out)
 
+    def test_update_and_check_refuse_a_symlinked_skill_directory(self) -> None:
+        """The one component the containment walk never reached: the root itself.
+
+        `install` refuses this shape by name; `stamped_installs` finds it through
+        `is_dir()`, which follows links, so an update wrote the whole skill
+        outside the destination and said nothing.
+        """
+        self._install_launcher()
+        outside = Path(self.tmp.name) / "relocated"
+        (self.dest / "fixture-launcher").rename(outside)
+        (self.dest / "fixture-launcher").symlink_to(outside)
+        self._repo_detail("a second edition\n")
+
+        code, out = self._run("--runtime", "claude-code", "--update", "--overwrite")
+
+        self.assertEqual(code, 1, out)
+        self.assertIn("symlink", out)
+        self.assertEqual(
+            (outside / "references" / "detail.md").read_text(encoding="utf-8"), "detail\n"
+        )
+
+        code, out = self._run("--runtime", "claude-code", "--check")
+        self.assertEqual(code, 1, out)
+        self.assertIn("symlink", out)
+
     def test_update_refuses_an_install_another_adapter_wrote(self) -> None:
         """An update is not a conversion: a runtime's install stays that runtime's."""
         self._install_launcher()
