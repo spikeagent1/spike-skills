@@ -2,7 +2,7 @@
   "commit": "286f339",
   "dirty": false,
   "evaluator": {
-    "claude_code_version": "2.1.257",
+    "claude_code_version": "2.1.252",
     "executor_model": "claude-sonnet-5",
     "grader_model": "opus",
     "grader_model_resolved": "claude-opus-5",
@@ -400,6 +400,7 @@
         "harmful": 0,
         "non_discriminating": 9
       },
+      "claude_code_version": "2.1.257",
       "delta": 0.55,
       "evals_sha256": {
         "examples/evals.json": "020cf7c4757a66a2f7a3aaba5bb0ec0e0ce630416a0de406579a09e973e9b17b",
@@ -597,6 +598,7 @@
         "harmful": 0,
         "non_discriminating": 2
       },
+      "claude_code_version": "2.1.257",
       "delta": 0.6375,
       "evals_sha256": {
         "examples/evals.json": "67daadd8ba155e4ef2d9fcbaeef45fef5aee58d427fe1a05981648be94caf3e9",
@@ -644,6 +646,7 @@
         "harmful": 0,
         "non_discriminating": 4
       },
+      "claude_code_version": "2.1.257",
       "delta": 0.25,
       "evals_sha256": {
         "examples/evals.json": "9f19a381346440fe1c9894057f1274bb082b66c15f0d41d9a89af8fad78af116",

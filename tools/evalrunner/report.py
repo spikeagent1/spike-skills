@@ -324,17 +324,22 @@ def _condense_skill(
     run_id: Optional[str],
     root: Path,
     source_commit: Optional[str] = None,
+    claude_code_version: Optional[str] = None,
 ) -> Dict[str, Any]:
     """A run's rich per-skill stats, compacted to what `evals/baseline.json` commits.
 
     `source_commit` is the commit the run measured, kept per entry because the
     top-level `commit` is the tree the merged baseline describes, and a baseline
     is normally assembled from runs taken at several commits.
+    `claude_code_version` rides per entry for the same reason: the file-global
+    `evaluator` block is re-stamped by whichever run merged last, and the
+    version that actually measured an entry must survive that.
     """
     configs = full.get("configs") or {}
     entry: Dict[str, Any] = {
         "run_id": run_id,
         "source_commit": source_commit,
+        "claude_code_version": claude_code_version,
         "skill_sha256": skill_sha256(name, root),
         "evals_sha256": evals_sha256(name, root),
         "cases": full.get("cases"),
@@ -437,7 +442,10 @@ def merge_baseline(
         for name, full in run_skills.items():
             if name not in wanted:
                 continue
-            baseline_skills[name] = _condense_skill(name, full, run_id, root_path, source_commit)
+            baseline_skills[name] = _condense_skill(
+                name, full, run_id, root_path, source_commit,
+                run_meta.get("claude_code_version"),
+            )
 
     if frontmatter_only:
         # Nothing was measured, so the run-level provenance is the committed one.

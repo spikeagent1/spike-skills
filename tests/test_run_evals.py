@@ -3097,6 +3097,14 @@ class BaselineTest(unittest.TestCase):
         self.assertIn("briefing", merged["skills"])
         self.assertNotIn("other", merged["skills"])
 
+    def test_each_entry_carries_the_claude_code_version_that_measured_it(self) -> None:
+        """The file-global evaluator block drifts as later runs land (a partial
+        `baseline update` re-stamps it to the new run's version, re-attributing
+        every carried-over entry); the version that actually measured an entry
+        rides on the entry itself, where a merge cannot clobber it."""
+        merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
+        self.assertEqual(merged["skills"]["briefing"]["claude_code_version"], "2.1.250")
+
     def test_evaluator_block_is_populated_from_run_meta(self) -> None:
         merged = report.merge_baseline(None, self.run_results, self.run_meta, root=self.root)
         self.assertEqual(merged["evaluator"]["executor_model"], "claude-sonnet-5")
